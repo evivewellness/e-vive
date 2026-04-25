@@ -1,0 +1,374 @@
+<!DOCTYPE html><html><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width"/><meta name="next-head-count" content="2"/><noscript data-n-css=""></noscript><script defer="" crossorigin="" nomodule="" src="/_next/static/chunks/polyfills-c67a75d1b6f99dc8.js"></script><script src="/_next/static/chunks/webpack-7d45971437c161ca.js" defer="" crossorigin=""></script><script src="/_next/static/chunks/framework-bcaea2e08c6b85c1.js" defer="" crossorigin=""></script><script src="/_next/static/chunks/main-ccb8a7a0c5e3016d.js" defer="" crossorigin=""></script><script src="/_next/static/chunks/pages/_app-c54702eb327175a3.js" defer="" crossorigin=""></script><script src="/_next/static/chunks/pages/index-30aaf8301fcb0e32.js" defer="" crossorigin=""></script><script src="/_next/static/oE0CubF7Rg3ENeWPZ46uT/_buildManifest.js" defer="" crossorigin=""></script><script src="/_next/static/oE0CubF7Rg3ENeWPZ46uT/_ssgManifest.js" defer="" crossorigin=""></script></head><body><div id="__next"><style>
+  @import url(&#x27;https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&amp;family=DM+Sans:wght@300;400;500;600&amp;family=DM+Mono:wght@400;500&amp;display=swap&#x27;);
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --forest:   #0d3b2e;
+    --deep:     #071f18;
+    --emerald:  #1a6b4a;
+    --jade:     #2d9669;
+    --mint:     #5ec994;
+    --gold:     #c8952a;
+    --amber:    #e8b84b;
+    --cream:    #f5ede0;
+    --silk:     #fdf8f2;
+    --fog:      rgba(255,255,255,0.06);
+    --glass:    rgba(255,255,255,0.04);
+    --glow:     rgba(94,201,148,0.15);
+    --r:        #e05555;
+    --text:     #e8f4ee;
+    --muted:    rgba(232,244,238,0.55);
+    --serif:    &#x27;Playfair Display&#x27;, Georgia, serif;
+    --sans:     &#x27;DM Sans&#x27;, system-ui, sans-serif;
+    --mono:     &#x27;DM Mono&#x27;, monospace;
+  }
+  html { scroll-behavior: smooth; }
+  body { background: var(--deep); color: var(--text); font-family: var(--sans); overflow-x: hidden; }
+  
+  /* NOISE OVERLAY */
+  body::before {
+    content:&#x27;&#x27;; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image: url(&quot;data:image/svg+xml,%3Csvg viewBox=&#x27;0 0 200 200&#x27; xmlns=&#x27;http://www.w3.org/2000/svg&#x27;%3E%3Cfilter id=&#x27;n&#x27;%3E%3CfeTurbulence type=&#x27;fractalNoise&#x27; baseFrequency=&#x27;0.65&#x27; numOctaves=&#x27;3&#x27; stitchTiles=&#x27;stitch&#x27;/%3E%3C/filter%3E%3Crect width=&#x27;100%25&#x27; height=&#x27;100%25&#x27; filter=&#x27;url(%23n)&#x27; opacity=&#x27;0.04&#x27;/%3E%3C/svg%3E&quot;);
+    opacity: 0.4;
+  }
+
+  /* ===== NAV ===== */
+  .nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 5vw; height: 72px;
+    background: rgba(7,31,24,0.85);
+    backdrop-filter: blur(20px) saturate(1.4);
+    border-bottom: 1px solid rgba(94,201,148,0.12);
+    transition: all 0.4s;
+  }
+  .nav.scrolled { height: 60px; background: rgba(7,31,24,0.97); }
+  .logo { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  .logo-mark {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: conic-gradient(from 120deg, var(--jade), var(--gold), var(--mint), var(--jade));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700; color: var(--deep);
+    box-shadow: 0 0 20px rgba(94,201,148,0.4);
+    animation: spin-slow 12s linear infinite;
+  }
+  @keyframes spin-slow { to { transform: rotate(360deg); } }
+  .logo-text { font-family: var(--serif); font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+  .logo-text span { color: var(--amber); }
+  .nav-links { display: flex; gap: 32px; list-style: none; }
+  .nav-links a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; letter-spacing: 0.3px; transition: color 0.2s; }
+  .nav-links a:hover { color: var(--mint); }
+  .nav-cta {
+    background: linear-gradient(135deg, var(--jade), var(--emerald));
+    color: var(--cream); border: none; padding: 10px 22px; border-radius: 100px;
+    font-family: var(--sans); font-size: 13px; font-weight: 600; cursor: pointer;
+    box-shadow: 0 4px 20px rgba(45,150,105,0.4); transition: all 0.25s;
+    letter-spacing: 0.3px;
+  }
+  .nav-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(45,150,105,0.5); }
+
+  /* ===== HERO ===== */
+  .hero {
+    min-height: 100vh; display: flex; align-items: center;
+    position: relative; overflow: hidden; padding: 120px 5vw 80px;
+  }
+  .hero-bg {
+    position: absolute; inset: 0; z-index: 0;
+    background: radial-gradient(ellipse 120% 80% at 70% 40%, rgba(26,107,74,0.25) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 60% at 20% 80%, rgba(200,149,42,0.08) 0%, transparent 50%),
+                linear-gradient(160deg, var(--deep) 0%, #0a2a20 100%);
+  }
+  .hero-orb {
+    position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none;
+    animation: float 8s ease-in-out infinite;
+  }
+  .orb1 { width: 500px; height: 500px; right: -100px; top: -80px; background: radial-gradient(circle, rgba(45,150,105,0.2) 0%, transparent 70%); animation-delay: 0s; }
+  .orb2 { width: 300px; height: 300px; right: 200px; bottom: 100px; background: radial-gradient(circle, rgba(200,149,42,0.12) 0%, transparent 70%); animation-delay: 3s; }
+  .orb3 { width: 200px; height: 200px; left: 10%; top: 30%; background: radial-gradient(circle, rgba(94,201,148,0.1) 0%, transparent 70%); animation-delay: 6s; }
+  @keyframes float { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-30px) scale(1.05)} }
+
+  .hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; width: 100%; max-width: 1200px; margin: 0 auto; position: relative; z-index: 1; }
+  .hero-eyebrow { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+  .eyebrow-line { width: 40px; height: 2px; background: linear-gradient(90deg, var(--amber), var(--mint)); border-radius: 2px; }
+  .eyebrow-text { font-size: 11px; font-weight: 600; letter-spacing: 2.5px; color: var(--amber); text-transform: uppercase; font-family: var(--mono); }
+  .hero h1 { font-family: var(--serif); font-size: clamp(40px, 5vw, 68px); font-weight: 700; line-height: 1.12; letter-spacing: -1px; margin-bottom: 20px; }
+  .hero h1 em { font-style: italic; color: var(--mint); }
+  .hero h1 .gold { color: var(--amber); }
+  .hero-sub { font-size: 17px; line-height: 1.7; color: var(--muted); max-width: 480px; margin-bottom: 36px; font-weight: 300; }
+  .hero-actions { display: flex; gap: 16px; flex-wrap: wrap; }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--jade) 0%, var(--emerald) 100%);
+    color: var(--cream); padding: 14px 32px; border-radius: 100px; border: none;
+    font-family: var(--sans); font-weight: 600; font-size: 15px; cursor: pointer;
+    box-shadow: 0 8px 32px rgba(45,150,105,0.4); transition: all 0.3s; letter-spacing: 0.2px;
+  }
+  .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 14px 40px rgba(45,150,105,0.5); }
+  .btn-outline {
+    background: transparent; color: var(--text); padding: 14px 32px; border-radius: 100px;
+    border: 1px solid rgba(94,201,148,0.3); font-family: var(--sans); font-weight: 500; font-size: 15px;
+    cursor: pointer; transition: all 0.3s;
+  }
+  .btn-outline:hover { border-color: var(--mint); color: var(--mint); background: rgba(94,201,148,0.06); }
+  .hero-stats { display: flex; gap: 32px; margin-top: 48px; padding-top: 32px; border-top: 1px solid rgba(94,201,148,0.15); }
+  .stat-item { }
+  .stat-num { font-family: var(--serif); font-size: 28px; font-weight: 700; color: var(--mint); }
+  .stat-label { font-size: 12px; color: var(--muted); font-weight: 500; margin-top: 2px; letter-spacing: 0.3px; }
+
+  /* HERO VISUAL */
+  .hero-visual { position: relative; display: flex; justify-content: center; align-items: center; }
+  .hero-card-stack { position: relative; width: 100%; max-width: 420px; }
+  .main-card {
+    background: linear-gradient(145deg, rgba(26,107,74,0.4), rgba(13,59,46,0.6));
+    border: 1px solid rgba(94,201,148,0.2);
+    border-radius: 24px; padding: 32px;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 32px 80px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+    animation: card-float 6s ease-in-out infinite;
+  }
+  @keyframes card-float { 0%,100%{transform:translateY(0) rotate(-1deg)} 50%{transform:translateY(-12px) rotate(0.5deg)} }
+  .card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .card-avatar { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--jade), var(--amber)); display: flex; align-items: center; justify-content: center; font-size: 20px; }
+  .card-name { font-weight: 600; font-size: 15px; }
+  .card-role { font-size: 12px; color: var(--mint); font-weight: 500; }
+  .nutrition-bars { margin-bottom: 20px; }
+  .bar-row { margin-bottom: 12px; }
+  .bar-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; color: var(--muted); font-family: var(--mono); }
+  .bar-track { height: 6px; background: rgba(255,255,255,0.08); border-radius: 10px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 10px; transition: width 1s ease; }
+  .bar-protein { background: linear-gradient(90deg, var(--jade), var(--mint)); }
+  .bar-iron { background: linear-gradient(90deg, var(--gold), var(--amber)); }
+  .bar-vitc { background: linear-gradient(90deg, #5ba3d9, #89d4f0); }
+  .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(94,201,148,0.1); }
+  .badge { padding: 5px 12px; border-radius: 100px; font-size: 11px; font-weight: 600; font-family: var(--mono); background: rgba(94,201,148,0.12); color: var(--mint); border: 1px solid rgba(94,201,148,0.2); }
+  .badge.gold { background: rgba(200,149,42,0.12); color: var(--amber); border-color: rgba(200,149,42,0.2); }
+  .floating-chip {
+    position: absolute; background: rgba(7,31,24,0.9); border: 1px solid rgba(94,201,148,0.25);
+    border-radius: 14px; padding: 10px 16px; backdrop-filter: blur(12px);
+    font-size: 12px; font-weight: 600; white-space: nowrap; box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+  .chip1 { top: -20px; right: -20px; color: var(--amber); animation: chip-float 5s ease-in-out infinite; }
+  .chip2 { bottom: 40px; left: -30px; color: var(--mint); animation: chip-float 7s ease-in-out infinite 1s; }
+  .chip3 { bottom: -20px; right: 20px; color: #89d4f0; animation: chip-float 6s ease-in-out infinite 2s; }
+  @keyframes chip-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+
+  /* ===== SECTION SHARED ===== */
+  section { position: relative; z-index: 1; }
+  .section-inner { max-width: 1200px; margin: 0 auto; padding: 100px 5vw; }
+  .section-tag { display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px; border-radius: 100px; background: rgba(94,201,148,0.08); border: 1px solid rgba(94,201,148,0.2); font-size: 11px; font-weight: 600; letter-spacing: 2px; color: var(--mint); text-transform: uppercase; font-family: var(--mono); margin-bottom: 16px; }
+  .section-title { font-family: var(--serif); font-size: clamp(28px, 3.5vw, 46px); font-weight: 700; line-height: 1.2; letter-spacing: -0.5px; margin-bottom: 16px; }
+  .section-title em { font-style: italic; color: var(--mint); }
+  .section-sub { font-size: 16px; color: var(--muted); line-height: 1.75; max-width: 560px; font-weight: 300; }
+  .section-header { margin-bottom: 60px; }
+  .divider { width: 60px; height: 3px; background: linear-gradient(90deg, var(--jade), var(--amber)); border-radius: 2px; margin-top: 16px; }
+
+  /* ===== ABOUT ===== */
+  .about-section { background: linear-gradient(180deg, transparent 0%, rgba(13,59,46,0.15) 50%, transparent 100%); }
+  .about-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 80px; align-items: center; }
+  .about-visual { position: relative; }
+  .founder-card {
+    background: linear-gradient(145deg, rgba(26,107,74,0.3), rgba(13,59,46,0.5));
+    border: 1px solid rgba(94,201,148,0.18); border-radius: 24px; padding: 40px;
+    backdrop-filter: blur(16px);
+  }
+  .founder-avatar-wrap { position: relative; display: inline-block; margin-bottom: 24px; }
+  .founder-avatar { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, var(--jade), var(--gold)); display: flex; align-items: center; justify-content: center; font-size: 36px; border: 3px solid rgba(94,201,148,0.3); }
+  .online-dot { position: absolute; bottom: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--mint); border: 3px solid var(--forest); animation: pulse-dot 2s ease-in-out infinite; }
+  @keyframes pulse-dot { 0%,100%{box-shadow:0 0 0 0 rgba(94,201,148,0.5)} 50%{box-shadow:0 0 0 8px rgba(94,201,148,0)} }
+  .founder-name { font-family: var(--serif); font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+  .founder-title { font-size: 13px; color: var(--mint); font-weight: 500; margin-bottom: 20px; font-family: var(--mono); }
+  .founder-bio { font-size: 14px; line-height: 1.75; color: var(--muted); font-weight: 300; margin-bottom: 24px; }
+  .credential-list { display: flex; flex-direction: column; gap: 10px; }
+  .credential { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text); }
+  .cred-icon { width: 28px; height: 28px; border-radius: 8px; background: rgba(94,201,148,0.12); border: 1px solid rgba(94,201,148,0.2); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .story-text h3 { font-family: var(--serif); font-size: 28px; font-weight: 700; margin-bottom: 20px; line-height: 1.3; }
+  .story-text p { font-size: 15px; line-height: 1.8; color: var(--muted); margin-bottom: 16px; font-weight: 300; }
+  .story-text p strong { color: var(--text); font-weight: 600; }
+  .quote-block { border-left: 3px solid var(--amber); padding-left: 20px; margin: 28px 0; }
+  .quote-block p { font-family: var(--serif); font-size: 18px; font-style: italic; color: var(--cream); line-height: 1.6; }
+  .values-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 32px; }
+  .value-pill { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 12px; background: rgba(94,201,148,0.06); border: 1px solid rgba(94,201,148,0.15); font-size: 13px; font-weight: 500; }
+  .value-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mint); flex-shrink: 0; }
+
+  /* ===== SERVICES ===== */
+  .services-section { }
+  .services-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .service-card {
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(94,201,148,0.12);
+    border-radius: 20px; padding: 32px; transition: all 0.4s; cursor: pointer; position: relative; overflow: hidden;
+  }
+  .service-card::before { content:&#x27;&#x27;; position:absolute; inset:0; background: linear-gradient(135deg, rgba(45,150,105,0.08), transparent); opacity:0; transition: opacity 0.4s; border-radius: 20px; }
+  .service-card:hover::before { opacity: 1; }
+  .service-card:hover { border-color: rgba(94,201,148,0.35); transform: translateY(-6px); box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+  .service-card.featured { background: linear-gradient(145deg, rgba(26,107,74,0.25), rgba(13,59,46,0.4)); border-color: rgba(94,201,148,0.3); }
+  .service-icon { width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 26px; margin-bottom: 20px; background: rgba(94,201,148,0.1); border: 1px solid rgba(94,201,148,0.2); }
+  .service-icon.gold { background: rgba(200,149,42,0.1); border-color: rgba(200,149,42,0.2); }
+  .service-icon.blue { background: rgba(89,161,209,0.1); border-color: rgba(89,161,209,0.2); }
+  .service-num { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 1px; margin-bottom: 8px; }
+  .service-title { font-family: var(--serif); font-size: 20px; font-weight: 700; margin-bottom: 12px; }
+  .service-desc { font-size: 14px; line-height: 1.7; color: var(--muted); font-weight: 300; margin-bottom: 20px; }
+  .service-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag { padding: 4px 10px; border-radius: 100px; font-size: 11px; font-weight: 500; font-family: var(--mono); background: rgba(94,201,148,0.08); color: var(--mint); border: 1px solid rgba(94,201,148,0.15); }
+
+  /* ===== PLATFORM ===== */
+  .platform-section { background: linear-gradient(180deg, transparent, rgba(13,59,46,0.12), transparent); }
+  .platform-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 80px; align-items: center; }
+  .platform-mockup {
+    background: rgba(7,31,24,0.8); border: 1px solid rgba(94,201,148,0.2); border-radius: 24px;
+    overflow: hidden; box-shadow: 0 40px 100px rgba(0,0,0,0.5);
+  }
+  .mockup-bar { display: flex; align-items: center; gap: 8px; padding: 14px 20px; border-bottom: 1px solid rgba(94,201,148,0.1); background: rgba(13,59,46,0.4); }
+  .mockup-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .md1 { background: #e05555; } .md2 { background: var(--amber); } .md3 { background: var(--mint); }
+  .mockup-url { flex: 1; text-align: center; font-size: 11px; color: var(--muted); font-family: var(--mono); background: rgba(255,255,255,0.05); padding: 4px 12px; border-radius: 6px; }
+  .mockup-content { padding: 20px; }
+  .mockup-nav { display: flex; gap: 6px; margin-bottom: 16px; }
+  .mock-nav-item { padding: 6px 14px; border-radius: 8px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .mock-nav-item.active { background: var(--jade); color: var(--cream); }
+  .mock-nav-item:not(.active) { background: rgba(255,255,255,0.05); color: var(--muted); }
+  .mock-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .mock-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(94,201,148,0.1); border-radius: 12px; padding: 14px; }
+  .mock-card-label { font-size: 10px; color: var(--muted); font-family: var(--mono); margin-bottom: 4px; }
+  .mock-card-val { font-family: var(--serif); font-size: 20px; font-weight: 700; }
+  .mock-card-val.green { color: var(--mint); } .mock-card-val.gold { color: var(--amber); }
+  .mock-chart-area { background: rgba(255,255,255,0.03); border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+  .chart-label { font-size: 10px; color: var(--muted); font-family: var(--mono); margin-bottom: 10px; }
+  .mini-bars { display: flex; align-items: flex-end; gap: 4px; height: 48px; }
+  .mini-bar { flex: 1; border-radius: 4px 4px 0 0; background: linear-gradient(0deg, var(--jade), var(--mint)); opacity: 0.7; transition: opacity 0.2s; }
+  .mini-bar:hover { opacity: 1; }
+  .mock-plan { background: linear-gradient(135deg, rgba(26,107,74,0.4), rgba(200,149,42,0.15)); border: 1px solid rgba(200,149,42,0.2); border-radius: 12px; padding: 14px; display: flex; align-items: center; justify-content: space-between; }
+  .plan-info { font-size: 12px; } .plan-name { font-weight: 700; color: var(--amber); margin-bottom: 2px; } .plan-sub { color: var(--muted); font-size: 11px; }
+  .plan-badge { background: var(--jade); color: var(--cream); border-radius: 8px; padding: 6px 12px; font-size: 11px; font-weight: 700; }
+  .platform-features { }
+  .platform-features h3 { font-family: var(--serif); font-size: 32px; font-weight: 700; margin-bottom: 12px; line-height: 1.3; }
+  .platform-features p { font-size: 15px; color: var(--muted); line-height: 1.75; font-weight: 300; margin-bottom: 32px; }
+  .feature-list { display: flex; flex-direction: column; gap: 16px; }
+  .feature-item { display: flex; gap: 16px; align-items: flex-start; }
+  .feature-icon { width: 40px; height: 40px; border-radius: 12px; background: rgba(94,201,148,0.1); border: 1px solid rgba(94,201,148,0.2); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .feature-text h4 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .feature-text p { font-size: 13px; color: var(--muted); line-height: 1.6; font-weight: 300; }
+
+  /* ===== NUTRITION TOOL ===== */
+  .nutrition-section { }
+  .nutrition-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: start; }
+  .nutrition-form-card {
+    background: rgba(13,59,46,0.3); border: 1px solid rgba(94,201,148,0.18); border-radius: 24px;
+    padding: 36px; backdrop-filter: blur(16px);
+  }
+  .form-title { font-family: var(--serif); font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+  .form-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+  .form-group { margin-bottom: 18px; }
+  .form-label { font-size: 12px; font-weight: 600; color: var(--mint); letter-spacing: 0.5px; font-family: var(--mono); text-transform: uppercase; margin-bottom: 7px; display: block; }
+  .form-input, .form-select, .form-textarea {
+    width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(94,201,148,0.2);
+    border-radius: 10px; padding: 12px 16px; color: var(--text); font-family: var(--sans); font-size: 14px;
+    transition: all 0.25s; outline: none;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--mint); background: rgba(94,201,148,0.06); box-shadow: 0 0 0 3px rgba(94,201,148,0.1); }
+  .form-select option { background: var(--forest); }
+  .form-textarea { resize: vertical; min-height: 80px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .btn-full { width: 100%; padding: 14px; border-radius: 12px; background: linear-gradient(135deg, var(--jade), var(--emerald)); color: var(--cream); border: none; font-family: var(--sans); font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.3s; box-shadow: 0 6px 24px rgba(45,150,105,0.35); margin-top: 8px; }
+  .btn-full:hover { transform: translateY(-2px); box-shadow: 0 10px 32px rgba(45,150,105,0.5); }
+  .nutrition-info h3 { font-family: var(--serif); font-size: 28px; font-weight: 700; margin-bottom: 16px; line-height: 1.3; }
+  .nutrition-info p { font-size: 15px; color: var(--muted); line-height: 1.75; font-weight: 300; margin-bottom: 28px; }
+  .nutrition-pillars { display: flex; flex-direction: column; gap: 14px; margin-bottom: 36px; }
+  .pillar-item { display: flex; gap: 14px; padding: 16px; border-radius: 14px; background: rgba(255,255,255,0.03); border: 1px solid rgba(94,201,148,0.1); transition: all 0.25s; cursor: default; }
+  .pillar-item:hover { background: rgba(94,201,148,0.05); border-color: rgba(94,201,148,0.2); }
+  .pillar-icon { font-size: 24px; flex-shrink: 0; }
+  .pillar-text h4 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .pillar-text p { font-size: 13px; color: var(--muted); line-height: 1.6; font-weight: 300; }
+
+  /* ===== PLANS ===== */
+  .plans-section { }
+  .plans-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .plan-card {
+    border-radius: 24px; padding: 36px; position: relative; overflow: hidden;
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(94,201,148,0.12); transition: all 0.35s;
+  }
+  .plan-card:hover { transform: translateY(-8px); box-shadow: 0 24px 60px rgba(0,0,0,0.4); }
+  .plan-card.popular {
+    background: linear-gradient(145deg, rgba(26,107,74,0.35), rgba(13,59,46,0.55));
+    border-color: rgba(94,201,148,0.4);
+    box-shadow: 0 20px 60px rgba(45,150,105,0.2);
+  }
+  .popular-ribbon { position: absolute; top: 20px; right: -28px; background: linear-gradient(135deg, var(--jade), var(--amber)); color: var(--cream); font-size: 10px; font-weight: 700; padding: 6px 40px; transform: rotate(45deg); letter-spacing: 1px; }
+  .plan-tier { font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .plan-name-big { font-family: var(--serif); font-size: 24px; font-weight: 700; margin-bottom: 16px; }
+  .plan-price { display: flex; align-items: baseline; gap: 4px; margin-bottom: 24px; }
+  .price-currency { font-size: 14px; font-weight: 600; color: var(--mint); }
+  .price-amount { font-family: var(--serif); font-size: 48px; font-weight: 700; line-height: 1; }
+  .price-period { font-size: 13px; color: var(--muted); }
+  .plan-divider { height: 1px; background: rgba(94,201,148,0.1); margin-bottom: 20px; }
+  .plan-features-list { list-style: none; display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+  .plan-feature { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--muted); }
+  .check { color: var(--mint); font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .plan-btn { width: 100%; padding: 13px; border-radius: 12px; font-family: var(--sans); font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.3s; }
+  .plan-btn.outline { background: transparent; border: 1px solid rgba(94,201,148,0.3); color: var(--text); }
+  .plan-btn.outline:hover { border-color: var(--mint); color: var(--mint); background: rgba(94,201,148,0.06); }
+  .plan-btn.solid { background: linear-gradient(135deg, var(--jade), var(--emerald)); border: none; color: var(--cream); box-shadow: 0 6px 24px rgba(45,150,105,0.35); }
+  .plan-btn.solid:hover { box-shadow: 0 10px 32px rgba(45,150,105,0.5); transform: translateY(-2px); }
+
+  /* ===== COMMUNITY ===== */
+  .community-section { background: linear-gradient(180deg, transparent, rgba(26,107,74,0.08), transparent); }
+  .community-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 60px; align-items: center; }
+  .testimonials { display: flex; flex-direction: column; gap: 20px; }
+  .testimonial-card {
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(94,201,148,0.12); border-radius: 16px;
+    padding: 24px; transition: all 0.3s;
+  }
+  .testimonial-card:hover { border-color: rgba(94,201,148,0.25); background: rgba(94,201,148,0.04); }
+  .test-quote { font-size: 15px; line-height: 1.7; color: var(--muted); margin-bottom: 16px; font-style: italic; font-weight: 300; }
+  .test-author { display: flex; align-items: center; gap: 10px; }
+  .test-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .test-name { font-size: 13px; font-weight: 600; }
+  .test-role { font-size: 11px; color: var(--mint); font-family: var(--mono); }
+  .stars { color: var(--amber); font-size: 12px; margin-bottom: 10px; }
+  .community-right h3 { font-family: var(--serif); font-size: 32px; font-weight: 700; margin-bottom: 16px; line-height: 1.3; }
+  .community-right p { font-size: 15px; color: var(--muted); line-height: 1.75; font-weight: 300; margin-bottom: 28px; }
+  .community-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px; }
+  .c-stat { background: rgba(255,255,255,0.03); border: 1px solid rgba(94,201,148,0.12); border-radius: 14px; padding: 20px; text-align: center; }
+  .c-stat-num { font-family: var(--serif); font-size: 32px; font-weight: 700; color: var(--mint); }
+  .c-stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* ===== CONTACT ===== */
+  .contact-section { }
+  .contact-inner { background: linear-gradient(135deg, rgba(26,107,74,0.25), rgba(13,59,46,0.5)); border: 1px solid rgba(94,201,148,0.2); border-radius: 32px; padding: 80px 60px; text-align: center; position: relative; overflow: hidden; }
+  .contact-inner::before { content:&#x27;&#x27;; position:absolute; top:-100px; right:-100px; width: 400px; height: 400px; border-radius: 50%; background: radial-gradient(circle, rgba(200,149,42,0.08), transparent 70%); pointer-events: none; }
+  .contact-tag { display: inline-flex; background: rgba(200,149,42,0.1); border: 1px solid rgba(200,149,42,0.25); color: var(--amber); padding: 6px 16px; border-radius: 100px; font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; font-family: var(--mono); margin-bottom: 20px; }
+  .contact-inner h2 { font-family: var(--serif); font-size: clamp(28px, 4vw, 48px); font-weight: 700; margin-bottom: 16px; line-height: 1.2; }
+  .contact-inner p { font-size: 16px; color: var(--muted); max-width: 500px; margin: 0 auto 36px; line-height: 1.7; font-weight: 300; }
+  .contact-actions { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
+  .contact-info { display: flex; justify-content: center; gap: 40px; margin-top: 48px; padding-top: 40px; border-top: 1px solid rgba(94,201,148,0.15); flex-wrap: wrap; }
+  .c-info-item { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); }
+  .c-info-icon { font-size: 16px; }
+
+  /* ===== FOOTER ===== */
+  .footer { border-top: 1px solid rgba(94,201,148,0.1); padding: 40px 5vw; }
+  .footer-inner { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; }
+  .footer-copy { font-size: 13px; color: var(--muted); }
+  .footer-links { display: flex; gap: 24px; }
+  .footer-links a { font-size: 13px; color: var(--muted); text-decoration: none; transition: color 0.2s; }
+  .footer-links a:hover { color: var(--mint); }
+
+  /* ===== MOBILE NAV ===== */
+  .hamburger { display: none; background: none; border: none; cursor: pointer; color: var(--text); font-size: 22px; }
+
+  /* ===== ANIMATIONS ===== */
+  .fade-in { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
+  .fade-in.visible { opacity: 1; transform: translateY(0); }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 900px) {
+    .hero-grid, .about-grid, .platform-grid, .nutrition-grid, .community-grid { grid-template-columns: 1fr; }
+    .hero-visual { display: none; }
+    .services-grid, .plans-grid { grid-template-columns: 1fr 1fr; }
+    .nav-links { display: none; }
+    .hamburger { display: block; }
+    .contact-inner { padding: 50px 30px; }
+  }
+  @media (max-width: 600px) {
+    .services-grid, .plans-grid { grid-template-columns: 1fr; }
+    .hero-stats { flex-wrap: wrap; gap: 20px; }
+    .community-stats { grid-template-columns: 1fr 1fr; }
+    .mock-cards { grid-template-columns: 1fr; }
+  }
+</style><nav class="nav "><div class="logo"><div class="logo-mark">E</div><div class="logo-text">e<span>-</span>vive</div></div><ul class="nav-links"><li><a href="#about">About</a></li><li><a href="#services">Services</a></li><li><a href="#platform">Platform</a></li><li><a href="#plans">Plans</a></li><li><a href="#community">Community</a></li></ul><button class="nav-cta">Book Consultation</button></nav><section class="hero" id="home"><div class="hero-bg"></div><div class="hero-orb orb1"></div><div class="hero-orb orb2"></div><div class="hero-orb orb3"></div><div class="hero-grid"><div><div class="hero-eyebrow"><div class="eyebrow-line"></div><span class="eyebrow-text">Nairobi · Kenya · Est. 2025</span></div><h1>Nourishing <em>Hope</em>,<br/>Sustaining <span class="gold">Life</span></h1><p class="hero-sub">E-Vive is East Africa&#x27;s pioneering digital nutrition and care support platform for cancer patients, survivors, and their caregivers — founded on lived experience, clinical expertise, and compassion.</p><div class="hero-actions"><button class="btn-primary">Begin Your Care Journey →</button><button class="btn-outline">Explore Services</button></div><div class="hero-stats"><div class="stat-item"><div class="stat-num">300+</div><div class="stat-label">Lives Touched</div></div><div class="stat-item"><div class="stat-num">15+</div><div class="stat-label">Yrs Clinical Exp.</div></div><div class="stat-item"><div class="stat-num">5</div><div class="stat-label">Care Pillars</div></div><div class="stat-item"><div class="stat-num">24/7</div><div class="stat-label">Digital Support</div></div></div></div><div class="hero-visual"><div class="hero-card-stack"><div class="floating-chip chip1">🏆 Top Wellness Initiative 2025</div><div class="floating-chip chip2">✅ CNA Certified Founder</div><div class="floating-chip chip3">🌍 Diaspora Care Ready</div><div class="main-card"><div class="card-header"><div class="card-avatar">👤</div><div><div class="card-name">Sarah O., Cancer Survivor</div><div class="card-role">Active Plan · Week 6 of 12</div></div></div><div class="nutrition-bars"><div class="bar-row"><div class="bar-label"><span>Protein</span><span>82%</span></div><div class="bar-track"><div class="bar-fill bar-protein" style="width:82%"></div></div></div><div class="bar-row"><div class="bar-label"><span>Iron (Fe)</span><span>67%</span></div><div class="bar-track"><div class="bar-fill bar-iron" style="width:67%"></div></div></div><div class="bar-row"><div class="bar-label"><span>Vitamin C</span><span>91%</span></div><div class="bar-track"><div class="bar-fill bar-vitc" style="width:91%"></div></div></div></div><div class="card-footer"><span class="badge">✓ On Track</span><span class="badge gold">📅 Consult Thu 3PM</span></div></div></div></div></div></section><section class="about-section" id="about"><div class="section-inner"><div class="about-grid"><div class="about-visual fade-in"><div class="founder-card"><div class="founder-avatar-wrap"><div class="founder-avatar">👩🏾</div><div class="online-dot"></div></div><div class="founder-name">Salome Ruguru Mburu</div><div class="founder-title">Founder &amp; Director, CNA · Wellness Advisor</div><div class="founder-bio">Salome combines clinical nursing assistance, 15+ years of entrepreneurship, and the deeply personal experience of caring for her late father through stage 4 cancer to build E-Vive — a service she wished existed when she needed it most.</div><div class="credential-list"><div class="credential"><div class="cred-icon">🩺</div><span>Certified Nursing Assistant (CNA)</span></div><div class="credential"><div class="cred-icon">🎓</div><span>B.Sc Business &amp; Information Technology, ANU</span></div><div class="credential"><div class="cred-icon">💼</div><span>Consulting CEO &amp; Board Member, DoITAfrica</span></div><div class="credential"><div class="cred-icon">🍽️</div><span>Founder, Star Delight Enterprises (2020)</span></div><div class="credential"><div class="cred-icon">📊</div><span>Data Analytics Bootcamp Graduate (2023)</span></div><div class="credential"><div class="cred-icon">🌿</div><span>Specialist: Palliative &amp; Dementia Care</span></div></div></div></div><div class="story-text fade-in"><div class="section-tag">Our Story</div><h3>Born from the bedside of a father,<br/><em>built for every family like ours</em></h3><p>In 2020, Salome&#x27;s father was diagnosed with stage 4 throat cancer. For months, she was his primary caregiver — navigating treatment protocols, managing pain, and desperately searching for guidance on nutrition that could support his recovery and comfort.</p><div class="quote-block"><p>&quot;I searched everywhere for practical, culturally relevant nutritional guidance for cancer patients in Kenya. I found almost nothing. That gap became E-Vive.&quot;</p></div><p>The result of that journey was <strong>E-Vive Wellness Initiative</strong>, founded in January 2025. Informed by clinical training, extensive research, and lived experience, E-Vive is now expanding into a <strong>fully integrated digital care platform</strong> — matching the nutritional and care placement expertise of its Star Delight sister brand with cutting-edge technology.</p><p>E-Vive is also powered by insights from <strong>Star Delight Care</strong> — the founder&#x27;s broader healthcare and care-personnel placement venture — creating an ecosystem where nutritional care, direct home care, and digital health converge.</p><div class="values-grid"><div class="value-pill"><div class="value-dot"></div>Empathy</div><div class="value-pill"><div class="value-dot"></div>Integrity</div><div class="value-pill"><div class="value-dot"></div>Compassion</div><div class="value-pill"><div class="value-dot"></div>Excellence</div><div class="value-pill"><div class="value-dot"></div>Hope</div><div class="value-pill"><div class="value-dot"></div>Clinical Rigour</div></div></div></div></div></section><section class="services-section" id="services"><div class="section-inner"><div class="section-header fade-in"><div class="section-tag">What We Offer</div><h2 class="section-title">Holistic Care <em>Services</em></h2><p class="section-sub">Six integrated service pillars spanning clinical nutrition, direct care, caregiver support, education, and digital health — all under one compassionate roof.</p><div class="divider"></div></div><div class="services-grid"><div class="service-card fade-in " style="transition-delay:0ms"><div class="service-icon ">🥗</div><div class="service-num">01</div><div class="service-title">Personalised Nutrition Plans</div><div class="service-desc">Evidence-based, cancer-specific meal plans designed around your treatment phase, taste tolerance, and cultural food preferences. Updated dynamically as your health progresses.</div><div class="service-tags"><span class="tag">Oncology</span><span class="tag">Palliative</span><span class="tag">Dietetics</span></div></div><div class="service-card fade-in featured" style="transition-delay:80ms"><div class="service-icon gold">🩺</div><div class="service-num">02</div><div class="service-title">Advisory Consultations</div><div class="service-desc">One-on-one sessions with Salome — CNA, wellness advisor and founder — integrating clinical assessment, nutritional analysis, and compassionate guidance.</div><div class="service-tags"><span class="tag">Clinical</span><span class="tag">Telehealth</span><span class="tag">1-on-1</span></div></div><div class="service-card fade-in " style="transition-delay:160ms"><div class="service-icon ">🏠</div><div class="service-num">03</div><div class="service-title">Home Visit &amp; Meal Prep Training</div><div class="service-desc">Expert home visits for hands-on meal preparation coaching tailored to the patient&#x27;s needs, empowering families to sustain quality nutrition at home.</div><div class="service-tags"><span class="tag">Home Care</span><span class="tag">Hands-On</span></div></div><div class="service-card fade-in " style="transition-delay:240ms"><div class="service-icon blue">💙</div><div class="service-num">04</div><div class="service-title">Caregiver Support Programme</div><div class="service-desc">Structured emotional support, burnout prevention coaching, and practical care coordination guidance for family caregivers — who are too often overlooked.</div><div class="service-tags"><span class="tag">Mental Health</span><span class="tag">Burnout</span><span class="tag">Family</span></div></div><div class="service-card fade-in " style="transition-delay:320ms"><div class="service-icon ">📚</div><div class="service-num">05</div><div class="service-title">Nutrition Education &amp; Awareness</div><div class="service-desc">Group workshops, community seminars, and digital content educating patients, families, and healthcare workers on nutrition&#x27;s vital role in cancer recovery.</div><div class="service-tags"><span class="tag">Education</span><span class="tag">Community</span></div></div><div class="service-card fade-in " style="transition-delay:400ms"><div class="service-icon gold">🌐</div><div class="service-num">06</div><div class="service-title">Digital Care Platform</div><div class="service-desc">Access care plans, book consultations, track nutritional progress, connect with the caregiver community — all through the secure E-Vive digital portal.</div><div class="service-tags"><span class="tag">Platform</span><span class="tag">Digital</span><span class="tag">24/7</span></div></div></div></div></section><section class="platform-section" id="platform"><div class="section-inner"><div class="platform-grid"><div class="platform-mockup fade-in"><div class="mockup-bar"><div class="mockup-dot md1"></div><div class="mockup-dot md2"></div><div class="mockup-dot md3"></div><div class="mockup-url">app.evive.co.ke</div></div><div class="mockup-content"><div class="mockup-nav"><div class="mock-nav-item active">Nutrition</div><div class="mock-nav-item ">Caregivers</div><div class="mock-nav-item ">Community</div><div class="mock-nav-item ">Records</div></div><div class="mock-cards"><div class="mock-card"><div class="mock-card-label">Today&#x27;s Calories</div><div class="mock-card-val green">1,840</div></div><div class="mock-card"><div class="mock-card-label">Protein Goal</div><div class="mock-card-val gold">82%</div></div></div><div class="mock-chart-area"><div class="chart-label">Weekly Nutritional Adherence</div><div class="mini-bars"><div class="mini-bar" style="height:30%"></div><div class="mini-bar" style="height:55%"></div><div class="mini-bar" style="height:45%"></div><div class="mini-bar" style="height:70%"></div><div class="mini-bar" style="height:60%"></div><div class="mini-bar" style="height:80%"></div><div class="mini-bar" style="height:65%"></div><div class="mini-bar" style="height:75%"></div><div class="mini-bar" style="height:55%"></div><div class="mini-bar" style="height:85%"></div><div class="mini-bar" style="height:70%"></div><div class="mini-bar" style="height:90%"></div></div></div><div class="mock-plan"><div class="plan-info"><div class="plan-name">Guardian Plan</div><div class="plan-sub">Next consult: Thursday 3:00 PM</div></div><div class="plan-badge">Active</div></div></div></div><div class="platform-features fade-in"><div class="section-tag">Digital Platform</div><h3>Your care, <em>in your hands</em> — everywhere</h3><p>The E-Vive Portal is a purpose-built digital health ecosystem that connects patients, caregivers, and advisors in real time. Accessible via web and mobile, it extends our care beyond the consultation room into everyday life.</p><div class="feature-list"><div class="feature-item"><div class="feature-icon">📊</div><div class="feature-text"><h4>Live Nutrition Tracking</h4><p>Daily food logging with cancer-specific nutrient analysis, trend charts, and personalized alerts reviewed by your advisor.</p></div></div><div class="feature-item"><div class="feature-icon">📅</div><div class="feature-text"><h4>Smart Appointment System</h4><p>Book, reschedule, and attend consultations — including video calls — directly from the platform.</p></div></div><div class="feature-item"><div class="feature-icon">🔔</div><div class="feature-text"><h4>Caregiver Alerts</h4><p>Family members receive real-time care plan updates, medication reminders, and appointment notifications.</p></div></div><div class="feature-item"><div class="feature-icon">🌍</div><div class="feature-text"><h4>Diaspora Care Module</h4><p>Kenyan families abroad commission and monitor loved ones&#x27; care plans, with full English reporting and FX billing.</p></div></div></div></div></div></div></section><section class="nutrition-section" id="consult"><div class="section-inner"><div class="nutrition-grid"><div class="nutrition-info fade-in"><div class="section-tag">Get Started</div><h3>Begin Your Nutritional<br/><em>Care Journey Today</em></h3><p>Your first step toward better quality of life through evidence-based, personalised nutrition. Every journey starts with a single conversation — and we are here to listen.</p><div class="nutrition-pillars"><div class="pillar-item"><div class="pillar-icon">🫀</div><div class="pillar-text"><h4>Treatment Readiness</h4><p>Optimal nutritional status before and during chemotherapy, radiotherapy, and surgery to support treatment efficacy and tolerance.</p></div></div><div class="pillar-item"><div class="pillar-icon">🌿</div><div class="pillar-text"><h4>Healing &amp; Recovery</h4><p>Anti-inflammatory, immune-supportive meal plans promoting tissue repair, weight maintenance, and energy restoration post-treatment.</p></div></div><div class="pillar-item"><div class="pillar-icon">🧘🏾</div><div class="pillar-text"><h4>Quality of Life</h4><p>Addressing appetite loss, nausea, swallowing difficulties, and fatigue through compassionate, patient-centred nutritional strategies.</p></div></div></div></div><div class="nutrition-form-card fade-in"><form><div class="form-title">Request a Consultation</div><div class="form-sub">Complete this form and we&#x27;ll reach out within 24 hours to confirm your session.</div><div class="form-row"><div class="form-group"><label class="form-label">Full Name</label><input class="form-input" name="name" placeholder="Your name" required="" value=""/></div><div class="form-group"><label class="form-label">Email / Phone</label><input class="form-input" name="email" placeholder="email or +254..." required="" value=""/></div></div><div class="form-group"><label class="form-label">Care Context</label><select class="form-select" name="condition" required=""><option value="" selected="">Select your situation...</option><option>Active cancer treatment (chemotherapy/radiation)</option><option>Post-surgery recovery &amp; rehabilitation</option><option>Palliative &amp; comfort care</option><option>Cancer survivor — long-term wellness</option><option>Caregiver seeking guidance &amp; support</option><option>General oncology nutrition advice</option></select></div><div class="form-group"><label class="form-label">Primary Focus</label><select class="form-select" name="focus"><option value="" selected="">What matters most right now?</option><option>Personalised meal planning</option><option>Caregiver support &amp; burnout prevention</option><option>Home visit &amp; hands-on coaching</option><option>Digital platform subscription</option><option>Comprehensive holistic package</option></select></div><div class="form-group"><label class="form-label">Additional Notes</label><textarea class="form-textarea" name="notes" placeholder="Share anything that will help us prepare for your session..."></textarea></div><button type="submit" class="btn-full">Request Free First Consultation →</button></form></div></div></div></section><section class="plans-section" id="plans"><div class="section-inner"><div class="section-header fade-in" style="text-align:center"><div class="section-tag" style="margin:0 auto 16px">Subscription Plans</div><h2 class="section-title">Care that fits <em>your life</em></h2><p class="section-sub" style="margin:0 auto">Flexible, transparent plans designed for patients, caregivers, survivors and diaspora families. All prices in Kenyan Shillings.</p><div class="divider" style="margin:16px auto 0"></div></div><div class="plans-grid"><div class="plan-card fade-in " style="transition-delay:0ms"><div class="plan-tier">Starter</div><div class="plan-name-big">Companion</div><div class="plan-price"><span class="price-currency">KES</span><span class="price-amount">2,500</span><span class="price-period">/month</span></div><div class="plan-divider"></div><ul class="plan-features-list"><li class="plan-feature"><span class="check">✓</span><span>Platform access &amp; care plan viewing</span></li><li class="plan-feature"><span class="check">✓</span><span>1 group nutrition workshop/month</span></li><li class="plan-feature"><span class="check">✓</span><span>Weekly meal planning templates</span></li><li class="plan-feature"><span class="check">✓</span><span>Community forum access</span></li><li class="plan-feature"><span class="check">✓</span><span>WhatsApp support (business hours)</span></li></ul><button class="plan-btn outline">Get Started →</button></div><div class="plan-card fade-in popular" style="transition-delay:120ms"><div class="popular-ribbon">MOST LOVED</div><div class="plan-tier">Core</div><div class="plan-name-big">Guardian</div><div class="plan-price"><span class="price-currency">KES</span><span class="price-amount">6,500</span><span class="price-period">/month</span></div><div class="plan-divider"></div><ul class="plan-features-list"><li class="plan-feature"><span class="check">✓</span><span>Everything in Companion</span></li><li class="plan-feature"><span class="check">✓</span><span>2 advisory consultations/month</span></li><li class="plan-feature"><span class="check">✓</span><span>Personalised nutrition plan (dynamic)</span></li><li class="plan-feature"><span class="check">✓</span><span>Caregiver support sessions (x2)</span></li><li class="plan-feature"><span class="check">✓</span><span>Priority appointment booking</span></li><li class="plan-feature"><span class="check">✓</span><span>Home visit (1x/quarter)</span></li></ul><button class="plan-btn solid">Choose Guardian →</button></div><div class="plan-card fade-in " style="transition-delay:240ms"><div class="plan-tier">Premium</div><div class="plan-name-big">Luminary</div><div class="plan-price"><span class="price-currency">KES</span><span class="price-amount">14,000</span><span class="price-period">/month</span></div><div class="plan-divider"></div><ul class="plan-features-list"><li class="plan-feature"><span class="check">✓</span><span>Everything in Guardian</span></li><li class="plan-feature"><span class="check">✓</span><span>Weekly consultations (unlimited)</span></li><li class="plan-feature"><span class="check">✓</span><span>Dedicated care coordinator</span></li><li class="plan-feature"><span class="check">✓</span><span>Telemedicine specialist access</span></li><li class="plan-feature"><span class="check">✓</span><span>Family nutritional coaching</span></li><li class="plan-feature"><span class="check">✓</span><span>Full clinical documentation &amp; reporting</span></li></ul><button class="plan-btn outline">Get Started →</button></div></div></div></section><section class="community-section" id="community"><div class="section-inner"><div class="community-grid"><div class="testimonials fade-in"><div class="testimonial-card"><div class="stars">★★★★★</div><div class="test-quote">&quot;<!-- -->When my mother was diagnosed, I felt completely lost. E-Vive gave us a practical roadmap — the personalised meal plans made a measurable difference in how she tolerated her chemotherapy.<!-- -->&quot;</div><div class="test-author"><div class="test-avatar" style="background:rgba(45,150,105,0.15)">👩🏾</div><div><div class="test-name">Grace M.</div><div class="test-role">Caregiver, Nairobi</div></div></div></div><div class="testimonial-card"><div class="stars">★★★★★</div><div class="test-quote">&quot;<!-- -->Salome&#x27;s understanding comes from lived experience. She doesn&#x27;t just advise — she truly gets what we&#x27;re going through. The support sessions have been life-changing for me as a caregiver.<!-- -->&quot;</div><div class="test-author"><div class="test-avatar" style="background:rgba(200,149,42,0.1)">👨🏾</div><div><div class="test-name">James K.</div><div class="test-role">Caregiver, Mombasa</div></div></div></div><div class="testimonial-card"><div class="stars">★★★★★</div><div class="test-quote">&quot;<!-- -->The digital platform made tracking my nutrition so easy. I can show my oncologist the data and we now make decisions together. I feel in control for the first time.<!-- -->&quot;</div><div class="test-author"><div class="test-avatar" style="background:rgba(89,161,209,0.1)">👩🏿</div><div><div class="test-name">Ruth N.</div><div class="test-role">Cancer Survivor, Nakuru</div></div></div></div></div><div class="community-right fade-in"><div class="section-tag">Community &amp; Impact</div><h3>You are not facing this <em>alone</em></h3><p>E-Vive is more than a service — it is a community of patients, survivors, and caregivers walking this journey together. Our forum, support groups, and shared resources remind everyone that connection is as healing as nutrition.</p><div class="community-stats"><div class="c-stat"><div class="c-stat-num">300+</div><div class="c-stat-label">Lives Supported</div></div><div class="c-stat"><div class="c-stat-num">92%</div><div class="c-stat-label">Client Satisfaction</div></div><div class="c-stat"><div class="c-stat-num">5</div><div class="c-stat-label">Counties Reached</div></div><div class="c-stat"><div class="c-stat-num">3</div><div class="c-stat-label">Diaspora Nations</div></div></div><button class="btn-primary">Join the Community →</button></div></div></div></section><section class="contact-section"><div class="section-inner"><div class="contact-inner fade-in"><div class="contact-tag">Get In Touch</div><h2>Ready to take the<br/><em>first step?</em></h2><p>Whether you&#x27;re a patient beginning treatment, a caregiver seeking support, or a diaspora family looking for trusted home care — E-Vive is here for you.</p><div class="contact-actions"><button class="btn-primary">Book a Free Consultation →</button><button class="btn-outline">WhatsApp Us</button></div><div class="contact-info"><div class="c-info-item"><span class="c-info-icon">📍</span><span>South C, Mugoya Estate, Nairobi, Kenya</span></div><div class="c-info-item"><span class="c-info-icon">📧</span><span>salomeruguru4@gmail.com</span></div><div class="c-info-item"><span class="c-info-icon">📞</span><span>+254 720 053 455</span></div><div class="c-info-item"><span class="c-info-icon">🌐</span><span>app.evive.co.ke</span></div></div></div></div></section><footer class="footer"><div class="footer-inner"><div class="footer-copy">© 2025–2026 E-Vive Wellness Initiative · Star Delight Enterprises Ltd · Nairobi, Kenya</div><div class="footer-links"><a href="#">Privacy Policy</a><a href="#">Terms of Use</a><a href="#">Accessibility</a><a href="#">Press</a></div></div></footer></div><script id="__NEXT_DATA__" type="application/json" crossorigin="">{"props":{"pageProps":{}},"page":"/","query":{},"buildId":"oE0CubF7Rg3ENeWPZ46uT","nextExport":true,"autoExport":true,"isFallback":false,"scriptLoader":[]}</script></body></html>
