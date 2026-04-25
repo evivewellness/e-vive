@@ -529,9 +529,9 @@ export default function EVivePortal() {
                   <div className="founder-avatar">👩🏾</div>
                   <div className="online-dot" />
                 </div>
-                <div className="founder-name">Salome Ruguru Mburu</div>
+                <div className="founder-name">Ms. Ruguru Mburu</div>
                 <div className="founder-title">Founder & Director, CNA · Wellness Advisor</div>
-                <div className="founder-bio">Salome combines clinical nursing assistance, 15+ years of entrepreneurship, and the deeply personal experience of caring for her late father through stage 4 cancer to build E-Vive — a service she wished existed when she needed it most.</div>
+                <div className="founder-bio">Ms. Ruguru combines clinical nursing assistance, 15+ years of entrepreneurship, and the deeply personal experience of caring for her late father through stage 4 cancer to build E-Vive — a service she wished existed when she needed it most.</div>
                 <div className="credential-list">
                   {[["🩺","Certified Nursing Assistant (CNA)"], ["🎓","B.Sc Business & Information Technology, ANU"], ["💼","Consulting CEO & Board Member, DoITAfrica"], ["🍽️","Founder, Star Delight Enterprises (2020)"], ["📊","Data Analytics Bootcamp Graduate (2023)"], ["🌿","Specialist: Palliative & Dementia Care"]].map(([ic, tx]) => (
                     <div className="credential" key={tx}><div className="cred-icon">{ic}</div><span>{tx}</span></div>
@@ -542,12 +542,12 @@ export default function EVivePortal() {
             <div className="story-text fade-in">
               <div className="section-tag">Our Story</div>
               <h3>Born from the bedside of a father,<br/><em>built for every family like ours</em></h3>
-              <p>In 2020, Salome&apos;s father was diagnosed with stage 4 throat cancer. For months, she was his primary caregiver — navigating treatment protocols, managing pain, and desperately searching for guidance on nutrition that could support his recovery and comfort.</p>
+              <p>In 2020, Ms. Ruguru&apos;s father was diagnosed with stage 4 throat cancer. For months, she was his primary caregiver — navigating treatment protocols, managing pain, and desperately searching for guidance on nutrition that could support his recovery and comfort.</p>
               <div className="quote-block">
                 <p>&ldquo;I searched everywhere for practical, culturally relevant nutritional guidance for cancer patients in Kenya. I found almost nothing. That gap became E-Vive.&rdquo;</p>
               </div>
               <p>The result of that journey was <strong>E-Vive Wellness Initiative</strong>, founded in January 2025. Informed by clinical training, extensive research, and lived experience, E-Vive is now expanding into a <strong>fully integrated digital care platform</strong> — matching the nutritional and care placement expertise of its Star Delight sister brand with cutting-edge technology.</p>
-              <p>E-Vive is also powered by insights from <strong>Star Delight Care</strong> — the founder&apos;s broader healthcare and care-personnel placement venture — creating an ecosystem where nutritional care, direct home care, and digital health converge.</p>
+              <p>E-Vive is also powered by insights from <strong>Star Delight Enterprises</strong> — the founder&apos;s broader healthcare and care-personnel placement venture — creating an ecosystem where nutritional care, direct home care, and digital health converge.</p>
               <div className="values-grid">
                 {["Empathy", "Integrity", "Compassion", "Excellence", "Hope", "Clinical Rigour"].map(v => (
                   <div className="value-pill" key={v}><div className="value-dot" />{v}</div>
@@ -779,7 +779,7 @@ export default function EVivePortal() {
               <button className="btn-outline" onClick={() => window.open('https://wa.me/254720053455?text=Hello%20E-Vive%2C%20I%20would%20like%20to%20book%20a%20consultation.', '_blank', 'noopener,noreferrer')}>WhatsApp Us</button>
             </div>
             <div className="contact-info">
-              {[["📍","South C, Mugoya Estate, Nairobi, Kenya"], ["📧","salomeruguru4@gmail.com"], ["📞","+254 720 053 455"], ["🌐","app.evive.co.ke"]].map(([ic, tx]) => (
+              {[["📍","South C, Mugoya Estate, Nairobi, Kenya"], ["📧","salome@e-vive.app"], ["📞","+254 123 456789"], ["🌐","app.evive.co.ke"]].map(([ic, tx]) => (
                 <div className="c-info-item" key={tx}><span className="c-info-icon">{ic}</span><span>{tx}</span></div>
               ))}
             </div>
