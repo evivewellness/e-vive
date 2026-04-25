@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import Head from "next/head";
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');`;
 
@@ -437,6 +438,19 @@ export default function EVivePortal() {
 
   return (
     <>
+      <Head>
+        <title>E-Vive Wellness Initiative — Cancer Nutrition & Care Support, Kenya</title>
+        <meta name="description" content="E-Vive is East Africa's pioneering digital nutrition and care support platform for cancer patients, survivors, and caregivers. Evidence-based, personalised care from Nairobi, Kenya." />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta charSet="utf-8" />
+        <meta name="robots" content="index, follow" />
+        <meta property="og:title" content="E-Vive Wellness Initiative" />
+        <meta property="og:description" content="East Africa's pioneering cancer nutrition & care platform. Personalised plans, advisory consultations, and a supportive community." />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://app.evive.co.ke" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
       <style>{CSS}</style>
 
       {/* NAV */}
@@ -463,7 +477,7 @@ export default function EVivePortal() {
           <div>
             <div className="hero-eyebrow"><div className="eyebrow-line" /><span className="eyebrow-text">Nairobi · Kenya · Est. 2025</span></div>
             <h1>Nourishing <em>Hope</em>,<br/>Sustaining <span className="gold">Life</span></h1>
-            <p className="hero-sub">E-Vive is East Africa's pioneering digital nutrition and care support platform for cancer patients, survivors, and their caregivers — founded on lived experience, clinical expertise, and compassion.</p>
+            <p className="hero-sub">E-Vive is East Africa&apos;s pioneering digital nutrition and care support platform for cancer patients, survivors, and their caregivers — founded on lived experience, clinical expertise, and compassion.</p>
             <div className="hero-actions">
               <button className="btn-primary" onClick={() => document.getElementById("consult")?.scrollIntoView({ behavior: "smooth" })}>Begin Your Care Journey →</button>
               <button className="btn-outline" onClick={() => document.getElementById("services")?.scrollIntoView({ behavior: "smooth" })}>Explore Services</button>
@@ -528,12 +542,12 @@ export default function EVivePortal() {
             <div className="story-text fade-in">
               <div className="section-tag">Our Story</div>
               <h3>Born from the bedside of a father,<br/><em>built for every family like ours</em></h3>
-              <p>In 2020, Salome's father was diagnosed with stage 4 throat cancer. For months, she was his primary caregiver — navigating treatment protocols, managing pain, and desperately searching for guidance on nutrition that could support his recovery and comfort.</p>
+              <p>In 2020, Salome&apos;s father was diagnosed with stage 4 throat cancer. For months, she was his primary caregiver — navigating treatment protocols, managing pain, and desperately searching for guidance on nutrition that could support his recovery and comfort.</p>
               <div className="quote-block">
-                <p>"I searched everywhere for practical, culturally relevant nutritional guidance for cancer patients in Kenya. I found almost nothing. That gap became E-Vive."</p>
+                <p>&ldquo;I searched everywhere for practical, culturally relevant nutritional guidance for cancer patients in Kenya. I found almost nothing. That gap became E-Vive.&rdquo;</p>
               </div>
               <p>The result of that journey was <strong>E-Vive Wellness Initiative</strong>, founded in January 2025. Informed by clinical training, extensive research, and lived experience, E-Vive is now expanding into a <strong>fully integrated digital care platform</strong> — matching the nutritional and care placement expertise of its Star Delight sister brand with cutting-edge technology.</p>
-              <p>E-Vive is also powered by insights from <strong>Star Delight Care</strong> — the founder's broader healthcare and care-personnel placement venture — creating an ecosystem where nutritional care, direct home care, and digital health converge.</p>
+              <p>E-Vive is also powered by insights from <strong>Star Delight Care</strong> — the founder&apos;s broader healthcare and care-personnel placement venture — creating an ecosystem where nutritional care, direct home care, and digital health converge.</p>
               <div className="values-grid">
                 {["Empathy", "Integrity", "Compassion", "Excellence", "Hope", "Clinical Rigour"].map(v => (
                   <div className="value-pill" key={v}><div className="value-dot" />{v}</div>
@@ -583,7 +597,7 @@ export default function EVivePortal() {
                   ))}
                 </div>
                 <div className="mock-cards">
-                  <div className="mock-card"><div className="mock-card-label">Today's Calories</div><div className="mock-card-val green">1,840</div></div>
+                  <div className="mock-card"><div className="mock-card-label">Today&apos;s Calories</div><div className="mock-card-val green">1,840</div></div>
                   <div className="mock-card"><div className="mock-card-label">Protein Goal</div><div className="mock-card-val gold">82%</div></div>
                 </div>
                 <div className="mock-chart-area">
@@ -636,7 +650,7 @@ export default function EVivePortal() {
               {!submitted ? (
                 <form onSubmit={handleSubmit}>
                   <div className="form-title">Request a Consultation</div>
-                  <div className="form-sub">Complete this form and we'll reach out within 24 hours to confirm your session.</div>
+                  <div className="form-sub">Complete this form and we&apos;ll reach out within 24 hours to confirm your session.</div>
                   <div className="form-row">
                     <div className="form-group">
                       <label className="form-label">Full Name</label>
@@ -730,7 +744,7 @@ export default function EVivePortal() {
               {testimonials.map((t, i) => (
                 <div className="testimonial-card" key={i}>
                   <div className="stars">★★★★★</div>
-                  <div className="test-quote">"{t.quote}"</div>
+                  <div className="test-quote">{`“${t.quote}”`}</div>
                   <div className="test-author">
                     <div className="test-avatar" style={{ background: t.bg }}>{t.avatar}</div>
                     <div><div className="test-name">{t.name}</div><div className="test-role">{t.role}</div></div>
@@ -759,10 +773,10 @@ export default function EVivePortal() {
           <div className="contact-inner fade-in">
             <div className="contact-tag">Get In Touch</div>
             <h2>Ready to take the<br/><em>first step?</em></h2>
-            <p>Whether you're a patient beginning treatment, a caregiver seeking support, or a diaspora family looking for trusted home care — E-Vive is here for you.</p>
+            <p>Whether you&apos;re a patient beginning treatment, a caregiver seeking support, or a diaspora family looking for trusted home care — E-Vive is here for you.</p>
             <div className="contact-actions">
               <button className="btn-primary" onClick={() => document.getElementById("consult")?.scrollIntoView({ behavior: "smooth" })}>Book a Free Consultation →</button>
-              <button className="btn-outline">WhatsApp Us</button>
+              <button className="btn-outline" onClick={() => window.open('https://wa.me/254720053455?text=Hello%20E-Vive%2C%20I%20would%20like%20to%20book%20a%20consultation.', '_blank', 'noopener,noreferrer')}>WhatsApp Us</button>
             </div>
             <div className="contact-info">
               {[["📍","South C, Mugoya Estate, Nairobi, Kenya"], ["📧","salomeruguru4@gmail.com"], ["📞","+254 720 053 455"], ["🌐","app.evive.co.ke"]].map(([ic, tx]) => (
