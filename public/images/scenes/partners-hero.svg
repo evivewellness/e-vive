@@ -1,0 +1,182 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" width="800" height="400">
+<defs>
+  <linearGradient id="ph-bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#e8f4fd"/>
+    <stop offset="100%" stop-color="#c8e6f8"/>
+  </linearGradient>
+  <linearGradient id="ph-floor" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#d0e8f4"/>
+    <stop offset="100%" stop-color="#b8d8f0"/>
+  </linearGradient>
+  <linearGradient id="ph-accent" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#003580"/>
+    <stop offset="100%" stop-color="#004A99"/>
+  </linearGradient>
+  <clipPath id="ph-clip"><rect width="800" height="400" rx="16"/></clipPath>
+</defs>
+<g clip-path="url(#ph-clip)">
+  <rect width="800" height="400" fill="url(#ph-bg)"/>
+  <!-- Floor -->
+  <rect y="318" width="800" height="82" fill="url(#ph-floor)"/>
+  <rect y="316" width="800" height="5" fill="rgba(0,74,153,0.15)"/>
+  <!-- Floor tiles -->
+  <line x1="0" y1="338" x2="800" y2="338" stroke="rgba(0,74,153,0.08)" stroke-width="1"/>
+  <line x1="0" y1="358" x2="800" y2="358" stroke="rgba(0,74,153,0.08)" stroke-width="1"/>
+  <!-- Vertical tile lines -->
+  <line x1="100" y1="318" x2="100" y2="400" stroke="rgba(0,74,153,0.08)" stroke-width="1"/>
+  <line x1="200" y1="318" x2="200" y2="400" stroke="rgba(0,74,153,0.08)" stroke-width="1"/>
+  <line x1="300" y1="318" x2="300" y2="400" stroke="rgba(0,74,153,0.08)" stroke-width="1"/>
+  <line x1="400" y1="318" x2="400" y2="400" stroke="rgba(0,74,153,0.08)" stroke-width="1"/>
+  <line x1="500" y1="318" x2="500" y2="400" stroke="rgba(0,74,153,0.08)" stroke-width="1"/>
+  <line x1="600" y1="318" x2="600" y2="400" stroke="rgba(0,74,153,0.08)" stroke-width="1"/>
+  <line x1="700" y1="318" x2="700" y2="400" stroke="rgba(0,74,153,0.08)" stroke-width="1"/>
+
+  <!-- Wall details: corridor -->
+  <!-- Ceiling accent stripe -->
+  <rect x="0" y="0" width="800" height="14" fill="url(#ph-accent)"/>
+  <rect x="0" y="14" width="800" height="4" fill="#84BD60"/>
+  <!-- Wall panels -->
+  <rect x="0" y="18" width="800" height="8" fill="rgba(0,74,153,0.06)"/>
+  <!-- E-Vive x Hospital sign -->
+  <rect x="290" y="28" width="220" height="50" rx="6" fill="white" opacity="0.92" stroke="rgba(0,74,153,0.2)" stroke-width="1"/>
+  <text x="314" y="52" font-family="Georgia,serif" font-size="18" font-weight="bold" fill="#003580">e-vive</text>
+  <text x="356" y="52" font-family="Arial,sans-serif" font-size="12" fill="#888"> × </text>
+  <text x="370" y="52" font-family="Arial,sans-serif" font-size="12" fill="#555">Partner Portal</text>
+  <rect x="310" y="57" width="100" height="2" rx="1" fill="#84BD60"/>
+  <rect x="414" y="57" width="60" height="2" rx="1" fill="#E8845A"/>
+
+  <!-- ── Doctor figure (left) ── -->
+  <!-- Shadow -->
+  <ellipse cx="180" cy="330" rx="42" ry="10" fill="rgba(0,0,0,0.08)"/>
+  <!-- Legs -->
+  <rect x="154" y="262" width="20" height="70" rx="7" fill="#2c3e50"/>
+  <rect x="186" y="262" width="20" height="70" rx="7" fill="#2c3e50"/>
+  <!-- Shoes -->
+  <ellipse cx="164" cy="334" rx="16" ry="7" fill="#1a252f"/>
+  <ellipse cx="196" cy="334" rx="16" ry="7" fill="#1a252f"/>
+  <!-- White coat -->
+  <rect x="138" y="148" width="84" height="126" rx="14" fill="white" stroke="rgba(0,74,153,0.1)" stroke-width="1.5"/>
+  <!-- Coat lapel -->
+  <path d="M162,162 L180,184 L198,162" fill="rgba(0,74,153,0.06)"/>
+  <!-- Stethoscope -->
+  <path d="M170,175 Q155,195 150,228" stroke="#2c3e50" stroke-width="3.5" fill="none"/>
+  <path d="M190,175 Q205,195 210,228" stroke="#2c3e50" stroke-width="3.5" fill="none"/>
+  <path d="M150,228 Q180,248 210,228" stroke="#2c3e50" stroke-width="3.5" fill="none"/>
+  <circle cx="180" cy="248" r="10" fill="#2c3e50"/>
+  <!-- Clipboard -->
+  <rect x="198" y="195" width="42" height="58" rx="5" fill="#f5f5f5" stroke="#ccc" stroke-width="1"/>
+  <rect x="204" y="188" width="30" height="10" rx="3" fill="#e0e0e0" stroke="#bbb" stroke-width="1"/>
+  <!-- Text lines on clipboard -->
+  <rect x="203" y="206" width="32" height="2.5" rx="1" fill="#004A99" opacity="0.7"/>
+  <rect x="203" y="212" width="28" height="2" rx="1" fill="#84BD60" opacity="0.7"/>
+  <rect x="203" y="218" width="32" height="2" rx="1" fill="rgba(0,0,0,0.2)"/>
+  <rect x="203" y="224" width="22" height="2" rx="1" fill="rgba(0,0,0,0.15)"/>
+  <rect x="203" y="230" width="30" height="2" rx="1" fill="rgba(0,0,0,0.15)"/>
+  <!-- Left arm -->
+  <path d="M138,168 Q118,210 112,250" stroke="#e0e0e0" stroke-width="22" fill="none" stroke-linecap="round"/>
+  <ellipse cx="110" cy="256" rx="14" ry="10" fill="#9A6428"/>
+  <!-- Neck + head -->
+  <rect x="168" y="134" width="24" height="20" rx="6" fill="#C68642"/>
+  <ellipse cx="180" cy="113" rx="32" ry="36" fill="#C68642"/>
+  <ellipse cx="148" cy="116" rx="7" ry="10" fill="#B57A35"/>
+  <ellipse cx="212" cy="116" rx="7" ry="10" fill="#B57A35"/>
+  <!-- Hair short-waves -->
+  <path d="M148,88 Q155,74 165,72 Q175,68 180,70 Q185,68 195,72 Q205,74 212,88 Z" fill="#1a0a00"/>
+  <ellipse cx="180" cy="86" rx="32" ry="12" fill="#1a0a00"/>
+  <!-- Eyes (professional) -->
+  <ellipse cx="167" cy="108" rx="7" ry="5.5" fill="white"/>
+  <ellipse cx="193" cy="108" rx="7" ry="5.5" fill="white"/>
+  <circle cx="167" cy="108" r="4" fill="#1a0a00"/>
+  <circle cx="193" cy="108" r="4" fill="#1a0a00"/>
+  <!-- Eyebrows -->
+  <path d="M158,98 Q167,92 174,97" stroke="#1a0a00" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M186,97 Q193,92 202,98" stroke="#1a0a00" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- Neutral professional expression -->
+  <path d="M168,122 Q180,130 192,122" stroke="rgba(100,60,20,0.4)" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- ── HCA figure (right) ── -->
+  <ellipse cx="550" cy="330" rx="42" ry="10" fill="rgba(0,0,0,0.08)"/>
+  <rect x="526" y="262" width="20" height="70" rx="7" fill="#1a3a5c"/>
+  <rect x="558" y="262" width="20" height="70" rx="7" fill="#1a3a5c"/>
+  <ellipse cx="536" cy="334" rx="16" ry="7" fill="#0a1a35"/>
+  <ellipse cx="568" cy="334" rx="16" ry="7" fill="#0a1a35"/>
+  <!-- Teal scrubs -->
+  <rect x="508" y="148" width="84" height="126" rx="14" fill="#006064"/>
+  <path d="M532,162 L550,184 L568,162" fill="rgba(255,255,255,0.08)"/>
+  <!-- ID badge -->
+  <rect x="516" y="178" width="32" height="20" rx="4" fill="white" opacity="0.85"/>
+  <rect x="520" y="183" width="24" height="2" rx="1" fill="#004A99"/>
+  <rect x="520" y="187" width="18" height="2" rx="1" fill="#84BD60"/>
+  <!-- Folder -->
+  <rect x="560" y="188" width="44" height="58" rx="5" fill="#E8845A" opacity="0.9"/>
+  <rect x="560" y="182" width="28" height="9" rx="4" fill="#d4704a" opacity="0.9"/>
+  <rect x="566" y="198" width="32" height="2.5" rx="1" fill="rgba(255,255,255,0.6)"/>
+  <rect x="566" y="205" width="26" height="2" rx="1" fill="rgba(255,255,255,0.4)"/>
+  <rect x="566" y="212" width="30" height="2" rx="1" fill="rgba(255,255,255,0.4)"/>
+  <!-- Left arm -->
+  <path d="M508,168 Q488,208 484,248" stroke="#004d4d" stroke-width="22" fill="none" stroke-linecap="round"/>
+  <ellipse cx="483" cy="254" rx="14" ry="10" fill="#9A6428"/>
+  <!-- Right arm with folder -->
+  <path d="M592,168 Q612,205 610,244" stroke="#004d4d" stroke-width="22" fill="none" stroke-linecap="round"/>
+  <ellipse cx="608" cy="250" rx="14" ry="10" fill="#9A6428"/>
+  <!-- Neck + head -->
+  <rect x="538" y="134" width="24" height="20" rx="6" fill="#6B3A2A"/>
+  <ellipse cx="550" cy="113" rx="32" ry="36" fill="#6B3A2A"/>
+  <ellipse cx="518" cy="116" rx="7" ry="10" fill="#5A3020"/>
+  <ellipse cx="582" cy="116" rx="7" ry="10" fill="#5A3020"/>
+  <!-- Afro hair -->
+  <circle cx="550" cy="94" r="42" fill="#1a0a00"/>
+  <ellipse cx="524" cy="110" rx="12" ry="16" fill="#1a0a00"/>
+  <ellipse cx="576" cy="110" rx="12" ry="16" fill="#1a0a00"/>
+  <!-- Eyes -->
+  <ellipse cx="537" cy="108" rx="7" ry="5.5" fill="white"/>
+  <ellipse cx="563" cy="108" rx="7" ry="5.5" fill="white"/>
+  <circle cx="537" cy="108" r="4" fill="#1a0a00"/>
+  <circle cx="563" cy="108" r="4" fill="#1a0a00"/>
+  <circle cx="538.5" cy="106.5" r="1.4" fill="white" opacity="0.9"/>
+  <circle cx="564.5" cy="106.5" r="1.4" fill="white" opacity="0.9"/>
+  <!-- Eyebrows -->
+  <path d="M528,97 Q537,91 544,96" stroke="#1a0a00" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+  <path d="M556,96 Q563,91 572,97" stroke="#1a0a00" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+  <path d="M538,122 Q550,132 562,122" stroke="rgba(100,60,20,0.45)" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- ── Digital referral overlay panel (center) ── -->
+  <rect x="290" y="110" width="220" height="180" rx="14" fill="white" opacity="0.94" stroke="rgba(0,74,153,0.15)" stroke-width="1.5"/>
+  <!-- Panel header -->
+  <rect x="290" y="110" width="220" height="36" rx="14" fill="#003580"/>
+  <rect x="290" y="132" width="220" height="14" fill="#003580"/>
+  <text x="310" y="133" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="white">Digital Referral Dashboard</text>
+  <!-- Stats inside panel -->
+  <text x="308" y="162" font-family="Georgia,serif" font-size="22" font-weight="bold" fill="#004A99">24</text>
+  <text x="308" y="174" font-family="Arial,sans-serif" font-size="9" fill="#888">Active Referrals</text>
+  <text x="378" y="162" font-family="Georgia,serif" font-size="22" font-weight="bold" fill="#84BD60">97%</text>
+  <text x="378" y="174" font-family="Arial,sans-serif" font-size="9" fill="#888">Placement Rate</text>
+  <text x="448" y="162" font-family="Georgia,serif" font-size="22" font-weight="bold" fill="#E8845A">4.8★</text>
+  <text x="448" y="174" font-family="Arial,sans-serif" font-size="9" fill="#888">Care Rating</text>
+  <!-- Divider -->
+  <rect x="306" y="180" width="188" height="1" fill="rgba(0,74,153,0.1)"/>
+  <!-- Progress bars -->
+  <text x="308" y="198" font-family="Arial,sans-serif" font-size="9" fill="#555">HCA Match Rate</text>
+  <rect x="308" y="202" width="172" height="6" rx="3" fill="#f0f0f0"/>
+  <rect x="308" y="202" width="158" height="6" rx="3" fill="#84BD60"/>
+  <text x="308" y="220" font-family="Arial,sans-serif" font-size="9" fill="#555">Reports Delivered</text>
+  <rect x="308" y="224" width="172" height="6" rx="3" fill="#f0f0f0"/>
+  <rect x="308" y="224" width="148" height="6" rx="3" fill="#004A99"/>
+  <text x="308" y="242" font-family="Arial,sans-serif" font-size="9" fill="#555">Family Satisfaction</text>
+  <rect x="308" y="246" width="172" height="6" rx="3" fill="#f0f0f0"/>
+  <rect x="308" y="246" width="165" height="6" rx="3" fill="#E8845A"/>
+  <!-- Live indicator -->
+  <circle cx="484" cy="120" r="5" fill="#4caf50"/>
+  <circle cx="484" cy="120" r="9" fill="#4caf50" opacity="0.3"/>
+  <text x="470" y="137" font-family="Arial,sans-serif" font-size="8" fill="rgba(255,255,255,0.8)">LIVE</text>
+  <!-- Panel: Referral steps -->
+  <rect x="308" y="264" width="168" height="18" rx="5" fill="#84BD60" opacity="0.15"/>
+  <text x="318" y="276" font-family="Arial,sans-serif" font-size="9" fill="#2e7d32" font-weight="bold">✓ Referral confirmed — HCA matched</text>
+
+  <!-- ── Bottom accent bar ── -->
+  <rect x="0" y="380" width="800" height="20" fill="url(#ph-accent)" opacity="0.9"/>
+  <rect x="0" y="380" width="266" height="20" fill="#003580"/>
+  <rect x="266" y="380" width="267" height="20" fill="#84BD60" opacity="0.7"/>
+  <rect x="533" y="380" width="267" height="20" fill="#E8845A" opacity="0.6"/>
+</g>
+</svg>

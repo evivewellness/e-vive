@@ -248,11 +248,40 @@ export const DASH_BASE = `
   @keyframes slide-in { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
+  /* Mobile hamburger & overlay */
+  .dash-hamburger { display:none; align-items:center; justify-content:center; background:none; border:1px solid rgba(0,74,153,0.15); border-radius:9px; padding:7px 9px; cursor:pointer; color:var(--text); font-size:18px; line-height:1; transition:background 0.2s; flex-shrink:0; }
+  .dash-hamburger:hover { background:rgba(0,74,153,0.08); }
+  .dash-side-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:198; animation:fadeIn 0.2s; }
+  .dash-side-overlay.open { display:block; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+  /* Mobile topbar logout pill */
+  .topbar-logout { display:none; align-items:center; gap:6px; background:rgba(249,112,102,0.1); border:1px solid rgba(249,112,102,0.25); border-radius:100px; padding:7px 14px; color:var(--coral); font-family:var(--mono); font-size:12px; font-weight:700; cursor:pointer; transition:all 0.2s; white-space:nowrap; }
+  .topbar-logout:hover { background:rgba(249,112,102,0.2); }
+
   @media (max-width:900px) {
-    .dash-side { display:none; }
+    .dash-hamburger { display:flex; }
+    .topbar-logout { display:flex; }
+    .dash-side {
+      position:fixed; top:0; left:-260px; bottom:0;
+      width:240px; z-index:199;
+      transition:left 0.28s cubic-bezier(0.4,0,0.2,1);
+      box-shadow:none;
+    }
+    .dash-side.open {
+      left:0;
+      box-shadow:6px 0 40px rgba(0,74,153,0.2);
+    }
     .stat-grid { grid-template-columns:1fr 1fr; }
     .dash-content { padding:18px 16px; }
-    .dash-topbar { padding:14px 16px; }
+    .dash-topbar { padding:14px 16px; gap:10px; }
     .dash-form-row { grid-template-columns:1fr; }
+    .dash-tabs { padding:0 16px; }
+    .dash-title { font-size:17px; }
+  }
+
+  @media (max-width:500px) {
+    .stat-grid { grid-template-columns:1fr 1fr; }
+    .dash-topbar { flex-wrap:wrap; }
   }
 `;

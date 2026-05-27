@@ -1,0 +1,250 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" width="1200" height="520">
+<defs>
+  <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#f5ede0"/>
+    <stop offset="100%" stop-color="#e8d5b8"/>
+  </linearGradient>
+  <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#c4a882"/>
+    <stop offset="100%" stop-color="#a8855a"/>
+  </linearGradient>
+  <linearGradient id="win-light" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#fff9e6" stop-opacity="0.95"/>
+    <stop offset="100%" stop-color="#ffe082" stop-opacity="0.3"/>
+  </linearGradient>
+  <linearGradient id="sky-grad" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#87ceeb"/>
+    <stop offset="100%" stop-color="#e0f4ff"/>
+  </linearGradient>
+  <linearGradient id="jade-uniform" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#1a5276"/>
+    <stop offset="100%" stop-color="#154360"/>
+  </linearGradient>
+  <filter id="soft-shadow" x="-10%" y="-10%" width="120%" height="130%">
+    <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="rgba(0,0,0,0.15)"/>
+  </filter>
+  <clipPath id="scene-clip"><rect width="1200" height="520" rx="16"/></clipPath>
+</defs>
+<g clip-path="url(#scene-clip)">
+
+  <!-- Wall -->
+  <rect width="1200" height="520" fill="url(#wall)"/>
+  <!-- Floor -->
+  <rect y="390" width="1200" height="130" fill="url(#floor)"/>
+  <!-- Baseboard -->
+  <rect y="388" width="1200" height="6" fill="#b8956a" opacity="0.7"/>
+
+  <!-- ── Window left ── -->
+  <rect x="60" y="40" width="220" height="300" rx="6" fill="url(#win-light)" stroke="#d4b896" stroke-width="3"/>
+  <rect x="60" y="40" width="220" height="300" rx="6" fill="url(#sky-grad)" opacity="0.6"/>
+  <!-- Window panes -->
+  <rect x="60" y="40" width="220" height="300" rx="6" fill="none" stroke="#d4b896" stroke-width="3"/>
+  <line x1="170" y1="40" x2="170" y2="340" stroke="#d4b896" stroke-width="2.5"/>
+  <line x1="60" y1="190" x2="280" y2="190" stroke="#d4b896" stroke-width="2.5"/>
+  <!-- Window light beam -->
+  <polygon points="280,40 280,340 480,390 480,0" fill="rgba(255,240,180,0.15)"/>
+  <!-- Curtain left -->
+  <path d="M40,30 Q58,180 50,340 L70,340 Q78,180 60,30 Z" fill="#e8c9a0" opacity="0.9"/>
+  <!-- Curtain right -->
+  <path d="M280,30 Q298,180 290,340 L310,340 Q302,180 320,30 Z" fill="#e8c9a0" opacity="0.9"/>
+  <!-- Curtain tie-back left -->
+  <ellipse cx="55" cy="200" rx="12" ry="8" fill="#d4a870"/>
+  <!-- Curtain tie-back right -->
+  <ellipse cx="305" cy="200" rx="12" ry="8" fill="#d4a870"/>
+
+  <!-- ── Potted plant ── -->
+  <!-- Pot -->
+  <path d="M160,388 L180,340 L230,340 L250,388 Z" fill="#c0694a"/>
+  <rect x="155" y="382" width="100" height="10" rx="4" fill="#a85a38"/>
+  <!-- Soil -->
+  <ellipse cx="205" cy="340" rx="28" ry="8" fill="#5c3317"/>
+  <!-- Stem 1 -->
+  <path d="M205,340 Q190,290 170,250" stroke="#2e7d32" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <!-- Stem 2 -->
+  <path d="M205,340 Q215,280 240,240" stroke="#2e7d32" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <!-- Stem 3 -->
+  <path d="M205,340 Q205,270 195,220" stroke="#1b5e20" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <!-- Leaves -->
+  <ellipse cx="165" cy="245" rx="32" ry="18" fill="#43a047" transform="rotate(-30 165 245)"/>
+  <ellipse cx="243" cy="235" rx="32" ry="18" fill="#388e3c" transform="rotate(25 243 235)"/>
+  <ellipse cx="192" cy="215" rx="28" ry="16" fill="#4caf50" transform="rotate(-10 192 215)"/>
+  <ellipse cx="220" cy="200" rx="22" ry="14" fill="#66bb6a" transform="rotate(15 220 200)"/>
+
+  <!-- ── Armchair ── -->
+  <!-- Back -->
+  <rect x="420" y="200" width="220" height="190" rx="22" fill="#7b5ea7" filter="url(#soft-shadow)"/>
+  <!-- Seat -->
+  <rect x="410" y="310" width="240" height="80" rx="16" fill="#6a4d96"/>
+  <!-- Left arm -->
+  <rect x="400" y="270" width="40" height="120" rx="14" fill="#7b5ea7"/>
+  <!-- Right arm -->
+  <rect x="620" y="270" width="40" height="120" rx="14" fill="#7b5ea7"/>
+  <!-- Chair legs -->
+  <rect x="420" y="378" width="16" height="30" rx="5" fill="#5a3f80"/>
+  <rect x="618" y="378" width="16" height="30" rx="5" fill="#5a3f80"/>
+  <!-- Chair cushion highlight -->
+  <ellipse cx="530" cy="318" rx="80" ry="16" fill="rgba(255,255,255,0.08)"/>
+
+  <!-- ── Elderly patient (seated in chair) ── -->
+  <!-- Body / clothing -->
+  <ellipse cx="530" cy="355" rx="64" ry="36" fill="#8B7355"/>
+  <rect x="490" y="285" width="80" height="80" rx="18" fill="#8B7355"/>
+  <!-- Collar/neckline detail -->
+  <path d="M510,285 L530,300 L550,285" fill="rgba(255,255,255,0.15)"/>
+  <!-- Left arm resting on chair arm -->
+  <path d="M490,330 Q450,340 418,350" stroke="#7B6545" stroke-width="22" fill="none" stroke-linecap="round"/>
+  <!-- Right arm resting -->
+  <path d="M570,330 Q610,342 622,352" stroke="#7B6545" stroke-width="22" fill="none" stroke-linecap="round"/>
+  <!-- Hands -->
+  <ellipse cx="418" cy="354" rx="14" ry="10" fill="#9A6428"/>
+  <ellipse cx="624" cy="355" rx="14" ry="10" fill="#9A6428"/>
+  <!-- Neck -->
+  <rect x="515" y="272" width="30" height="22" rx="6" fill="#9A6428"/>
+  <!-- Head -->
+  <ellipse cx="530" cy="250" rx="36" ry="40" fill="#9A6428"/>
+  <!-- Ear left -->
+  <ellipse cx="494" cy="253" rx="7" ry="10" fill="#8B7355"/>
+  <!-- Ear right -->
+  <ellipse cx="566" cy="253" rx="7" ry="10" fill="#8B7355"/>
+  <!-- Hair (white/salt) -->
+  <ellipse cx="530" cy="218" rx="34" ry="16" fill="#b0a090"/>
+  <rect x="496" y="218" width="68" height="12" rx="8" fill="#b0a090"/>
+  <!-- Face shadow -->
+  <ellipse cx="530" cy="260" rx="22" ry="16" fill="rgba(0,0,0,0.06)"/>
+  <!-- Eyes (warm, kind, slightly squinted — older) -->
+  <ellipse cx="516" cy="244" rx="7" ry="5" fill="white"/>
+  <ellipse cx="544" cy="244" rx="7" ry="5" fill="white"/>
+  <circle cx="516" cy="244" r="4" fill="#1a0a00"/>
+  <circle cx="544" cy="244" r="4" fill="#1a0a00"/>
+  <circle cx="517.5" cy="242.5" r="1.3" fill="white" opacity="0.85"/>
+  <circle cx="545.5" cy="242.5" r="1.3" fill="white" opacity="0.85"/>
+  <!-- Wrinkle lines -->
+  <path d="M503,238 Q509,236 515,238" stroke="rgba(100,60,20,0.3)" stroke-width="1" fill="none"/>
+  <path d="M545,238 Q551,236 557,238" stroke="rgba(100,60,20,0.3)" stroke-width="1" fill="none"/>
+  <!-- Eyebrows (greying) -->
+  <path d="M506,236 Q516,231 522,234" stroke="#8a7060" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M538,234 Q544,231 554,236" stroke="#8a7060" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- Nose -->
+  <ellipse cx="530" cy="258" rx="5" ry="3.5" fill="rgba(100,60,20,0.3)"/>
+  <!-- Warm smile -->
+  <path d="M517,268 Q530,278 543,268" stroke="rgba(100,60,20,0.4)" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- ── HCA (standing, slightly behind/beside) ── -->
+  <!-- Shadow on floor -->
+  <ellipse cx="700" cy="400" rx="52" ry="12" fill="rgba(0,0,0,0.12)"/>
+  <!-- Legs -->
+  <rect x="672" y="330" width="22" height="80" rx="8" fill="#1a3a5c"/>
+  <rect x="706" y="330" width="22" height="80" rx="8" fill="#1a3a5c"/>
+  <!-- Shoes -->
+  <ellipse cx="683" cy="412" rx="16" ry="7" fill="#1a1a2e"/>
+  <ellipse cx="717" cy="412" rx="16" ry="7" fill="#1a1a2e"/>
+  <!-- Body/uniform (scrubs) -->
+  <rect x="652" y="190" width="97" height="150" rx="18" fill="url(#jade-uniform)" filter="url(#soft-shadow)"/>
+  <!-- Uniform pocket -->
+  <rect x="720" y="230" width="22" height="16" rx="4" fill="rgba(255,255,255,0.15)"/>
+  <!-- ID badge -->
+  <rect x="658" y="224" width="28" height="18" rx="4" fill="white" opacity="0.85"/>
+  <rect x="661" y="228" width="22" height="2" rx="1" fill="#004A99"/>
+  <rect x="661" y="232" width="16" height="2" rx="1" fill="#84BD60"/>
+  <!-- Left arm reaching toward patient -->
+  <path d="M652,220 Q600,260 580,300" stroke="#154360" stroke-width="26" fill="none" stroke-linecap="round"/>
+  <!-- Left hand -->
+  <ellipse cx="577" cy="305" rx="16" ry="12" fill="#C68642"/>
+  <!-- Right arm down -->
+  <path d="M748,220 Q762,270 758,310" stroke="#154360" stroke-width="24" fill="none" stroke-linecap="round"/>
+  <!-- Right hand holding small cup -->
+  <ellipse cx="760" cy="316" rx="14" ry="11" fill="#C68642"/>
+  <!-- Cup -->
+  <rect x="752" y="308" width="18" height="18" rx="5" fill="white" opacity="0.9"/>
+  <rect x="754" y="305" width="14" height="5" rx="2" fill="#e0e0e0"/>
+  <!-- Neck -->
+  <rect x="685" y="172" width="32" height="26" rx="7" fill="#C68642"/>
+  <!-- Head -->
+  <ellipse cx="701" cy="148" rx="38" ry="42" fill="#C68642"/>
+  <!-- Ear left -->
+  <ellipse cx="663" cy="150" rx="8" ry="11" fill="#B57A35"/>
+  <!-- Ear right -->
+  <ellipse cx="739" cy="150" rx="8" ry="11" fill="#B57A35"/>
+  <!-- Hair — braids pulled back -->
+  <ellipse cx="701" cy="114" rx="36" ry="18" fill="#1a0a00"/>
+  <rect x="665" y="116" width="72" height="14" rx="8" fill="#1a0a00"/>
+  <ellipse cx="701" cy="110" rx="22" ry="10" fill="#2a1208"/>
+  <!-- Face shadow -->
+  <ellipse cx="701" cy="162" rx="24" ry="18" fill="rgba(0,0,0,0.05)"/>
+  <!-- Eyes (focused, caring) -->
+  <ellipse cx="686" cy="140" rx="7.5" ry="6" fill="white"/>
+  <ellipse cx="716" cy="140" rx="7.5" ry="6" fill="white"/>
+  <circle cx="686" cy="140" r="4.5" fill="#1a0a00"/>
+  <circle cx="716" cy="140" r="4.5" fill="#1a0a00"/>
+  <circle cx="687.8" cy="138.5" r="1.5" fill="white" opacity="0.9"/>
+  <circle cx="717.8" cy="138.5" r="1.5" fill="white" opacity="0.9"/>
+  <!-- Eyebrows (HCA — focused/friendly) -->
+  <path d="M676,130 Q686,124 694,128" stroke="#1a0a00" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M708,128 Q716,124 726,130" stroke="#1a0a00" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <!-- Nose -->
+  <ellipse cx="701" cy="154" rx="5.5" ry="3.8" fill="rgba(100,60,20,0.3)"/>
+  <!-- Gentle professional smile -->
+  <path d="M688,166 Q701,176 714,166" stroke="rgba(100,60,20,0.5)" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+
+  <!-- ── Side table ── -->
+  <rect x="755" y="340" width="90" height="60" rx="6" fill="#a8855a"/>
+  <rect x="748" y="335" width="104" height="12" rx="5" fill="#c4a882"/>
+  <!-- Legs -->
+  <rect x="760" y="388" width="10" height="20" rx="3" fill="#9a7550"/>
+  <rect x="824" y="388" width="10" height="20" rx="3" fill="#9a7550"/>
+  <!-- Items on table -->
+  <!-- Medicine bottle -->
+  <rect x="780" y="308" width="16" height="28" rx="5" fill="#e8845a"/>
+  <rect x="780" y="305" width="16" height="6" rx="2" fill="#d4704a"/>
+  <rect x="783" y="316" width="10" height="2" rx="1" fill="rgba(255,255,255,0.5)"/>
+  <!-- Glass of water -->
+  <rect x="806" y="314" width="14" height="22" rx="3" fill="rgba(135,206,235,0.7)" stroke="#90caf9" stroke-width="1"/>
+  <!-- Notebook -->
+  <rect x="764" y="335" width="52" height="4" rx="2" fill="#84BD60" opacity="0.8"/>
+
+  <!-- ── Bookshelf (right background) ── -->
+  <rect x="940" y="100" width="200" height="280" rx="6" fill="#8B6914" opacity="0.5"/>
+  <rect x="940" y="100" width="200" height="280" rx="6" fill="none" stroke="#7a5c10" stroke-width="2" opacity="0.5"/>
+  <!-- Shelf lines -->
+  <line x1="940" y1="180" x2="1140" y2="180" stroke="#7a5c10" stroke-width="2" opacity="0.4"/>
+  <line x1="940" y1="260" x2="1140" y2="260" stroke="#7a5c10" stroke-width="2" opacity="0.4"/>
+  <!-- Books row 1 -->
+  <rect x="952" y="110" width="24" height="65" rx="2" fill="#004A99" opacity="0.7"/>
+  <rect x="978" y="118" width="20" height="57" rx="2" fill="#E8845A" opacity="0.7"/>
+  <rect x="1000" y="113" width="18" height="62" rx="2" fill="#84BD60" opacity="0.7"/>
+  <rect x="1020" y="115" width="22" height="60" rx="2" fill="#7b5ea7" opacity="0.7"/>
+  <rect x="1044" y="110" width="16" height="65" rx="2" fill="#E8845A" opacity="0.6"/>
+  <rect x="1062" y="116" width="20" height="59" rx="2" fill="#004A99" opacity="0.6"/>
+  <rect x="1084" y="112" width="18" height="63" rx="2" fill="#84BD60" opacity="0.65"/>
+  <rect x="1104" y="117" width="24" height="58" rx="2" fill="#880e4f" opacity="0.6"/>
+  <!-- Books row 2 -->
+  <rect x="952" y="192" width="26" height="60" rx="2" fill="#1b5e20" opacity="0.7"/>
+  <rect x="980" y="196" width="20" height="56" rx="2" fill="#004A99" opacity="0.65"/>
+  <rect x="1002" y="192" width="16" height="60" rx="2" fill="#E8845A" opacity="0.7"/>
+  <rect x="1020" y="195" width="24" height="57" rx="2" fill="#84BD60" opacity="0.6"/>
+  <rect x="1046" y="192" width="18" height="60" rx="2" fill="#7b5ea7" opacity="0.65"/>
+  <rect x="1066" y="195" width="22" height="57" rx="2" fill="#880e4f" opacity="0.6"/>
+  <rect x="1090" y="192" width="18" height="60" rx="2" fill="#1b5e20" opacity="0.65"/>
+  <!-- Frame on shelf -->
+  <rect x="970" y="270" width="58" height="44" rx="4" fill="#c9a84c" opacity="0.8"/>
+  <rect x="975" y="275" width="48" height="34" rx="2" fill="#e8d5b8" opacity="0.9"/>
+  <!-- Vase on shelf -->
+  <path d="M1070,268 Q1058,275 1060,310 L1088,310 Q1090,275 1078,268 Z" fill="#c0694a" opacity="0.7"/>
+  <ellipse cx="1074" cy="268" rx="8" ry="4" fill="#b05a3a" opacity="0.7"/>
+  <!-- Flowers in vase -->
+  <circle cx="1060" cy="256" r="10" fill="#E8845A" opacity="0.8"/>
+  <circle cx="1074" cy="248" r="11" fill="#84BD60" opacity="0.8"/>
+  <circle cx="1088" cy="256" r="10" fill="#E8845A" opacity="0.75"/>
+
+  <!-- ── E-Vive logo mark (top right) ── -->
+  <rect x="1060" y="24" width="120" height="44" rx="10" fill="rgba(0,53,128,0.85)"/>
+  <text x="1076" y="50" font-family="Georgia,serif" font-size="20" font-weight="bold" fill="white" letter-spacing="1">e-vive</text>
+  <rect x="1060" y="68" width="120" height="3" rx="1" fill="#84BD60" opacity="0.7"/>
+
+  <!-- ── E-Vive accent strip ── -->
+  <rect x="0" y="510" width="1200" height="10" fill="url(#jade-uniform)" opacity="0.8"/>
+  <rect x="0" y="510" width="400" height="10" fill="#84BD60" opacity="0.6"/>
+  <rect x="400" y="510" width="400" height="10" fill="#E8845A" opacity="0.5"/>
+
+</g>
+</svg>

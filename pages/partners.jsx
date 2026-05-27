@@ -9,41 +9,65 @@ const PAGE_CSS = `
 
   /* Hero */
   .pt-hero {
-    background: linear-gradient(135deg, #1a1200 0%, #0f1a0a 40%, var(--forest) 100%);
+    background: radial-gradient(ellipse 80% 60% at 72% 32%, rgba(0,74,153,0.08) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 55% at 5% 78%, rgba(132,189,96,0.06) 0%, transparent 55%),
+                linear-gradient(155deg, #EBF1FA 0%, #F4F7F6 55%, #EEF5EE 100%);
     padding: 80px 24px 64px; position: relative; overflow: hidden;
   }
-  .pt-hero::before {
-    content:''; position:absolute; inset:0;
-    background: radial-gradient(ellipse at 70% 40%, rgba(251,191,36,0.07) 0%, transparent 55%),
-                radial-gradient(ellipse at 20% 70%, rgba(168,0,64,0.05) 0%, transparent 55%);
+
+  /* Photo background layers */
+  .pt-hero-photos { position:absolute; inset:0; z-index:1; overflow:hidden; pointer-events:none; }
+  .pt-hp2 {
+    position:absolute; top:0; right:0; height:100%; width:62%; object-fit:cover; display:block;
+    object-position:55% 15%; opacity:0.45;
+    -webkit-mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 20%, black 50%, black 100%);
+    mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 20%, black 50%, black 100%);
   }
-  .pt-hero-inner { position:relative; max-width:1100px; margin:0 auto; text-align:center; }
+  .pt-hp1 {
+    position:absolute; top:0; right:0; height:100%; width:44%; object-fit:cover; display:block;
+    object-position:52% 10%; opacity:0.38;
+    -webkit-mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.6) 20%, black 48%, black 100%);
+    mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.6) 20%, black 48%, black 100%);
+  }
+  .pt-hp-btm {
+    position:absolute; bottom:0; left:0; right:0; height:200px;
+    background:linear-gradient(to bottom, transparent 0%, rgba(235,241,250,0.97) 100%);
+  }
+  .pt-hero-overlay {
+    position:absolute; inset:0; z-index:2; pointer-events:none;
+    background:linear-gradient(to right,
+      rgba(235,241,250,0.97) 0%, rgba(235,241,250,0.93) 30%,
+      rgba(235,241,250,0.78) 50%, rgba(235,241,250,0.50) 64%,
+      rgba(235,241,250,0.18) 80%, transparent 92%);
+  }
+
+  .pt-hero-inner { position:relative; z-index:3; max-width:1100px; margin:0 auto; text-align:center; }
   .pt-hero-tag {
     display:inline-block;
-    background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.3);
-    color:var(--gold); padding:6px 18px; border-radius:999px;
+    background:rgba(0,74,153,0.08); border:1px solid rgba(0,74,153,0.22);
+    color:var(--jade); padding:6px 18px; border-radius:999px;
     font-size:0.75rem; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:24px;
   }
-  .pt-hero h1 { font-size:clamp(2rem,4.5vw,3rem); margin-bottom:18px; }
-  .pt-hero h1 span { color:var(--gold); }
-  .pt-hero p  { font-size:1.05rem; color:var(--muted); max-width:600px; margin:0 auto 32px; line-height:1.7; }
+  .pt-hero h1 { font-size:clamp(2rem,4.5vw,3rem); margin-bottom:18px; color:var(--text); }
+  .pt-hero h1 span { color:var(--jade); }
+  .pt-hero p  { font-size:1.05rem; color:rgba(15,32,53,0.72); max-width:600px; margin:0 auto 32px; line-height:1.7; }
   .pt-hero-btns { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
 
   /* Partner logos strip */
   .partner-strip {
-    background:rgba(0,0,0,0.3); border-top:1px solid rgba(255,255,255,0.06);
-    border-bottom:1px solid rgba(255,255,255,0.06); padding:28px 24px;
+    background:rgba(255,255,255,0.85); border-top:1px solid rgba(0,74,153,0.08);
+    border-bottom:1px solid rgba(0,74,153,0.08); padding:28px 24px;
   }
   .partner-strip-inner { max-width:1100px; margin:0 auto; }
   .partner-strip h4 { text-align:center; font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:24px; }
   .partner-logos { display:flex; gap:24px; justify-content:center; flex-wrap:wrap; align-items:center; }
   .partner-logo-badge {
-    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
+    background:rgba(0,74,153,0.05); border:1px solid rgba(0,74,153,0.15);
     border-radius:10px; padding:10px 22px; font-size:0.88rem; font-weight:700;
-    color:var(--gold); letter-spacing:0.03em;
+    color:var(--jade); letter-spacing:0.03em;
     transition: border-color 0.2s, background 0.2s;
   }
-  .partner-logo-badge:hover { border-color:rgba(251,191,36,0.35); background:rgba(251,191,36,0.05); }
+  .partner-logo-badge:hover { border-color:rgba(0,74,153,0.3); background:rgba(0,74,153,0.08); }
 
   /* Section commons */
   .pt-section { padding:64px 24px; }
@@ -173,7 +197,7 @@ const VALUE_PROPS = [
   { icon: '🔗', title: 'Seamless Referrals', desc: 'Refer patients who need post-discharge home care directly through our platform. Track every referral in real time.' },
   { icon: '📊', title: 'Care Outcome Reports', desc: 'Receive structured reports on patient progress, HCA performance, and care continuity from our digital Cardex system.' },
   { icon: '🛡️', title: 'Vetted HCA Network', desc: 'All HCAs are identity-verified, certificate-validated, and quality-rated. You can be confident in who enters a patient\'s home.' },
-  { icon: '📍', title: 'Location Intelligence', desc: 'Our matching engine surfaces HCAs nearest to the patient\'s home — reducing gaps and improving continuity of care.' },
+  { icon: '📍', title: 'Location Intelligence', desc: 'Our matching engine surfaces HCAs nearest to the patient\'s home - reducing gaps and improving continuity of care.' },
   { icon: '📱', title: 'Digital Integration', desc: 'Discharge summaries, care plans, and medication lists can be shared directly with the placed HCA via our platform.' },
   { icon: '📞', title: 'Shared Care Team', desc: 'HCAs communicate incidents and observations through timestamped Cardex entries, creating a shared record for your clinical team.' },
 ];
@@ -210,6 +234,14 @@ export default function PartnersPage() {
 
       {/* Hero */}
       <section className="pt-hero">
+        <div className="pt-hero-photos" aria-hidden="true">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="pt-hp2" src="/images/hero-photo-2.jpg" alt="" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="pt-hp1" src="/images/hero-photo-1.jpg" alt="" />
+          <div className="pt-hp-btm" />
+        </div>
+        <div className="pt-hero-overlay" aria-hidden="true" />
         <div className="pt-hero-inner">
           <div className="pt-hero-tag">Healthcare Partner Portal</div>
           <h1>Extend Your Care <span>Beyond the Ward</span></h1>
@@ -279,7 +311,7 @@ export default function PartnersPage() {
           <div className="pt-section-head">
             <span className="tag">Partner Dashboard</span>
             <h2>Your Portal at a Glance</h2>
-            <p>A dedicated portal to manage referrals, track placed patients, and access care reports — all in one place.</p>
+            <p>A dedicated portal to manage referrals, track placed patients, and access care reports - all in one place.</p>
           </div>
           <div className="portal-preview">
             <div>
@@ -300,7 +332,7 @@ export default function PartnersPage() {
                   ['📋','Discharge summary shared with E-Vive'],
                   ['🔍','Patient matched to nearest qualified HCA'],
                   ['📞','Coordinator calls family to confirm'],
-                  ['✅','HCA placed — care begins within 24 hrs'],
+                  ['✅','HCA placed - care begins within 24 hrs'],
                   ['📊','Weekly Cardex summaries sent to clinical team'],
                 ].map(([icon,text]) => (
                   <div className="ref-step-row" key={text}>
@@ -347,7 +379,7 @@ export default function PartnersPage() {
               <p>Fill in the form and our partnerships team will reach out within one business day to walk you through the agreement and portal setup.</p>
               <div className="onboard-points">
                 {[
-                  'Free to join — no setup fees',
+                  'Free to join - no setup fees',
                   'Partnership agreement signed digitally',
                   'Dedicated coordinator assigned to your institution',
                   'Staff training session on referral workflow',
@@ -392,7 +424,7 @@ export default function PartnersPage() {
                       </div>
                       <div className="form-group">
                         <label>Work Email *</label>
-                        <input className="input" type="email" required placeholder="name@hospital.co.ke" value={form.email} onChange={e => setForm(p=>({...p,email:e.target.value}))} />
+                        <input className="input" type="email" required placeholder="hello@e-vive.co.ke" value={form.email} onChange={e => setForm(p=>({...p,email:e.target.value}))} />
                       </div>
                     </div>
                     <div className="form-row">
@@ -428,7 +460,7 @@ export default function PartnersPage() {
             <h2>Questions Before You Join?</h2>
             <p>Our partnerships team is happy to walk you through the programme, answer clinical governance questions, or arrange a demo.</p>
             <div className="pt-cta-btns">
-              <a href="mailto:partners@evive.co.ke" className="btn-a">Email Partnerships Team →</a>
+              <a href="mailto:hello@e-vive.co.ke" className="btn-a">Email Partnerships Team →</a>
               <Link href="/match" className="btn-o">Browse HCA Profiles</Link>
             </div>
           </div>

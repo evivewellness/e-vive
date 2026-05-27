@@ -3,6 +3,15 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { DASH_BASE } from "../../components/SharedStyles";
+import {
+  createClient,
+  authenticateClient,
+  getAllClients,
+  getClientByEmail,
+  setClientSession,
+  advanceClientJourney,
+  updateClient,
+} from "../../lib/store";
 
 const CSS = `
   body { display:flex; min-height:100vh; align-items:center; justify-content:center; padding:40px 16px; background:var(--deep); }
@@ -150,10 +159,24 @@ export default function ClientRegister() {
   function handleSignIn() {
     if (!loginEmail.trim() || !password) return;
     try {
+      const emailId = loginEmail.trim().toLowerCase();
+      // Try new store first
+      let client = authenticateClient(emailId, password);
+      // Fall back to mobile lookup in new store
+      if (!client) {
+        const all = getAllClients();
+        const byMobile = all.find(c => c.mobile === loginEmail.trim() && c.password === password);
+        if (byMobile) client = byMobile;
+      }
+      if (client) {
+        setClientSession(client);
+        router.push("/client/dashboard");
+        return;
+      }
+      // Legacy registry fallback
       const registry = JSON.parse(localStorage.getItem("evive_client_registry") || "[]");
-      const id = loginEmail.trim().toLowerCase();
       const user = registry.find(u =>
-        u.email?.toLowerCase() === id || u.mobile === id
+        u.email?.toLowerCase() === emailId || u.mobile === loginEmail.trim()
       );
       if (!user) {
         setLoginErr("No account found with these details. Check your email / phone or create a new account below.");
@@ -198,14 +221,20 @@ export default function ClientRegister() {
     if (newPwd.length < 6)        { setResetErr("Password must be at least 6 characters."); return; }
     if (newPwd !== confirmNewPwd) { setResetErr("Passwords do not match."); return; }
     try {
-      const registry = JSON.parse(localStorage.getItem("evive_client_registry") || "[]");
       const id = resetId.trim().toLowerCase();
+      // Update new store
+      const storeClient = getClientByEmail(id);
+      if (storeClient) updateClient(storeClient.id, { password: newPwd });
+      // Also update legacy registry
+      const registry = JSON.parse(localStorage.getItem("evive_client_registry") || "[]");
       const idx = registry.findIndex(u =>
-        u.email?.toLowerCase() === id || u.mobile === id
+        u.email?.toLowerCase() === id || u.mobile === resetId.trim()
       );
-      if (idx === -1) { setResetErr("Account not found."); return; }
-      registry[idx] = { ...registry[idx], password: newPwd };
-      localStorage.setItem("evive_client_registry", JSON.stringify(registry));
+      if (idx !== -1) {
+        registry[idx] = { ...registry[idx], password: newPwd };
+        localStorage.setItem("evive_client_registry", JSON.stringify(registry));
+      }
+      if (!storeClient && idx === -1) { setResetErr("Account not found."); return; }
       setResetErr("");
       setResetDone(true);
     } catch {
@@ -220,19 +249,37 @@ export default function ClientRegister() {
   }
 
   // ── Register: advance steps; save on final step ──
+  const [regErr, setRegErr] = useState("");
   function next() {
     if (step === 0 && !canNext0) return;
     if (step === 1 && !canNext1) return;
     if (step === 2 && !canNext2) return;
     if (step === 2) {
       try {
-        const registry = JSON.parse(localStorage.getItem("evive_client_registry") || "[]");
-        registry.push({ name:form.name, email:form.email, mobile:form.mobile, password:form.password });
-        localStorage.setItem("evive_client_registry", JSON.stringify(registry));
-        localStorage.setItem("evive_client_session", JSON.stringify({
-          name:form.name, email:form.email, mobile:form.mobile,
-        }));
-      } catch {}
+        const client = createClient({
+          name:     form.name,
+          email:    form.email,
+          mobile:   form.mobile,
+          password: form.password,
+          location: form.location,
+          address:  form.address,
+          patients: patients.map(p => ({
+            name:         p.name,
+            gender:       p.gender,
+            careType:     p.careType,
+            conditions:   p.careType,
+            notes:        p.notes,
+            relationship: "Patient",
+          })),
+        });
+        // Mark T&Cs accepted right away
+        advanceClientJourney(client.id, "tc_accepted");
+        setClientSession(client);
+        setRegErr("");
+      } catch (err) {
+        setRegErr(err.message || "Registration failed. Please try again.");
+        return;
+      }
     }
     setStep(s => s + 1);
   }
@@ -252,7 +299,7 @@ export default function ClientRegister() {
         <div className="reg-logo">
           <Link href="/" style={{textDecoration:"none"}}>
             <div className="reg-logo-text">e<span>-</span>vive</div>
-            <div className="reg-logo-sub">HomeCare Platform · {subLabel}</div>
+            <div className="reg-logo-sub">HomeCare · {subLabel}</div>
           </Link>
         </div>
 
@@ -404,14 +451,8 @@ export default function ClientRegister() {
               {!resetDone ? (
                 <>
                   <div className="gate-sub">
-                    A reset code has been generated for <strong style={{color:"var(--text)"}}>{resetId}</strong>.
-                    In a live system this would arrive by SMS or email.
-                  </div>
-
-                  {/* Show the code (simulated delivery) */}
-                  <div className="reset-code-box">
-                    <div className="reset-code">{resetCode}</div>
-                    <div className="reset-code-label">Your one-time reset code</div>
+                    A reset code has been sent to the email / mobile registered for <strong style={{color:"var(--text)"}}>{resetId}</strong>.
+                    Please check your messages and enter the 6-digit code below.
                   </div>
 
                   {resetErr && <div className="login-error" style={{textAlign:"left"}}>⚠ {resetErr}</div>}
@@ -612,7 +653,7 @@ export default function ClientRegister() {
                   <div className="reg-step-title">Terms & Conditions</div>
                   <div className="reg-step-sub">Please read and accept the E-Vive Terms of Service before your account is created.</div>
                   <div className="tc-box">
-                    <h4>E-Vive HomeCare Platform — Client Terms of Service</h4>
+                    <h4>E-Vive HomeCare — Client Terms of Service</h4>
                     <p><strong>1. Service Agreement.</strong> E-Vive Wellness Initiative (&quot;E-Vive&quot;) provides a platform to match clients with Home Care Assistants (&quot;HCAs&quot;). E-Vive is not a direct employer of HCAs but acts as a placement and management intermediary.</p>
                     <p><strong>2. Client Obligations.</strong> The Client agrees to provide accurate information about patients&apos; care needs, maintain safe and respectful conditions for HCAs on premises, and adhere to the agreed payment schedule.</p>
                     <p><strong>3. Placement Process.</strong> Following account creation, E-Vive will acknowledge the application, call the client, conduct a home visit, confirm the HCA match, and proceed with placement upon receipt of payment.</p>
@@ -663,6 +704,11 @@ export default function ClientRegister() {
                     <Link href="/" className="btn-o">Back to Home</Link>
                   </div>
                 </div>
+              )}
+
+              {/* Registration error */}
+              {regErr && (
+                <div className="login-error" style={{marginTop:12}}>⚠ {regErr}</div>
               )}
 
               {/* Navigation */}

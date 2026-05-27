@@ -8,25 +8,47 @@ const PAGE_CSS = `
   body { padding-top: 72px; }
 
   .cg-hero {
-    background: linear-gradient(135deg, var(--forest) 0%, #0d2b1e 60%, #0c1228 100%);
+    background: radial-gradient(ellipse 80% 60% at 75% 35%, rgba(0,74,153,0.08) 0%, transparent 58%),
+                radial-gradient(ellipse 50% 55% at 5% 75%, rgba(132,189,96,0.07) 0%, transparent 55%),
+                linear-gradient(155deg, #EBF1FA 0%, #F4F7F6 55%, #EEF5EE 100%);
     padding: 80px 24px 60px;
     text-align: center;
     position: relative;
     overflow: hidden;
   }
-  .cg-hero::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse at 30% 50%, rgba(168,0,64,0.08) 0%, transparent 60%),
-                radial-gradient(ellipse at 70% 30%, rgba(56,189,248,0.06) 0%, transparent 60%);
+
+  /* Photo background layers */
+  .cg-hero-photos { position:absolute; inset:0; z-index:1; overflow:hidden; pointer-events:none; }
+  .cg-hp2 {
+    position:absolute; top:0; right:0; height:100%; width:62%; object-fit:cover; display:block;
+    object-position:55% 15%; opacity:0.45;
+    -webkit-mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 20%, black 50%, black 100%);
+    mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 20%, black 50%, black 100%);
   }
-  .cg-hero-inner { position: relative; max-width: 720px; margin: 0 auto; }
+  .cg-hp1 {
+    position:absolute; top:0; right:0; height:100%; width:44%; object-fit:cover; display:block;
+    object-position:52% 10%; opacity:0.38;
+    -webkit-mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.6) 20%, black 48%, black 100%);
+    mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.6) 20%, black 48%, black 100%);
+  }
+  .cg-hp-btm {
+    position:absolute; bottom:0; left:0; right:0; height:200px;
+    background:linear-gradient(to bottom, transparent 0%, rgba(235,241,250,0.97) 100%);
+  }
+  .cg-hero-overlay {
+    position:absolute; inset:0; z-index:2; pointer-events:none;
+    background:linear-gradient(to right,
+      rgba(235,241,250,0.97) 0%, rgba(235,241,250,0.94) 30%,
+      rgba(235,241,250,0.80) 48%, rgba(235,241,250,0.55) 62%,
+      rgba(235,241,250,0.22) 78%, transparent 90%);
+  }
+
+  .cg-hero-inner { position: relative; z-index: 3; max-width: 720px; margin: 0 auto; }
   .cg-hero-tag {
     display: inline-block;
-    background: rgba(168,0,64,0.12);
-    border: 1px solid rgba(168,0,64,0.3);
-    color: var(--mint);
+    background: rgba(0,74,153,0.08);
+    border: 1px solid rgba(0,74,153,0.22);
+    color: var(--jade);
     padding: 6px 18px;
     border-radius: 999px;
     font-size: 0.75rem;
@@ -34,13 +56,13 @@ const PAGE_CSS = `
     text-transform: uppercase;
     margin-bottom: 24px;
   }
-  .cg-hero h1 { font-size: clamp(2rem,5vw,3.2rem); margin-bottom: 18px; color: #fff; }
-  .cg-hero p { font-size: 1.1rem; color: var(--muted); max-width: 540px; margin: 0 auto 32px; line-height: 1.7; }
+  .cg-hero h1 { font-size: clamp(2rem,5vw,3.2rem); margin-bottom: 18px; color: var(--text); }
+  .cg-hero p { font-size: 1.1rem; color: rgba(15,32,53,0.72); max-width: 540px; margin: 0 auto 32px; line-height: 1.7; }
   .cg-hero-stats {
     display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; margin-top: 40px;
   }
   .cg-hero-stat { text-align: center; }
-  .cg-hero-stat .val { font-size: 2rem; font-weight: 700; color: var(--mint); }
+  .cg-hero-stat .val { font-size: 2rem; font-weight: 700; color: var(--jade); }
   .cg-hero-stat .lab { font-size: 0.8rem; color: var(--muted); }
 
   /* Section layout */
@@ -161,8 +183,9 @@ const PAGE_CSS = `
     width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 14px;
     background: linear-gradient(135deg,var(--sky),var(--teal));
     display: flex; align-items: center; justify-content: center;
-    font-size: 1.6rem; font-weight: 700; color: #fff;
+    font-size: 1.6rem; font-weight: 700; color: #fff; overflow: hidden;
   }
+  .counsellor-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%; }
   .counsellor-card h3 { font-size: 1rem; margin-bottom: 4px; }
   .counsellor-card .role { font-size: 0.8rem; color: var(--sky); margin-bottom: 8px; }
   .counsellor-card p   { font-size: 0.82rem; color: var(--muted); line-height: 1.5; margin-bottom: 16px; }
@@ -255,16 +278,16 @@ const MODULES = [
 
 const THREADS = [
   { id: 1, initials: 'WN', author: 'Wanjiku N.', time: '2 hours ago', title: 'Tips for convincing a stubborn parent to take medication?', preview: 'My 78-year-old father refuses his BP medication. I have tried everything from hiding it in food to gentle persuasion...', replies: 14, likes: 22 },
-  { id: 2, initials: 'AO', author: 'Amina O.', time: '5 hours ago', title: 'Respite care — how do you cope when you need a break?', preview: 'I have been the sole caregiver for my mother for 14 months and I am exhausted. How do others handle needing time off?', replies: 31, likes: 47 },
-  { id: 3, initials: 'KM', author: 'Kamau M.', time: '1 day ago', title: 'Managing incontinence with dignity — what works?', preview: 'Looking for practical product recommendations and routines that preserve my uncle\'s dignity...', replies: 9, likes: 15 },
+  { id: 2, initials: 'AO', author: 'Amina O.', time: '5 hours ago', title: 'Respite care - how do you cope when you need a break?', preview: 'I have been the sole caregiver for my mother for 14 months and I am exhausted. How do others handle needing time off?', replies: 31, likes: 47 },
+  { id: 3, initials: 'KM', author: 'Kamau M.', time: '1 day ago', title: 'Managing incontinence with dignity - what works?', preview: 'Looking for practical product recommendations and routines that preserve my uncle\'s dignity...', replies: 9, likes: 15 },
   { id: 4, initials: 'FW', author: 'Faith W.', time: '2 days ago', title: 'How to explain a terminal diagnosis to young grandchildren?', preview: 'Our family is struggling to find age-appropriate language. Any experiences to share?', replies: 18, likes: 34 },
 ];
 
 const COUNSELLORS = [
-  { initials: 'SK', name: 'Dr. Sarah Kamau', role: 'Grief & Bereavement Counsellor', bio: 'Specialises in supporting families navigating chronic illness and loss. 12 years experience.', slots: ['Mon 9am', 'Wed 11am', 'Fri 2pm'] },
-  { initials: 'JO', name: 'James Otieno', role: 'Family Therapist', bio: 'Works with family systems under caregiving stress. Offers both individual and family sessions.', slots: ['Tue 10am', 'Thu 3pm', 'Sat 10am'] },
-  { initials: 'RM', name: 'Rose Mutua', role: 'Mental Health Counsellor', bio: 'Caregiver burnout, anxiety, and depression specialist. Swahili and English sessions available.', slots: ['Mon 2pm', 'Wed 4pm'] },
-  { initials: 'PM', name: 'Peter Mwangi', role: 'Social Worker', bio: 'Helps families access community resources, navigate systems, and plan sustainable care arrangements.', slots: ['Tue 11am', 'Thu 11am', 'Fri 10am'] },
+  { initials: 'SK', photo: '/images/portraits/counsellor-sarah-kamau.svg', name: 'Dr. Sarah Kamau', role: 'Grief & Bereavement Counsellor', bio: 'Specialises in supporting families navigating chronic illness and loss. 12 years experience.', slots: ['Mon 9am', 'Wed 11am', 'Fri 2pm'] },
+  { initials: 'JO', photo: '/images/portraits/counsellor-james-otieno.svg', name: 'James Otieno', role: 'Family Therapist', bio: 'Works with family systems under caregiving stress. Offers both individual and family sessions.', slots: ['Tue 10am', 'Thu 3pm', 'Sat 10am'] },
+  { initials: 'RM', photo: '/images/portraits/counsellor-rose-mutua.svg', name: 'Rose Mutua', role: 'Mental Health Counsellor', bio: 'Caregiver burnout, anxiety, and depression specialist. Swahili and English sessions available.', slots: ['Mon 2pm', 'Wed 4pm'] },
+  { initials: 'PM', photo: '/images/portraits/counsellor-peter-mwangi.svg', name: 'Peter Mwangi', role: 'Social Worker', bio: 'Helps families access community resources, navigate systems, and plan sustainable care arrangements.', slots: ['Tue 11am', 'Thu 11am', 'Fri 10am'] },
 ];
 
 const RESOURCES = [
@@ -274,7 +297,7 @@ const RESOURCES = [
   { type: 'Guide',    title: 'Managing Dementia Behaviour', desc: 'Evidence-based strategies for common dementia-related behaviours.', meta: '18 pages · PDF' },
   { type: 'Webinar',  title: 'Navigating the Healthcare System in Kenya', desc: 'Recording: how to access NHIF, referrals, and specialist care.', meta: '55 min · Video' },
   { type: 'Template', title: 'Medication & Appointment Tracker', desc: 'Spreadsheet template for tracking medications, dosages, and appointments.', meta: 'Excel · Template' },
-  { type: 'Guide',    title: 'Grief Support for Family Members', desc: 'For families in palliative situations — processing anticipatory grief.', meta: '12 pages · PDF' },
+  { type: 'Guide',    title: 'Grief Support for Family Members', desc: 'For families in palliative situations - processing anticipatory grief.', meta: '12 pages · PDF' },
   { type: 'Checklist','title': 'Home Safety Assessment Checklist', desc: 'Audit your home environment for fall and safety risks.', meta: '4 pages · PDF' },
 ];
 
@@ -309,6 +332,14 @@ export default function CaregiversPage() {
 
       {/* Hero */}
       <section className="cg-hero">
+        <div className="cg-hero-photos" aria-hidden="true">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="cg-hp2" src="/images/hero-photo-2.jpg" alt="" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="cg-hp1" src="/images/hero-photo-1.jpg" alt="" />
+          <div className="cg-hp-btm" />
+        </div>
+        <div className="cg-hero-overlay" aria-hidden="true" />
         <div className="cg-hero-inner">
           <div className="cg-hero-tag">Family Caregiver Hub</div>
           <h1>You Are Not Alone in This</h1>
@@ -327,7 +358,7 @@ export default function CaregiversPage() {
       </section>
 
       {/* Tab navigation */}
-      <div style={{ borderBottom:'1px solid rgba(255,255,255,0.08)', background:'rgba(0,0,0,0.25)', position:'sticky', top:72, zIndex:80 }}>
+      <div style={{ borderBottom:'1px solid rgba(0,74,153,0.1)', background:'rgba(255,255,255,0.92)', backdropFilter:'blur(16px)', WebkitBackdropFilter:'blur(16px)', position:'sticky', top:72, zIndex:80 }}>
         <div style={{ maxWidth:1100, margin:'0 auto', display:'flex', overflowX:'auto', gap:4, padding:'0 20px' }}>
           {tabs.map(t => (
             <button
@@ -336,8 +367,8 @@ export default function CaregiversPage() {
               style={{
                 padding:'16px 22px', background:'none', border:'none', cursor:'pointer',
                 fontSize:'0.88rem', fontWeight: activeTab===t.id ? 700 : 400,
-                color: activeTab===t.id ? 'var(--mint)' : 'var(--muted)',
-                borderBottom: activeTab===t.id ? '2px solid var(--mint)' : '2px solid transparent',
+                color: activeTab===t.id ? 'var(--jade)' : 'var(--muted)',
+                borderBottom: activeTab===t.id ? '2px solid var(--jade)' : '2px solid transparent',
                 whiteSpace:'nowrap', transition:'color 0.2s',
               }}
             >{t.label}</button>
@@ -458,7 +489,10 @@ export default function CaregiversPage() {
             <div className="counselling-grid">
               {COUNSELLORS.map(c => (
                 <div className="counsellor-card" key={c.name}>
-                  <div className="counsellor-avatar">{c.initials}</div>
+                  <div className="counsellor-avatar">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {c.photo ? <img src={c.photo} alt={c.name} /> : c.initials}
+                  </div>
                   <h3>{c.name}</h3>
                   <div className="role">{c.role}</div>
                   <p>{c.bio}</p>

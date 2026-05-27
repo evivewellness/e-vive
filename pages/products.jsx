@@ -209,12 +209,12 @@ const SAMPLE_PRODUCTS = [
 const FEATURES = [
   { icon: '🔗', title: 'HCA-Linked Ordering', desc: 'HCAs can recommend and order supplies directly through the platform, charged to the client account.' },
   { icon: '🚚', title: 'Same-Day Nairobi Delivery', desc: 'Orders placed before 12 noon delivered to Nairobi addresses the same day. Nationwide in 2–3 days.' },
-  { icon: '📦', title: 'Subscription Bundles', desc: 'Monthly care bundles tailored to the patient\'s condition — automatically replenished so caregivers never run out.' },
+  { icon: '📦', title: 'Subscription Bundles', desc: 'Monthly care bundles tailored to the patient\'s condition - automatically replenished so caregivers never run out.' },
   { icon: '✅', title: 'Clinically Vetted', desc: 'All products are reviewed by our clinical team and sourced from registered suppliers. No counterfeit risk.' },
 ];
 
 const TIMELINE = [
-  { q: 'Q2 2026', title: 'Beta launch — Nairobi', desc: 'Select range of monitoring and mobility products available to E-Vive platform clients and HCAs.', state: 'next' },
+  { q: 'Q2 2026', title: 'Beta launch - Nairobi', desc: 'Select range of monitoring and mobility products available to E-Vive platform clients and HCAs.', state: 'next' },
   { q: 'Q3 2026', title: 'Full product range', desc: 'All six categories live, including personalised bundle builder and HCA ordering workflow.', state: 'later' },
   { q: 'Q4 2026', title: 'Nationwide delivery', desc: 'Expansion beyond Nairobi to all 47 counties via logistics partner network.', state: 'later' },
   { q: 'Q1 2027', title: 'Subscription model & insurance integration', desc: 'Recurring monthly bundles and NHIF/insurance-covered product categories.', state: 'later' },
@@ -249,7 +249,7 @@ export default function ProductsPage() {
         <div className="prod-hero-inner">
           <div className="cs-badge"><div className="cs-dot" />Coming Soon</div>
           <h1>Homecare Products, <span>Delivered to the Door</span></h1>
-          <p>Everything your home care team needs — from monitoring devices and mobility aids to nutrition supplements and caregiver supplies — sourced, vetted, and delivered.</p>
+          <p>Everything your home care team needs - from monitoring devices and mobility aids to nutrition supplements and caregiver supplies - sourced, vetted, and delivered.</p>
 
           {!joined ? (
             <form className="waitlist-form" onSubmit={handleWaitlist}>
@@ -331,7 +331,7 @@ export default function ProductsPage() {
           <div className="prod-section-head">
             <span className="tag">Platform Integration</span>
             <h2>Built for Home Care Teams</h2>
-            <p>The products portal is designed to work alongside the E-Vive platform — not as a standalone shop.</p>
+            <p>The products portal is designed to work alongside the E-Vive platform - not as a standalone shop.</p>
           </div>
           <div className="features-grid">
             {FEATURES.map(f => (

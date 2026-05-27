@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import Head from "next/head";
 import { BASE_CSS } from "../../components/SharedStyles";
+import { getAllHcaProfiles, setHcaSession } from "../../lib/store";
 
 const PAGE_CSS = `
   body { margin:0; min-height:100vh; display:flex; flex-direction:column; }
@@ -130,24 +131,46 @@ export default function HCALogin() {
   function handleSubmit(e) {
     e.preventDefault();
     if (!form.empId.trim() || !form.password.trim()) {
-      setError("Please enter your Employee ID and password.");
+      setError("Please enter your Employee ID / email and password.");
       return;
     }
     setLoading(true);
-    // Simulated auth — any non-empty credentials accepted in demo mode
-    setTimeout(() => {
+    try {
+      const profiles = getAllHcaProfiles();
+      const empId = form.empId.trim();
+      // Match by employeeId, email, or mobile
+      const profile = profiles.find(p =>
+        p.employeeId === empId ||
+        p.email?.toLowerCase() === empId.toLowerCase() ||
+        p.mobile === empId
+      );
+      if (!profile) {
+        setError("No HCA account found with these credentials. Contact hello@e-vive.co.ke.");
+        setLoading(false);
+        return;
+      }
+      if (profile.password && profile.password !== form.password) {
+        setError("Incorrect password. Please try again.");
+        setLoading(false);
+        return;
+      }
+      setHcaSession(profile);
+      // Legacy compatibility
       if (typeof window !== "undefined") {
         localStorage.setItem("hca_auth", "true");
-        localStorage.setItem("hca_id", form.empId.trim());
+        localStorage.setItem("hca_id", profile.employeeId);
       }
       router.push("/hca/dashboard");
-    }, 800);
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setLoading(false);
+    }
   }
 
   return (
     <>
       <Head>
-        <title>HCA Login — E-Vive Kenya</title>
+        <title>HCA Login - E-Vive Kenya</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       <style>{BASE_CSS + PAGE_CSS}</style>
@@ -183,7 +206,7 @@ export default function HCALogin() {
                   name="empId"
                   type="text"
                   className="lf-input"
-                  placeholder="e.g. HCA-2025-012"
+                  placeholder="Employee ID, email, or mobile"
                   value={form.empId}
                   onChange={handleChange}
                   autoComplete="username"
@@ -210,7 +233,7 @@ export default function HCALogin() {
             </form>
 
             <div className="login-hint">
-              <strong>New to E-Vive?</strong> Your Employee ID and temporary password are provided by E-Vive after your application is approved. Contact <strong>support@evive.co.ke</strong> if you have not received your credentials.
+              <strong>New to E-Vive?</strong> Your Employee ID and temporary password are provided by E-Vive after your application is approved. Contact <strong>hello@e-vive.co.ke</strong> if you have not received your credentials.
             </div>
           </div>
 

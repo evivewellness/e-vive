@@ -96,7 +96,7 @@ export default function TermsPage() {
         <div className="legal-sec" id="agreement">
           <h2>1. Agreement to Terms</h2>
           <p>By accessing or using the E-Vive platform, website, or any associated services (collectively, the <strong>&ldquo;Service&rdquo;</strong>), you agree to be bound by these Terms of Use (<strong>&ldquo;Terms&rdquo;</strong>). If you do not agree, you must not use the Service.</p>
-          <p>These Terms constitute a legally binding agreement between you and <strong>Star Delight Enterprises Ltd</strong> (<strong>&ldquo;E-Vive&rdquo;</strong>, <strong>&ldquo;we&rdquo;</strong>, <strong>&ldquo;us&rdquo;</strong>), a company registered in Kenya with its principal office at KARM Apts, Mararo Lane, off Riara Road, Nairobi, Kenya.</p>
+          <p>These Terms constitute a legally binding agreement between you and <strong>Star Delight Enterprises</strong> (<strong>&ldquo;E-Vive&rdquo;</strong>, <strong>&ldquo;we&rdquo;</strong>, <strong>&ldquo;us&rdquo;</strong>), a company registered in Kenya with its principal office at Mararo Avenue, off Riara Road, Nairobi, Kenya.</p>
         </div>
 
         <div className="legal-sec" id="platform">
@@ -119,7 +119,7 @@ export default function TermsPage() {
           <ul>
             <li>Provide accurate, current, and complete information during registration.</li>
             <li>Maintain the security of your login credentials and not share them with others.</li>
-            <li>Notify E-Vive immediately at <a href="mailto:hello@evive.co.ke">hello@evive.co.ke</a> if you suspect unauthorised access to your account.</li>
+            <li>Notify E-Vive immediately at <a href="mailto:hello@e-vive.co.ke">hello@e-vive.co.ke</a> if you suspect unauthorised access to your account.</li>
             <li>Accept responsibility for all activity that occurs under your account.</li>
           </ul>
           <p>We reserve the right to suspend or terminate any account that we reasonably believe has been misused, is inactive, or violates these Terms.</p>
@@ -155,7 +155,7 @@ export default function TermsPage() {
           <p>HCA rates are set exclusively by E-Vive&apos;s Super Admin based on the HCA&apos;s certification level, years of experience, and care specialisation. HCAs do not set their own rates.</p>
           <p>Clients are invoiced by E-Vive on a per-shift or weekly basis, depending on the placement type. All payments are processed in Kenyan Shillings (KES) via M-Pesa or bank transfer.</p>
           <p>E-Vive retains a platform and management fee from each placement. The HCA&apos;s net rate is communicated to them upon approval and before their first placement.</p>
-          <p>In the event of a billing dispute, contact <a href="mailto:finance@evive.co.ke">finance@evive.co.ke</a>. We will investigate and respond within 5 business days.</p>
+          <p>In the event of a billing dispute, contact <a href="mailto:hello@e-vive.co.ke">hello@e-vive.co.ke</a>. We will investigate and respond within 5 business days.</p>
         </div>
 
         <div className="legal-sec" id="conduct">
@@ -173,7 +173,7 @@ export default function TermsPage() {
 
         <div className="legal-sec" id="ip">
           <h2>8. Intellectual Property</h2>
-          <p>All content on the E-Vive platform — including the E-Vive name, logo, design, text, and software — is owned by Star Delight Enterprises Ltd and is protected by Kenyan intellectual property law.</p>
+          <p>All content on the E-Vive platform - including the E-Vive name, logo, design, text, and software - is owned by Star Delight Enterprises and is protected by Kenyan intellectual property law.</p>
           <p>You may not reproduce, distribute, or create derivative works from any E-Vive content without prior written permission.</p>
         </div>
 
@@ -199,8 +199,8 @@ export default function TermsPage() {
           <h2>12. Contact</h2>
           <p>For questions about these Terms of Use:</p>
           <ul>
-            <li><strong>Email:</strong> <a href="mailto:legal@evive.co.ke">legal@evive.co.ke</a></li>
-            <li><strong>Post:</strong> Legal Team, Star Delight Enterprises Ltd, KARM Apts, Mararo Lane, off Riara Road, Nairobi, Kenya</li>
+            <li><strong>Email:</strong> <a href="mailto:hello@e-vive.co.ke">hello@e-vive.co.ke</a></li>
+            <li><strong>Post:</strong> Legal Team, Star Delight Enterprises, off Riara Road, Nairobi, Kenya</li>
             <li><strong>Phone:</strong> <a href="tel:+254720053455">+254 720 053 455</a></li>
           </ul>
         </div>

@@ -169,7 +169,7 @@ const SUBJECTS = [
   'General Enquiry',
   'Finding a HomeCare Assistant',
   'HCA Application / Subscription',
-  'Client Account — Billing or Invoices',
+  'Client Account - Billing or Invoices',
   'Clinical or Care Quality Concern',
   'Healthcare Partner / Referral',
   'Counselling or Caregiver Support',
@@ -179,18 +179,18 @@ const SUBJECTS = [
 ];
 
 const DEPTS = [
-  { cls: 'mint', icon: '🏠', title: 'Client & Placement Team', role: 'Families & Clients', desc: 'Matching enquiries, placement coordination, account setup, and client journey support.', phone: '+254 700 100 200', email: 'families@evive.co.ke', hours: 'Mon–Sat, 7am–8pm' },
-  { cls: 'sky',  icon: '👩‍⚕️', title: 'HCA Support & Welfare', role: 'HomeCare Assistants', desc: 'Application help, subscription queries, welfare concerns, off-day requests, and training access.', phone: '+254 700 100 201', email: 'hca@evive.co.ke', hours: 'Mon–Sat, 7am–8pm' },
-  { cls: 'gold', icon: '🏥', title: 'Partnerships', role: 'Hospitals & Organisations', desc: 'Referral agreements, partner portal access, clinical governance, and institutional onboarding.', phone: '+254 720 053 455', email: 'partners@evive.co.ke', hours: 'Mon–Fri, 8am–5pm' },
-  { cls: 'coral', icon: '💰', title: 'Finance & Billing', role: 'Invoices & Payroll', desc: 'Invoice queries, payment confirmation, M-Pesa issues, HCA payroll enquiries.', phone: '+254 700 100 203', email: 'finance@evive.co.ke', hours: 'Mon–Fri, 8am–5pm' },
+  { cls: 'mint', icon: '🏠', title: 'Client & Placement Team', role: 'Families & Clients', desc: 'Matching enquiries, placement coordination, account setup, and client journey support.', phone: '+254 720 053 455', email: 'hello@e-vive.co.ke', hours: 'Mon–Sat, 7am–8pm' },
+  { cls: 'sky',  icon: '👩‍⚕️', title: 'HCA Support & Welfare', role: 'HomeCare Assistants', desc: 'Application help, subscription queries, welfare concerns, off-day requests, and training access.', phone: '+254 700 100 201', email: 'hello@e-vive.co.ke', hours: 'Mon–Sat, 7am–8pm' },
+  { cls: 'gold', icon: '🏥', title: 'Partnerships', role: 'Hospitals & Organisations', desc: 'Referral agreements, partner portal access, clinical governance, and institutional onboarding.', phone: '+254 720 053 455', email: 'hello@e-vive.co.ke', hours: 'Mon–Fri, 8am–5pm' },
+  { cls: 'coral', icon: '💰', title: 'Finance & Billing', role: 'Invoices & Payroll', desc: 'Invoice queries, payment confirmation, M-Pesa issues, HCA payroll enquiries.', phone: '+254 700 100 203', email: 'hello@e-vive.co.ke', hours: 'Mon–Fri, 8am–5pm' },
 ];
 
 const FAQS = [
   { q: 'How quickly can I get an HCA placed?', a: 'Urgent placements can be arranged within 24 hours. Standard placements follow the 8-step journey which typically takes 3–5 business days from account creation to first shift.' },
   { q: 'How do I pay for home care services?', a: 'We accept M-Pesa (Paybill 522600, Account: your invoice number) and bank transfer. Invoices are issued after the home visit and HCA matching confirmation.' },
-  { q: 'What if I am unhappy with my assigned HCA?', a: 'Contact our Client Team immediately on +254 700 100 200. We will arrange a replacement HCA as quickly as possible and investigate any quality concerns.' },
-  { q: 'I applied as an HCA — how long does verification take?', a: 'Verification of your ID, certificates, and references takes 2–3 business days. You will receive an SMS and email once your profile is approved.' },
-  { q: 'Can a hospital refer a patient directly to E-Vive?', a: 'Yes. Partner hospitals submit referrals through our Partner Portal. If your hospital is not yet a partner, contact partners@evive.co.ke to start the onboarding process.' },
+  { q: 'What if I am unhappy with my assigned HCA?', a: 'Contact our Client Team immediately on +254 720 053 455. We will arrange a replacement HCA as quickly as possible and investigate any quality concerns.' },
+  { q: 'I applied as an HCA - how long does verification take?', a: 'Verification of your ID, certificates, and references takes 2–3 business days. You will receive an SMS and email once your profile is approved.' },
+  { q: 'Can a hospital refer a patient directly to E-Vive?', a: 'Yes. Partner hospitals submit referrals through our Partner Portal. If your hospital is not yet a partner, contact hello@e-vive.co.ke to start the onboarding process.' },
 ];
 
 export default function ContactPage() {
@@ -213,7 +213,7 @@ export default function ContactPage() {
         <div className="ct-hero-inner">
           <div className="stag" style={{ marginBottom: 20 }}>We&apos;re Here to Help</div>
           <h1>Get in Touch with <em>E-Vive</em></h1>
-          <p>Whether you have a question, need a placement, want to join as an HCA, or are a healthcare partner — our team typically responds within 2 hours during business hours.</p>
+          <p>Whether you have a question, need a placement, want to join as an HCA, or are a healthcare partner - our team typically responds within 2 hours during business hours.</p>
         </div>
       </section>
 
@@ -228,7 +228,7 @@ export default function ContactPage() {
                 <div className="ct-form-success">
                   <span className="icon">✅</span>
                   <h3>Message Received</h3>
-                  <p>Thank you for reaching out. A member of our team will respond to <strong>{form.email}</strong> within 2 business hours.<br /><br />For urgent placement needs call <strong>+254 700 100 200</strong>.</p>
+                  <p>Thank you for reaching out. A member of our team will respond to <strong>{form.email}</strong> within 2 business hours.<br /><br />For urgent placement needs call <strong>+254 720 053 455</strong>.</p>
                   <button className="btn-o" style={{ marginTop: 24 }} onClick={() => { setSent(false); setForm({ fname:'',lname:'',email:'',phone:'',subject:'',message:'' }); }}>Send Another Message</button>
                 </div>
               ) : (
@@ -282,21 +282,21 @@ export default function ContactPage() {
                   <div className="ct-info-icon">📞</div>
                   <div className="ct-info-text">
                     <div className="label">Main Line</div>
-                    <div className="val"><a href="tel:+254700100200">+254 700 100 200</a></div>
+                    <div className="val"><a href="tel:+254720053455">+254 720 053 455</a></div>
                   </div>
                 </div>
                 <div className="ct-info-row">
                   <div className="ct-info-icon">📧</div>
                   <div className="ct-info-text">
                     <div className="label">General Enquiries</div>
-                    <div className="val"><a href="mailto:hello@evive.co.ke">hello@evive.co.ke</a></div>
+                    <div className="val"><a href="mailto:hello@e-vive.co.ke">hello@e-vive.co.ke</a></div>
                   </div>
                 </div>
                 <div className="ct-info-row">
                   <div className="ct-info-icon">📍</div>
                   <div className="ct-info-text">
                     <div className="label">Head Office</div>
-                    <div className="val">KARM Apts, Mararo Lane, off Riara Road, Nairobi, Kenya</div>
+                    <div className="val">Mararo Avenue, off Riara Road, Nairobi, Kenya</div>
                   </div>
                 </div>
                 <div className="ct-info-row">
@@ -347,33 +347,6 @@ export default function ContactPage() {
         </div>
       </section>
 
-      {/* Department contacts */}
-      <section className="ct-section ct-section-alt">
-        <div className="ct-inner">
-          <div style={{ textAlign: 'center', marginBottom: 40 }}>
-            <div className="stag" style={{ marginBottom: 14 }}>Direct Lines</div>
-            <h2 className="stitle">Reach the Right Team</h2>
-            <div className="divider" style={{ margin: '0 auto 14px' }} />
-            <p className="ssub">Each department has a dedicated line so you get to the right person fast.</p>
-          </div>
-          <div className="dept-grid">
-            {DEPTS.map(d => (
-              <div className={`dept-card ${d.cls}`} key={d.title}>
-                <span className="dept-icon">{d.icon}</span>
-                <h3>{d.title}</h3>
-                <div className="dept-role">{d.role}</div>
-                <p>{d.desc}</p>
-                <div className="dept-contact">
-                  <a href={`tel:${d.phone.replace(/\s/g, '')}`}><span>📞</span>{d.phone}</a>
-                  <a href={`mailto:${d.email}`}><span>✉️</span>{d.email}</a>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: 4 }}>🕐 {d.hours}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* FAQ */}
       <section className="ct-section">
         <div className="ct-inner">
@@ -396,7 +369,7 @@ export default function ContactPage() {
               ))}
             </div>
             <p style={{ textAlign: 'center', marginTop: 28, fontSize: '0.85rem', color: 'var(--muted)' }}>
-              Still have questions? <Link href="/caregivers" style={{ color: 'var(--mint)' }}>Visit the Family Hub</Link> or email us at <a href="mailto:hello@evive.co.ke" style={{ color: 'var(--mint)' }}>hello@evive.co.ke</a>
+              Still have questions? <Link href="/caregivers" style={{ color: 'var(--mint)' }}>Visit the Family Hub</Link> or email us at <a href="mailto:hello@e-vive.co.ke" style={{ color: 'var(--mint)' }}>hello@e-vive.co.ke</a>
             </p>
           </div>
         </div>

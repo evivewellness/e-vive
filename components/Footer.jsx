@@ -49,7 +49,7 @@ export default function Footer() {
         <div className="footer-main">
           <div className="footer-brand">
             <div className="logo-text">e<span>-</span>vive</div>
-            <p>Kenya&apos;s premier location-based homecare assistant matching platform — connecting certified carers with families who need them most.</p>
+            <p>Kenya&apos;s premier location-based homecare assistant matching platform - connecting certified carers with families who need them most.</p>
             <div className="footer-socials">
               {["📘", "🐦", "📸", "💼"].map((s, i) => <a key={i} href="#" className="social-btn">{s}</a>)}
             </div>
@@ -68,7 +68,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Partners portal — coming soon, hidden from footer
+          {/* Partners portal - coming soon, hidden from footer
           <div className="footer-col">
             <h4>Partners</h4>
             <ul>
@@ -82,14 +82,14 @@ export default function Footer() {
           <div className="footer-col">
             <h4>Company</h4>
             <ul>
-              {[["About Us", "/about"], ["Contact Us", "/contact"], ["Press", "/press"], ["Privacy Policy", "/privacy"], ["Terms of Use", "/terms"]].map(([l, h]) => (
+              {[["About Us", "/about"], ["Contact Us", "/contact"], ["Privacy Policy", "/privacy"], ["Terms of Use", "/terms"]].map(([l, h]) => (
                 <li key={l}><Link href={h}>{l}</Link></li>
               ))}
             </ul>
           </div>
         </div>
         <div className="footer-bottom">
-          <div className="footer-copy">© 2025–2026 E-Vive Wellness Initiative · Star Delight Enterprises Ltd · Nairobi, Kenya</div>
+          <div className="footer-copy">© 2025–2026 E-Vive Wellness · by Star Delight Enterprises · Nairobi, Kenya</div>
           <div className="footer-legal">
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>

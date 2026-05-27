@@ -94,8 +94,8 @@ export default function PrivacyPage() {
 
         <div className="legal-sec" id="who">
           <h2>1. Who We Are</h2>
-          <p>E-Vive is operated by <strong>Star Delight Enterprises Ltd</strong>, a company registered in Kenya (the <strong>&ldquo;Company&rdquo;</strong>, <strong>&ldquo;we&rdquo;</strong>, <strong>&ldquo;us&rdquo;</strong>, or <strong>&ldquo;our&rdquo;</strong>). Our registered office is at KARM Apts, Mararo Lane, off Riara Road, Nairobi, Kenya.</p>
-          <p>E-Vive is a location-based homecare matching platform that connects families and individuals (&ldquo;Clients&rdquo;) with verified HomeCare Assistants (&ldquo;HCAs&rdquo;). We are the data controller for personal data processed through our platform and website at <strong>evive.co.ke</strong>.</p>
+          <p>E-Vive is operated by <strong>Star Delight Enterprises Ltd</strong>, a company registered in Kenya (the <strong>&ldquo;Company&rdquo;</strong>, <strong>&ldquo;we&rdquo;</strong>, <strong>&ldquo;us&rdquo;</strong>, or <strong>&ldquo;our&rdquo;</strong>). Our registered office is at Mararo Avenue, off Riara Road, Nairobi, Kenya.</p>
+          <p>E-Vive is a location-based homecare matching platform that connects families and individuals (&ldquo;Clients&rdquo;) with verified HomeCare Assistants (&ldquo;HCAs&rdquo;). We are the data controller for personal data processed through our platform and website at <strong>e-vive.co.ke</strong>.</p>
         </div>
 
         <div className="legal-sec" id="data-collect">
@@ -121,7 +121,7 @@ export default function PrivacyPage() {
           <ul>
             <li>To match Clients with suitable, verified HCAs in their area.</li>
             <li>To verify HCA qualifications, identity, and criminal record status.</li>
-            <li>To facilitate the digital Cardex — the shift record updated by HCAs and shared with families.</li>
+            <li>To facilitate the digital Cardex - the shift record updated by HCAs and shared with families.</li>
             <li>To process payments and maintain financial records.</li>
             <li>To communicate with you about placements, schedules, and platform updates.</li>
             <li>To ensure the safety and quality of care through GPS verification and incident reporting.</li>
@@ -162,9 +162,9 @@ export default function PrivacyPage() {
             <li><strong>Delete</strong> your data (subject to retention obligations).</li>
             <li><strong>Object</strong> to processing where we rely on legitimate interests.</li>
             <li><strong>Withdraw consent</strong> for any processing based solely on your consent.</li>
-            <li><strong>Data portability</strong> — receive your data in a machine-readable format.</li>
+            <li><strong>Data portability</strong> - receive your data in a machine-readable format.</li>
           </ul>
-          <p>To exercise any of these rights, contact us at <a href="mailto:privacy@evive.co.ke">privacy@evive.co.ke</a>. We will respond within 21 days as required by law.</p>
+          <p>To exercise any of these rights, contact us at <a href="mailto:hello@e-vive.co.ke">hello@e-vive.co.ke</a>. We will respond within 21 days as required by law.</p>
         </div>
 
         <div className="legal-sec" id="cookies">
@@ -193,8 +193,8 @@ export default function PrivacyPage() {
           <h2>11. Contact Us</h2>
           <p>For privacy-related enquiries, data subject requests, or to report a concern:</p>
           <ul>
-            <li><strong>Email:</strong> <a href="mailto:privacy@evive.co.ke">privacy@evive.co.ke</a></li>
-            <li><strong>Post:</strong> Data Protection Officer, Star Delight Enterprises Ltd, KARM Apts, Mararo Lane, off Riara Road, Nairobi, Kenya</li>
+            <li><strong>Email:</strong> <a href="mailto:hello@e-vive.co.ke">hello@e-vive.co.ke</a></li>
+            <li><strong>Post:</strong> Data Protection Officer, Star Delight Enterprises Ltd, Mararo Avenue, off Riara Road, Nairobi, Kenya</li>
             <li><strong>Phone:</strong> <a href="tel:+254720053455">+254 720 053 455</a></li>
           </ul>
           <p>You also have the right to lodge a complaint with the <strong>Office of the Data Protection Commissioner of Kenya</strong> (odpc.go.ke) if you believe your rights have been infringed.</p>

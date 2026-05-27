@@ -2,6 +2,16 @@ import { useState, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { DASH_BASE } from "../../components/SharedStyles";
+import {
+  getHcaSession,
+  getHcaProfileById,
+  clearHcaSession,
+  getShiftsByHca,
+  getCardexByHca,
+  createCardexEntry,
+  getAllClients,
+  requestHcaDeletion,
+} from "../../lib/store";
 
 const CSS = `
   /* Clock-in panel */
@@ -74,6 +84,16 @@ const CSS = `
   .welfare-opt-icon { font-size:28px; margin-bottom:8px; }
   .welfare-opt-title { font-size:13px; font-weight:700; margin-bottom:4px; }
   .welfare-opt-sub   { font-size:12px; color:var(--muted); }
+
+  @media (max-width:900px) {
+    .sidebar-close { display:flex !important; }
+    .vital-grid { grid-template-columns:1fr 1fr; }
+    .welfare-opts { grid-template-columns:1fr; }
+  }
+  @media (max-width:600px) {
+    .vital-grid { grid-template-columns:1fr 1fr; }
+    .incident-row { grid-template-columns:1fr 1fr; }
+  }
 `;
 
 const SHIFT_HIST = [
@@ -145,9 +165,37 @@ export default function HCADashboard() {
   const [cardexOpen,setCardexOpen]= useState(false);
   const [authed,    setAuthed]    = useState(false);
   const [hcaId,     setHcaId]     = useState("");
+  const [hcaProfile,setHcaProfile]= useState(null);
+  const [liveShifts,setLiveShifts]= useState([]);
+  const [cardexLog, setCardexLog] = useState([]);
+  const [assignedClient, setAssignedClient] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletionSubmitted, setDeletionSubmitted]  = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // Try new store session first
+    const session = getHcaSession();
+    if (session?.id) {
+      const profile = getHcaProfileById(session.id);
+      if (profile) {
+        setHcaProfile(profile);
+        setHcaId(profile.employeeId);
+        setAuthed(true);
+        // Load real shifts
+        const shifts = getShiftsByHca(profile.id);
+        setLiveShifts(shifts);
+        // Load cardex log
+        setCardexLog(getCardexByHca(profile.id));
+        // Find assigned client
+        const clients = getAllClients();
+        const linked = clients.find(c => c.assignedHcaId === profile.id);
+        if (linked) setAssignedClient(linked);
+        return;
+      }
+    }
+    // Legacy fallback
     if (!localStorage.getItem("hca_auth")) {
       window.location.href = "/hca/login";
     } else {
@@ -178,14 +226,51 @@ export default function HCADashboard() {
 
   function clockIn() { setClockState("in"); setClockStart(Date.now()); setTab("cardex"); setCardexOpen(true); }
   function saveDraft() { setSavedAt(new Date().toLocaleTimeString("en-KE",{hour:"2-digit",minute:"2-digit"})); }
-  function submitCardex() { setClockState("submitted"); setTab("today"); }
+  function submitCardex() {
+    // Save cardex entry to store
+    if (hcaProfile?.id) {
+      try {
+        const patient = assignedClient?.patients?.[0];
+        createCardexEntry({
+          hcaId:     hcaProfile.id,
+          clientId:  assignedClient?.id,
+          patientId: patient?.id,
+          date:      new Date().toISOString(),
+          vitals,
+          medications: meds,
+          intakes,
+          nutrition,
+          hygiene,
+          mobility,
+          elimination,
+          mentalStatus: mentalSt,
+          incidents,
+          handover,
+          shiftRating,
+          welfareNote,
+          specialNeedsChecks: SPECIAL_NEEDS.map((n,i)=>({ need:n, done:checks[i], flagged:flags[i] })),
+        });
+        setCardexLog(getCardexByHca(hcaProfile.id));
+      } catch(e) { console.error("Cardex save error:", e); }
+    }
+    setClockState("submitted"); setTab("today");
+  }
   function clockOut() { setClockState("out"); setClockStart(null); setCardexOpen(false); }
   function logout() {
+    clearHcaSession();
     if (typeof window !== "undefined") {
       localStorage.removeItem("hca_auth");
       localStorage.removeItem("hca_id");
     }
     window.location.href = "/hca/login";
+  }
+
+  function handleDeleteRequest() {
+    if (hcaProfile?.id) {
+      requestHcaDeletion(hcaProfile.id);
+    }
+    setDeletionSubmitted(true);
+    setShowDeleteConfirm(false);
   }
 
   if (!authed) return null;
@@ -204,20 +289,24 @@ export default function HCADashboard() {
       </Head>
       <style>{DASH_BASE + CSS}</style>
 
+      {/* Mobile overlay */}
+      {mobileMenuOpen && <div className="dash-side-overlay open" onClick={()=>setMobileMenuOpen(false)} />}
+
       <div className="dash-wrap">
         {/* ── SIDEBAR ── */}
-        <aside className="dash-side">
-          <div className="dash-logo">
+        <aside className={`dash-side${mobileMenuOpen?" open":""}`}>
+          <div className="dash-logo" style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
             <Link href="/" style={{textDecoration:"none"}}>
               <div className="dash-logo-text">e<span>-</span>vive</div>
               <div className="dash-logo-sub">HCA Portal</div>
             </Link>
+            <button onClick={()=>setMobileMenuOpen(false)} style={{display:"none",background:"none",border:"none",cursor:"pointer",fontSize:20,color:"var(--muted)",lineHeight:1,padding:"4px"}} className="sidebar-close">✕</button>
           </div>
           <div className="dash-user">
-            <div className="dash-avatar">👩🏾</div>
+            <div className="dash-avatar">🩺</div>
             <div>
-              <div className="dash-user-name">{hcaId || "HCA Staff"}</div>
-              <div className="dash-user-role">CNA · {hcaId || "HCA Portal"}</div>
+              <div className="dash-user-name">{hcaProfile?.name || hcaId || "HCA Staff"}</div>
+              <div className="dash-user-role">{hcaProfile?.certLevel || "HCA"} · {hcaProfile?.employeeId || hcaId || "HCA Portal"}</div>
             </div>
           </div>
           <div style={{padding:"10px 14px"}}>
@@ -229,7 +318,9 @@ export default function HCADashboard() {
           <nav className="dash-nav">
             <div className="dash-nav-section">Navigation</div>
             {NAV_ITEMS.map(n=>(
-              <button key={n.key} className={`dash-nav-item${tab===n.key?" active sky":""}`} onClick={()=>setTab(n.key)} style={{width:"100%",textAlign:"left",background:"none",border:"none",cursor:"pointer",color:"inherit",font:"inherit"}}>
+              <button key={n.key} className={`dash-nav-item${tab===n.key?" active sky":""}`}
+                onClick={()=>{setTab(n.key);setMobileMenuOpen(false);}}
+                style={{width:"100%",textAlign:"left",background:"none",border:"none",cursor:"pointer",color:"inherit",font:"inherit"}}>
                 <span className="dash-nav-icon">{n.icon}</span>{n.label}
               </button>
             ))}
@@ -245,12 +336,20 @@ export default function HCADashboard() {
         {/* ── MAIN ── */}
         <main className="dash-main">
           <div className="dash-topbar">
-            <div>
-              <div className="dash-title" style={{color:"var(--sky)"}}>Welcome, <span>{hcaId || "HCA"}</span></div>
-              <div style={{fontSize:12,color:"var(--muted)",marginTop:3,fontFamily:"var(--mono)"}}>Wed 7 May 2026 · Day Shift · Margaret Wanjiku</div>
+            <div style={{display:"flex",alignItems:"center",gap:12,minWidth:0,flex:1}}>
+              {/* Hamburger — mobile only */}
+              <button className="dash-hamburger" onClick={()=>setMobileMenuOpen(o=>!o)} aria-label="Open menu">☰</button>
+              <div style={{minWidth:0}}>
+                <div className="dash-title" style={{color:"var(--sky)"}}>Welcome, <span>{hcaProfile?.name?.split(" ")[0] || hcaId || "HCA"}</span></div>
+                <div style={{fontSize:12,color:"var(--muted)",marginTop:3,fontFamily:"var(--mono)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                  {new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
+                </div>
+              </div>
             </div>
-            <div className="dash-actions">
+            <div className="dash-actions" style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
               <div style={{fontFamily:"var(--mono)",fontSize:14,color:"var(--mint)",background:"rgba(0,74,153,0.1)",border:"1px solid rgba(0,74,153,0.22)",padding:"6px 14px",borderRadius:8}}>{time}</div>
+              {/* Mobile sign-out */}
+              <button className="topbar-logout" onClick={logout} title="Sign out">🔒 Sign Out</button>
             </div>
           </div>
 
@@ -562,6 +661,107 @@ export default function HCADashboard() {
                 <div style={{fontSize:48,marginBottom:16}}>{clockState==="submitted"?"✅":"📋"}</div>
                 <div style={{fontSize:16,marginBottom:12}}>{clockState==="submitted"?"Cardex submitted for this shift.":"You are not currently clocked in. Clock in to access the Cardex."}</div>
                 {clockState==="out" && <button className="btn-sky" onClick={()=>{setTab("today");}}>Go to Today →</button>}
+              </div>
+            )}
+
+            {/* ── MY PROFILE ── */}
+            {tab==="profile" && (
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,alignItems:"start"}}>
+                <div className="panel">
+                  <div className="panel-head"><div className="panel-title">Profile Details</div></div>
+                  <div className="panel-body">
+                    {[
+                      ["Name",         hcaProfile?.name || hcaId || "—"],
+                      ["Employee ID",  hcaProfile?.employeeId || "—"],
+                      ["Email",        hcaProfile?.email || "—"],
+                      ["Mobile",       hcaProfile?.mobile || "—"],
+                      ["Certificate",  hcaProfile?.certLevel || "—"],
+                      ["Experience",   hcaProfile?.yearsExp ? `${hcaProfile.yearsExp} years` : "—"],
+                      ["Specialisations", (hcaProfile?.specialisations||[]).join(", ")||"General HCA"],
+                      ["Status",       hcaProfile?.status || "Active"],
+                    ].map(([l,v])=>(
+                      <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"9px 0",borderBottom:"1px solid rgba(0,74,153,0.08)"}}>
+                        <span style={{fontSize:12,color:"var(--muted)",fontFamily:"var(--mono)"}}>{l}</span>
+                        <span style={{fontSize:13,fontWeight:600,maxWidth:200,textAlign:"right",wordBreak:"break-word"}}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{display:"flex",flexDirection:"column",gap:18}}>
+                  <div className="panel">
+                    <div className="panel-head"><div className="panel-title">Contact E-Vive</div></div>
+                    <div className="panel-body">
+                      {[["📧 Email","hello@e-vive.co.ke","mailto:hello@e-vive.co.ke"],["📞 Phone","+254 720 053 455","tel:+254720053455"]].map(([lbl,val,href])=>(
+                        <div key={lbl} style={{background:"rgba(0,74,153,0.03)",border:"1px solid rgba(0,74,153,0.1)",borderRadius:10,padding:"12px 14px",marginBottom:10}}>
+                          <div style={{fontSize:11,color:"var(--muted)",fontFamily:"var(--mono)",marginBottom:3}}>{lbl}</div>
+                          <a href={href} style={{fontSize:13,fontWeight:600,color:"var(--jade)",textDecoration:"none"}}>{val}</a>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Danger Zone */}
+                  <div className="panel" style={{border:"1px solid rgba(249,112,102,0.2)"}}>
+                    <div className="panel-head" style={{borderBottom:"1px solid rgba(249,112,102,0.12)"}}>
+                      <div className="panel-title" style={{color:"var(--coral)"}}>⚠️ Danger Zone</div>
+                    </div>
+                    <div className="panel-body">
+                      <p style={{fontSize:13,color:"var(--muted)",marginBottom:14,lineHeight:1.6}}>
+                        Request to have your HCA profile and account removed from the E-Vive platform. Our team will contact you before any data is deleted.
+                      </p>
+                      {deletionSubmitted || hcaProfile?.deletionRequested ? (
+                        <div style={{background:"rgba(249,112,102,0.07)",border:"1px solid rgba(249,112,102,0.2)",borderRadius:10,padding:"12px 14px",fontSize:13,color:"var(--coral)"}}>
+                          ✓ Deletion request received. Our team will contact you within 2 business days.
+                        </div>
+                      ) : showDeleteConfirm ? (
+                        <div style={{background:"rgba(249,112,102,0.07)",border:"1px solid rgba(249,112,102,0.2)",borderRadius:12,padding:"16px"}}>
+                          <div style={{fontWeight:700,fontSize:13,marginBottom:8,color:"var(--coral)"}}>Are you sure?</div>
+                          <p style={{fontSize:13,color:"var(--muted)",marginBottom:14,lineHeight:1.6}}>This will submit a deletion request to E-Vive. Any active placements will need to be concluded first.</p>
+                          <div style={{display:"flex",gap:10}}>
+                            <button className="btn-danger" onClick={handleDeleteRequest}>Yes, Request Deletion</button>
+                            <button className="btn-o btn-sm" onClick={()=>setShowDeleteConfirm(false)}>Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button className="btn-danger" onClick={()=>setShowDeleteConfirm(true)}>
+                          🗑 Request Profile Deletion
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── CALENDAR ── */}
+            {tab==="calendar" && (
+              <div className="panel">
+                <div className="panel-head"><div className="panel-title">My Schedule</div></div>
+                <div className="panel-body">
+                  {liveShifts.length === 0 ? (
+                    <div style={{textAlign:"center",padding:"40px 0",color:"var(--muted)"}}>
+                      <div style={{fontSize:40,marginBottom:12}}>📅</div>
+                      <div style={{fontSize:13}}>No shifts scheduled yet. Your schedule will appear here once a placement is confirmed.</div>
+                    </div>
+                  ) : (
+                    <div className="dash-table-wrap">
+                      <table className="dash-table">
+                        <thead><tr><th>Date</th><th>Client</th><th>Type</th><th>Status</th></tr></thead>
+                        <tbody>
+                          {liveShifts.map(s=>(
+                            <tr key={s.id}>
+                              <td style={{fontFamily:"var(--mono)",fontSize:12}}>{s.date}</td>
+                              <td>{s.clientId||"—"}</td>
+                              <td><span className="badge badge-gold">{s.type}</span></td>
+                              <td><span className={`badge ${s.status==="completed"?"badge-mint":s.status==="missed"?"badge-coral":"badge-dim"}`}>{s.status}</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

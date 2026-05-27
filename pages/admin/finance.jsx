@@ -1,7 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { DASH_BASE } from "../../components/SharedStyles";
+import {
+  getAllInvoices,
+  approveInvoicePayment,
+  getAllClients,
+  advanceClientJourney,
+  JOURNEY_STAGES,
+  getAdminSession,
+  clearAdminSession,
+} from "../../lib/store";
 
 const CSS = `
   .rev-bar { height:6px; border-radius:100px; background:rgba(255,255,255,0.08); overflow:hidden; margin-top:5px; }
@@ -56,22 +66,69 @@ const MONTHLY = [
 ];
 
 const fmtK = n => n >= 1000000 ? `KES ${(n/1000000).toFixed(1)}M` : `KES ${(n/1000).toFixed(0)}K`;
+const fmtDate = iso => { try { return new Date(iso).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}); } catch { return iso?.slice(0,10)||"—"; } };
 
 export default function AdminFinance() {
+  const router = useRouter();
+  const [authed, setAuthed] = useState(false);
   const [tab, setTab]       = useState("revenue");
   const [payFilter,setPayFilter]=useState("All");
+  const [liveInvoices, setLiveInvoices] = useState([]);
+  const [clients, setClients] = useState([]);
+
+  // Auth guard
+  useEffect(() => {
+    try {
+      const session = getAdminSession();
+      if (!session?.id) { router.replace("/admin/login"); return; }
+      setAuthed(true);
+    } catch { router.replace("/admin/login"); }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!authed) return;
+    setLiveInvoices(getAllInvoices());
+    setClients(getAllClients());
+  }, [authed]);
+
+  function handleMarkPaid(invoiceId) {
+    const updated = approveInvoicePayment(invoiceId, "Finance Admin");
+    setLiveInvoices(getAllInvoices());
+    // Also advance client journey to payment_confirmed if they're at payment_pending
+    const inv = liveInvoices.find(i => i.id === invoiceId) || updated;
+    if (inv?.clientId) {
+      const client = clients.find(c => c.id === inv.clientId);
+      if (client) {
+        const stageIdx = JOURNEY_STAGES.indexOf(client.journeyStage);
+        const payPendingIdx = JOURNEY_STAGES.indexOf("payment_pending");
+        if (stageIdx <= payPendingIdx) {
+          advanceClientJourney(client.id, "payment_confirmed");
+          setClients(getAllClients());
+        }
+      }
+    }
+  }
 
   const filteredPayroll = payFilter==="All" ? PAYROLL : PAYROLL.filter(p=>p.status===payFilter);
-  const totalOutstanding = INVOICES.filter(i=>i.status!=="Paid").reduce((a,b)=>a+b.amt,0);
-  const totalPaid        = INVOICES.filter(i=>i.status==="Paid").reduce((a,b)=>a+b.amt,0);
+
+  // Use live invoices, fall back to static INVOICES if store is empty
+  const displayInvoices = liveInvoices.length > 0 ? liveInvoices : INVOICES;
+  const isLive = liveInvoices.length > 0;
+
+  const totalOutstanding = displayInvoices.filter(i=>(isLive?i.status!=="paid":i.status!=="Paid")).reduce((a,b)=>a+(isLive?b.total:b.amt)||0,0);
+  const totalPaid        = displayInvoices.filter(i=>(isLive?i.status==="paid":i.status==="Paid")).reduce((a,b)=>a+(isLive?b.total:b.amt)||0,0);
   const totalPayroll     = PAYROLL.filter(p=>p.status==="Pending").reduce((a,b)=>a+b.net,0);
   const totalExpenses    = EXPENSES.reduce((a,b)=>a+b.amt,0);
   const maxRev           = Math.max(...MONTHLY.map(m=>m.rev));
+
+  // Block render until auth passes
+  if (!authed) return null;
 
   return (
     <>
       <Head>
         <title>Finance — E-Vive Admin</title>
+        <meta name="robots" content="noindex,nofollow" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       <style>{DASH_BASE + CSS}</style>
@@ -101,7 +158,7 @@ export default function AdminFinance() {
           </nav>
           <div className="dash-footer">
             <Link href="/admin/dashboard">← Admin Dashboard</Link>
-            <button onClick={()=>window.location.href="/"} style={{marginTop:8,width:"100%",background:"rgba(249,112,102,0.1)",border:"1px solid rgba(249,112,102,0.2)",borderRadius:10,padding:"8px 12px",color:"var(--coral)",fontSize:12,fontFamily:"var(--mono)",fontWeight:700,cursor:"pointer",transition:"all 0.2s"}}>
+            <button onClick={()=>{ clearAdminSession(); router.push("/admin/login"); }} style={{marginTop:8,width:"100%",background:"rgba(249,112,102,0.1)",border:"1px solid rgba(249,112,102,0.2)",borderRadius:10,padding:"8px 12px",color:"var(--coral)",fontSize:12,fontFamily:"var(--mono)",fontWeight:700,cursor:"pointer",transition:"all 0.2s"}}>
               🔒 Sign Out
             </button>
           </div>
@@ -206,30 +263,52 @@ export default function AdminFinance() {
               <>
                 <div className="stat-grid">
                   {[
-                    {icon:"📄",lbl:"Total Invoiced",  val:fmtK(INVOICES.reduce((a,b)=>a+b.amt,0)), color:"mint"  },
-                    {icon:"✅",lbl:"Collected",        val:fmtK(totalPaid),                         color:"mint"  },
-                    {icon:"⏳",lbl:"Pending",          val:fmtK(totalOutstanding),                   color:"amber" },
-                    {icon:"🚨",lbl:"Overdue",          val:fmtK(INVOICES.filter(i=>i.status==="Overdue").reduce((a,b)=>a+b.amt,0)), color:"coral"},
+                    {icon:"📄",lbl:"Total Invoiced",val:fmtK(displayInvoices.reduce((a,b)=>a+(isLive?b.total:b.amt)||0,0)),color:"mint"  },
+                    {icon:"✅",lbl:"Collected",      val:fmtK(totalPaid),                                                      color:"mint"  },
+                    {icon:"⏳",lbl:"Pending",        val:fmtK(totalOutstanding),                                               color:"amber" },
+                    {icon:"🚨",lbl:"Overdue",        val:fmtK(displayInvoices.filter(i=>(isLive?i.status==="overdue":i.status==="Overdue")).reduce((a,b)=>a+(isLive?b.total:b.amt)||0,0)),color:"coral"},
                   ].map(s=>(
                     <div className="stat-box" key={s.lbl}><div className="stat-box-icon">{s.icon}</div><div className={`stat-box-val ${s.color}`}>{s.val}</div><div className="stat-box-label">{s.lbl}</div></div>
                   ))}
                 </div>
                 <div className="dash-table-wrap">
                   <table className="dash-table">
-                    <thead><tr><th>Invoice #</th><th>Client</th><th>Patient</th><th>Description</th><th>Issued</th><th>Due</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Invoice #</th><th>Client</th><th>Description</th><th>Issued</th><th>Due</th><th>Amount (KES)</th><th>Status</th><th>Approved By</th><th>Actions</th></tr></thead>
                     <tbody>
-                      {INVOICES.map((inv,i)=>(
+                      {isLive ? displayInvoices.slice().reverse().map((inv,i)=>{
+                        const clientRecord = clients.find(c=>c.id===inv.clientId);
+                        const isPaid = inv.status === "paid";
+                        return (
+                          <tr key={inv.id||i}>
+                            <td style={{fontFamily:"var(--mono)",fontSize:12,color:"var(--muted)"}}>{inv.invoiceNum}</td>
+                            <td style={{fontWeight:600}}>{clientRecord?.name||inv.clientId||"—"}</td>
+                            <td style={{fontSize:12}}>{inv.description}</td>
+                            <td style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--muted)"}}>{fmtDate(inv.issuedAt)}</td>
+                            <td style={{fontFamily:"var(--mono)",fontSize:11,color:inv.status==="overdue"?"var(--coral)":"var(--muted)"}}>{fmtDate(inv.dueDate)}</td>
+                            <td style={{fontFamily:"var(--serif)",fontSize:15,fontWeight:700,color:isPaid?"var(--mint)":inv.status==="overdue"?"var(--coral)":"var(--amber)"}}>{(inv.total||0).toLocaleString()}</td>
+                            <td><span className={`badge ${isPaid?"badge-mint":inv.status==="overdue"?"badge-coral":"badge-gold"}`}>{isPaid?"Paid":inv.status==="overdue"?"Overdue":"Pending"}</span></td>
+                            <td style={{fontSize:11,color:"var(--muted)",fontFamily:"var(--mono)"}}>{inv.approvedBy||"—"}</td>
+                            <td><div style={{display:"flex",gap:6}}>
+                              {!isPaid && (
+                                <button className="btn-p btn-sm" onClick={()=>handleMarkPaid(inv.id)}>
+                                  ✓ Confirm Payment
+                                </button>
+                              )}
+                              {isPaid && <span style={{fontSize:12,color:"var(--mint)",fontFamily:"var(--mono)"}}>✓ Settled {fmtDate(inv.paidAt)}</span>}
+                            </div></td>
+                          </tr>
+                        );
+                      }) : INVOICES.map((inv,i)=>(
                         <tr key={i}>
                           <td style={{fontFamily:"var(--mono)",fontSize:12,color:"var(--muted)"}}>{inv.num}</td>
                           <td style={{fontWeight:600}}>{inv.client}</td>
-                          <td style={{fontSize:12,color:"var(--muted)"}}>{inv.patient}</td>
                           <td style={{fontSize:12}}>{inv.desc}</td>
                           <td style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--muted)"}}>{inv.date}</td>
                           <td style={{fontFamily:"var(--mono)",fontSize:11,color:inv.status==="Overdue"?"var(--coral)":"var(--muted)"}}>{inv.due}</td>
-                          <td style={{fontFamily:"var(--serif)",fontSize:16,fontWeight:700,color:inv.status==="Paid"?"var(--mint)":inv.status==="Overdue"?"var(--coral)":"var(--amber)"}}>KES {inv.amt.toLocaleString()}</td>
+                          <td style={{fontFamily:"var(--serif)",fontSize:15,fontWeight:700,color:inv.status==="Paid"?"var(--mint)":inv.status==="Overdue"?"var(--coral)":"var(--amber)"}}>{inv.amt.toLocaleString()}</td>
                           <td><span className={`badge ${inv.cls}`}>{inv.status}</span></td>
+                          <td style={{fontSize:11,color:"var(--muted)"}}>—</td>
                           <td><div style={{display:"flex",gap:6}}>
-                            <button className="btn-o btn-sm">PDF</button>
                             {inv.status!=="Paid" && <button className="btn-p btn-sm">{inv.status==="Overdue"?"Send Reminder":"Mark Paid"}</button>}
                           </div></td>
                         </tr>

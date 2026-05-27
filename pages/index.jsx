@@ -17,11 +17,44 @@ const PAGE_CSS = `
       radial-gradient(ellipse 50% 55% at 5% 80%,  rgba(132,189,96,0.07) 0%, transparent 55%),
       linear-gradient(155deg, #EBF1FA 0%, #F4F7F6 55%, #EEF5EE 100%);
   }
-  .orb { position:absolute; border-radius:50%; filter:blur(80px); pointer-events:none; }
-  .orb1 { width:560px; height:560px; right:-100px; top:-80px; background:radial-gradient(circle,rgba(0,74,153,0.1) 0%,transparent 70%); animation:float 9s ease-in-out infinite; }
-  .orb2 { width:300px; height:300px; left:5%; bottom:10%; background:radial-gradient(circle,rgba(14,165,233,0.07) 0%,transparent 70%); animation:float 11s ease-in-out infinite 4s; }
-  .orb3 { width:220px; height:220px; right:25%; bottom:15%; background:radial-gradient(circle,rgba(132,189,96,0.09) 0%,transparent 70%); animation:float 8s ease-in-out infinite 2s; }
-  .hero-inner { max-width:1200px; margin:0 auto; width:100%; position:relative; z-index:1; display:grid; grid-template-columns:1.1fr 1fr; gap:64px; align-items:center; }
+  .orb { position:absolute; border-radius:50%; filter:blur(80px); pointer-events:none; z-index:3; }
+  .orb1 { width:560px; height:560px; right:-100px; top:-80px; background:radial-gradient(circle,rgba(0,74,153,0.12) 0%,transparent 70%); animation:float 9s ease-in-out infinite; }
+  .orb2 { width:300px; height:300px; left:5%; bottom:10%; background:radial-gradient(circle,rgba(14,165,233,0.08) 0%,transparent 70%); animation:float 11s ease-in-out infinite 4s; }
+  .orb3 { width:220px; height:220px; right:25%; bottom:15%; background:radial-gradient(circle,rgba(132,189,96,0.1) 0%,transparent 70%); animation:float 8s ease-in-out infinite 2s; }
+
+  /* ── Hero photo layers ── */
+  .hero-photos { position:absolute; inset:0; z-index:1; overflow:hidden; pointer-events:none; }
+  .hp1,.hp2 { position:absolute; top:0; height:100%; object-fit:cover; display:block; }
+  /* Photo 2 (wheelchair scene - wider, cooler tones): deeper background layer */
+  .hp2 {
+    right:0; width:72%; object-position:55% 12%; opacity:0.62;
+    -webkit-mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.45) 14%, black 36%, black 100%);
+    mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.45) 14%, black 36%, black 100%);
+  }
+  /* Photo 1 (warm smiling HCA + patient): dominant foreground layer, right side */
+  .hp1 {
+    right:0; width:52%; object-position:48% 10%;
+    -webkit-mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.7) 16%, black 40%, black 100%);
+    mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.7) 16%, black 40%, black 100%);
+  }
+  /* Bottom fade so photos dissolve into the next section */
+  .hp-btm {
+    position:absolute; bottom:0; left:0; right:0; height:220px;
+    background:linear-gradient(to bottom, transparent 0%, rgba(235,241,250,0.97) 100%);
+  }
+  /* Gradient overlay - hard left protection for text, soft right to reveal photos */
+  .hero-overlay {
+    position:absolute; inset:0; z-index:2; pointer-events:none;
+    background:linear-gradient(to right,
+      rgba(235,241,250,0.98) 0%,
+      rgba(235,241,250,0.96) 26%,
+      rgba(235,241,250,0.74) 42%,
+      rgba(235,241,250,0.32) 56%,
+      rgba(235,241,250,0.09) 70%,
+      transparent 82%
+    );
+  }
+  .hero-inner { max-width:1200px; margin:0 auto; width:100%; position:relative; z-index:4; display:grid; grid-template-columns:1.1fr 1fr; gap:64px; align-items:center; }
   .hero-eyebrow { display:flex; align-items:center; gap:10px; margin-bottom:18px; }
   .eyebrow-line { width:36px; height:2px; background:linear-gradient(90deg,var(--jade),var(--mint)); border-radius:2px; }
   .eyebrow-txt { font-size:11px; font-weight:600; letter-spacing:2.5px; color:var(--jade); text-transform:uppercase; font-family:var(--mono); }
@@ -34,9 +67,9 @@ const PAGE_CSS = `
   .hstat-num { font-family:var(--serif); font-size:28px; font-weight:700; color:var(--jade); }
   .hstat-lbl { font-size:12px; color:rgba(15,32,53,0.58); font-weight:500; margin-top:2px; }
 
-  /* Hero right — user-type cards */
+  /* Hero right - user-type cards */
   .user-cards { display:flex; flex-direction:column; gap:14px; }
-  .user-card { display:flex; align-items:center; gap:16px; padding:18px 20px; border-radius:18px; border:1px solid rgba(0,74,153,0.14); background:rgba(255,255,255,0.75); cursor:pointer; text-decoration:none; transition:all 0.3s; }
+  .user-card { display:flex; align-items:center; gap:16px; padding:18px 20px; border-radius:18px; border:1px solid rgba(0,74,153,0.18); background:rgba(255,255,255,0.82); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); cursor:pointer; text-decoration:none; transition:all 0.3s; box-shadow:0 2px 16px rgba(0,74,153,0.08); }
   .user-card:hover { border-color:rgba(0,74,153,0.3); transform:translateX(6px); background:rgba(255,255,255,0.95); box-shadow:0 8px 28px rgba(0,74,153,0.1); }
   .user-card.family { border-color:rgba(0,74,153,0.2); background:linear-gradient(135deg,rgba(0,74,153,0.06),rgba(255,255,255,0.88)); }
   .user-card.hca    { border-color:rgba(14,165,233,0.2); background:linear-gradient(135deg,rgba(14,165,233,0.06),rgba(255,255,255,0.88)); }
@@ -108,7 +141,8 @@ const PAGE_CSS = `
   .hca-card { background:rgba(255,255,255,0.88); border:1px solid var(--border); border-radius:20px; padding:22px; transition:all 0.32s; }
   .hca-card:hover { border-color:rgba(0,74,153,0.28); transform:translateY(-4px); box-shadow:0 14px 44px rgba(0,74,153,0.1); }
   .hca-top  { display:flex; gap:13px; align-items:flex-start; margin-bottom:14px; }
-  .hca-av   { width:50px; height:50px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:23px; flex-shrink:0; border:2px solid rgba(0,74,153,0.15); }
+  .hca-av   { width:50px; height:50px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:23px; flex-shrink:0; border:2px solid rgba(0,74,153,0.15); overflow:hidden; }
+  .hca-av img { width:100%; height:100%; object-fit:cover; display:block; border-radius:50%; }
   .hca-name { font-weight:700; font-size:14px; margin-bottom:2px; color:var(--text); }
   .hca-role { font-size:11px; color:var(--jade); font-family:var(--mono); margin-bottom:5px; }
   .hca-rat  { font-size:12px; color:var(--gold); font-weight:600; }
@@ -155,20 +189,20 @@ const PORTALS = [
   { cls:"report", icon:"📍",  iconCls:"blue",  tagCls:"blue",  tag:"For HCAs",          title:"Check-In & Cardex Portal",   desc:"Log in, clock in with GPS, complete your shift Cardex, log vitals and incidents, perform handovers and clock out securely.",     href:"/hca/login",    linkCls:"blue",  link:"HCA Login →" },
   { cls:"care",   icon:"🫂",  iconCls:"gold",  tagCls:"gold",  tag:"Family Caregivers", title:"Training & Support Hub",     desc:"Training modules, peer community, professional counselling and resources for family members navigating caregiving.",             href:"/caregivers",   linkCls:"gold",  link:"Explore Hub →" },
   // { cls:"partner",icon:"🏥",  iconCls:"coral", tagCls:"coral", tag:"Partners",        title:"Healthcare Provider Portal", desc:"Hospitals and clinics can refer patients and receive structured care quality outcome reports.",                                    href:"/partners",     linkCls:"coral", link:"Partner With Us →" },   // Coming soon
-  // { cls:"soon",   icon:"🛒",  iconCls:"grey",  tagCls:"grey",  tag:"Coming Soon",     title:"Homecare Products",          desc:"Medical equipment, mobility aids, consumables — curated by our clinical team, delivered to your door.",                         href:"/products",     linkCls:"green", link:"Join Waitlist →", soon:true },  // Coming soon
+  // { cls:"soon",   icon:"🛒",  iconCls:"grey",  tagCls:"grey",  tag:"Coming Soon",     title:"Homecare Products",          desc:"Medical equipment, mobility aids, consumables - curated by our clinical team, delivered to your door.",                         href:"/products",     linkCls:"green", link:"Join Waitlist →", soon:true },  // Coming soon
 ];
 
 const HCA_SAMPLES = [
-  { av:"👩🏾", bg:"rgba(0,74,153,0.12)",    name:"Amina Njeri",    role:"CNA · Certified",          rat:"★★★★★ 4.9 (42)", dist:"1.2 km", tags:["Elderly","Post-Op","Palliative"], langs:["English","Swahili","Kikuyu"], rate:"KES 800", per:"/hr", avail:true },
-  { av:"👨🏿", bg:"rgba(14,165,233,0.14)",   name:"John Mwangi",    role:"Home Care Specialist",     rat:"★★★★★ 4.8 (31)", dist:"2.7 km", tags:["Dementia","Critical Care"],       langs:["English","Luo","Swahili"],   rate:"KES 650", per:"/hr", avail:true },
-  { av:"👩🏽", bg:"rgba(132,189,96,0.16)",   name:"Grace Otieno",   role:"Palliative Care Aide",     rat:"★★★★☆ 4.6 (18)", dist:"3.4 km", tags:["Palliative","Child Care"],        langs:["Luhya","Swahili","English"], rate:"KES 700", per:"/hr", avail:false },
+  { av:"👩🏾", photo:"/images/portraits/hca-amina-njeri.svg",  bg:"rgba(0,74,153,0.12)",    name:"Amina Njeri",    role:"CNA · Certified",          rat:"★★★★★ 4.9 (42)", dist:"1.2 km", tags:["Elderly","Post-Op","Palliative"], langs:["English","Swahili","Kikuyu"], rate:"KES 800", per:"/hr", avail:true },
+  { av:"👨🏿", photo:"/images/portraits/hca-john-omondi.svg",  bg:"rgba(14,165,233,0.14)",  name:"John Mwangi",    role:"Home Care Specialist",     rat:"★★★★★ 4.8 (31)", dist:"2.7 km", tags:["Dementia","Critical Care"],       langs:["English","Luo","Swahili"],   rate:"KES 650", per:"/hr", avail:true },
+  { av:"👩🏽", photo:"/images/portraits/hca-grace-otieno.svg", bg:"rgba(132,189,96,0.16)",  name:"Grace Otieno",   role:"Palliative Care Aide",     rat:"★★★★☆ 4.6 (18)", dist:"3.4 km", tags:["Palliative","Child Care"],        langs:["Luhya","Swahili","English"], rate:"KES 700", per:"/hr", avail:false },
 ];
 
 const STEPS_FAM = [
-  { n:"01", icon:"📍", title:"Enter Your Location",   desc:"Share your area to see matching HCAs within your preferred radius — no travel hassle." },
+  { n:"01", icon:"📍", title:"Enter Your Location",   desc:"Share your area to see matching HCAs within your preferred radius - no travel hassle." },
   { n:"02", icon:"🔍", title:"Filter & Shortlist",    desc:"Filter by care type, gender, language, shifts and period. Shortlist your top choices." },
   { n:"03", icon:"📋", title:"Create Account",        desc:"Register as a client, add patient details and accept T&Cs to proceed to placement." },
-  { n:"04", icon:"✅", title:"Placement & Care",      desc:"Our team calls, visits and confirms the match. Pay and your HCA is placed — care begins." },
+  { n:"04", icon:"✅", title:"Placement & Care",      desc:"Our team calls, visits and confirms the match. Pay and your HCA is placed - care begins." },
 ];
 const STEPS_HCA = [
   { n:"01", icon:"📝", title:"Apply & Upload Docs",   desc:"Submit your full profile, certifications, languages and service area via the online form." },
@@ -181,7 +215,7 @@ export default function Home() {
   const [tab, setTab] = useState("family");
   const steps = tab === "family" ? STEPS_FAM : STEPS_HCA;
 
-  // Filter Assistants — draft + apply model
+  // Filter Assistants - draft + apply model
   const [filterDraft, setFilterDraft] = useState({});
   const [filterApplied, setFilterApplied] = useState({});
   const [filterOpen, setFilterOpen] = useState(false);
@@ -198,7 +232,7 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>E-Vive — Kenya&apos;s HomeCare Matching Platform</title>
+        <title>E-Vive - Kenya&apos;s HomeCare Matching Platform</title>
         <meta name="description" content="Connect with certified HomeCare Assistants near you. Location-based matching, Cardex reporting, family caregiver support, partner hospitals and more." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -209,18 +243,31 @@ export default function Home() {
       {/* ── HERO ── */}
       <section className="hero">
         <div className="hero-bg" />
+
+        {/* Photo background layer - two real photos blended into the hero */}
+        <div className="hero-photos" aria-hidden="true">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="hp2" src="/images/hero-photo-2.jpg" alt="" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="hp1" src="/images/hero-photo-1.jpg" alt="" />
+          <div className="hp-btm" />
+        </div>
+
+        {/* Gradient overlay - protects left-column text, reveals photos on right */}
+        <div className="hero-overlay" aria-hidden="true" />
+
         <div className="orb orb1" /><div className="orb orb2" /><div className="orb orb3" />
         <div className="hero-inner">
           <div>
             <div className="hero-eyebrow"><div className="eyebrow-line" /><span className="eyebrow-txt">Nairobi · Kenya · Pan-East Africa · Est. 2025</span></div>
             <h1>Certified Care,<br/><em>Matched to</em><br/>Your <span className="gold">Location</span></h1>
-            <p className="hero-sub">E-Vive connects families with pre-vetted Home Care Assistants closest to them — with live Cardex reporting, quality monitoring and family support all in one platform.</p>
+            <p className="hero-sub">E-Vive connects families with pre-vetted Home Care Assistants closest to them - with live Cardex reporting, quality monitoring and family support all in one platform.</p>
             <div className="hero-btns">
               <Link href="/match" className="btn-p">Find a Carer Near Me →</Link>
               <Link href="/hca/apply" className="btn-o">Join as an Assistant</Link>
             </div>
             <div className="hero-stats">
-              {[["850+","Registered HCAs"],["2,400+","Families Served"],["47","Sub-Counties"],["4.8★","Avg. Rating"]].map(([n,l]) => (
+              {[["∞","Registered HCAs"],["∞","Families Served"],["47","Sub-Counties"],["4.8★","Avg. Rating"]].map(([n,l]) => (
                 <div key={l}><div className="hstat-num">{n}</div><div className="hstat-lbl">{l}</div></div>
               ))}
             </div>
@@ -237,7 +284,7 @@ export default function Home() {
               <div><div className="uc-title">I am a HomeCare Assistant</div><div className="uc-sub">Register your profile, set your service area and get placed</div></div>
               <div className="uc-arrow" style={{color:"var(--sky)"}}>›</div>
             </Link>
-            {/* Partners portal — coming soon
+            {/* Partners portal - coming soon
             <Link href="/partners" className="user-card org">
               <div className="uc-icon gold">🏥</div>
               <div><div className="uc-title">We are a healthcare organisation</div><div className="uc-sub">Refer patients, access HCA network and get care reports</div></div>
@@ -248,13 +295,29 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── HERO SCENE IMAGE ── */}
+      <section style={{padding:'0 0 8px', background:'var(--bg)'}}>
+        <div className="si" style={{paddingTop:0,paddingBottom:0}}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/scenes/hero-home.svg"
+            alt="An E-Vive HomeCare Assistant tending to an elderly patient in a warm home setting"
+            style={{
+              width:'100%', borderRadius:'20px', display:'block',
+              boxShadow:'0 12px 48px rgba(0,53,128,0.14)',
+              maxHeight:'420px', objectFit:'cover'
+            }}
+          />
+        </div>
+      </section>
+
       {/* ── PORTALS ── */}
       <section id="portals">
         <div className="si">
           <div className="fade-in" style={{marginBottom:44}}>
             <div className="stag">Platform Portals</div>
             <h2 className="stitle" style={{marginTop:12}}>One platform,<br/><em>three powerful portals</em></h2>
-            <p className="ssub">Families, HomeCare Assistants, and family caregivers each have a dedicated, purpose-built portal — with more coming soon.</p>
+            <p className="ssub">Families, HomeCare Assistants, and family caregivers each have a dedicated, purpose-built portal - with more coming soon.</p>
             <div className="divider" />
           </div>
           <div className="portals-grid">
@@ -285,6 +348,19 @@ export default function Home() {
               <button key={k} className={`how-tab${tab===k?" active":""}`} onClick={()=>setTab(k)}>{l}</button>
             ))}
           </div>
+          {tab === "family" && (
+            <div style={{marginBottom:32}}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/images/scenes/how-it-works-families.svg"
+                alt="E-Vive app showing location-based HCA matching on a smartphone"
+                style={{
+                  width:'100%', maxWidth:'400px', display:'block', margin:'0 auto',
+                  borderRadius:'14px', boxShadow:'0 8px 32px rgba(0,74,153,0.12)'
+                }}
+              />
+            </div>
+          )}
           <div className="steps-row">
             {steps.map((s,i) => (
               <div className="step-card fade-in" key={i} style={{transitionDelay:`${i*90}ms`}}>
@@ -308,13 +384,16 @@ export default function Home() {
               <h2 className="stitle" style={{marginTop:12}}>Featured <em>Assistants</em></h2>
               <div className="divider" />
             </div>
-            <Link href="/match" className="btn-o fade-in">View All 850+ →</Link>
+            <Link href="/match" className="btn-o fade-in">View All Assistants →</Link>
           </div>
           <div className="hca-grid">
             {HCA_SAMPLES.map((h,i) => (
               <div className="hca-card fade-in" key={i} style={{transitionDelay:`${i*90}ms`}}>
                 <div className="hca-top">
-                  <div className="hca-av" style={{background:h.bg}}>{h.av}</div>
+                  <div className="hca-av" style={{background:h.photo ? 'transparent' : h.bg}}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {h.photo ? <img src={h.photo} alt={h.name} /> : h.av}
+                  </div>
                   <div>
                     <div className="hca-name">{h.name}</div>
                     <div className="hca-role">{h.role}</div>

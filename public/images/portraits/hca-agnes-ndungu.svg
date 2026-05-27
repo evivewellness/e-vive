@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <defs>
+    <clipPath id="circle-clip"><circle cx="100" cy="100" r="100"/></clipPath>
+    <radialGradient id="bg-grad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#e64a19" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#e64a19" stop-opacity="1"/>
+    </radialGradient>
+    <radialGradient id="light" cx="35%" cy="20%" r="60%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.18)"/>
+      <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+    </radialGradient>
+  </defs>
+  <g clip-path="url(#circle-clip)">
+    <!-- Background -->
+    <circle cx="100" cy="100" r="100" fill="url(#bg-grad)"/>
+    <circle cx="100" cy="100" r="100" fill="url(#light)"/>
+    <!-- Body -->
+    
+    <!-- Neck -->
+    <rect x="90" y="118" width="20" height="20" rx="4" fill="#9A6428"/>
+    <!-- Shoulders / torso -->
+    <ellipse cx="100" cy="165" rx="52" ry="30" fill="#1a5276"/>
+    <!-- Collar / lapel detail -->
+    <path d="M82,128 L100,138 L118,128" fill="#1a5276cc" stroke="rgba(255,255,255,0.3)" stroke-width="0.5"/>
+    <!-- Name badge -->
+    <rect x="114" y="148" width="20" height="13" rx="3" fill="white" opacity="0.35"/>
+    <!-- Hair (behind head) -->
+    
+        <ellipse cx="100" cy="68" rx="38" ry="20" fill="#1a0a00"/>
+        <ellipse cx="100" cy="54" rx="30" ry="10" fill="#1a0a00" opacity="0.8"/>
+        <rect x="62" y="60" width="76" height="12" rx="4" fill="#1a0a00" opacity="0.7"/>
+        <ellipse cx="132" cy="52" rx="10" ry="7" fill="#1a0a00" transform="rotate(-20 132 52)"/>
+    <!-- Face -->
+    
+    <!-- Ears -->
+    <ellipse cx="68" cy="95" rx="7" ry="9" fill="#704225"/>
+    <ellipse cx="132" cy="95" rx="7" ry="9" fill="#704225"/>
+    <!-- Head -->
+    <ellipse cx="100" cy="90" rx="32" ry="36" fill="#7B4B2A"/>
+    <!-- Cheek shadows -->
+    <ellipse cx="82" cy="102" rx="9" ry="6" fill="#62381C" opacity="0.18"/>
+    <ellipse cx="118" cy="102" rx="9" ry="6" fill="#62381C" opacity="0.18"/>
+    <!-- Brow ridge shadow -->
+    <ellipse cx="100" cy="76" rx="20" ry="6" fill="#62381C" opacity="0.12"/>
+    <!-- Nose -->
+    <ellipse cx="100" cy="98" rx="5" ry="3.5" fill="#62381C" opacity="0.4"/>
+    <ellipse cx="96" cy="100" rx="3.5" ry="2.5" fill="#62381C" opacity="0.3"/>
+    <ellipse cx="104" cy="100" rx="3.5" ry="2.5" fill="#62381C" opacity="0.3"/>
+    <!-- Eyes -->
+    <ellipse cx="89" cy="84" rx="6" ry="5" fill="white"/>
+    <ellipse cx="111" cy="84" rx="6" ry="5" fill="white"/>
+    <circle cx="89" cy="84" r="3.5" fill="#1a0a00"/>
+    <circle cx="111" cy="84" r="3.5" fill="#1a0a00"/>
+    <circle cx="90.5" cy="82.5" r="1.2" fill="white" opacity="0.9"/>
+    <circle cx="112.5" cy="82.5" r="1.2" fill="white" opacity="0.9"/>
+    <!-- Eyebrows -->
+    <path d="M83,76 Q89,72 95,75" stroke="#1a0a00" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    <path d="M105,75 Q111,72 117,76" stroke="#1a0a00" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    <!-- Smile -->
+    <path d="M90,108 Q100,116 110,108" stroke="#62381C" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- Hair (in front - top only) -->
+    
+        <ellipse cx="100" cy="68" rx="38" ry="20" fill="#1a0a00"/>
+        <ellipse cx="100" cy="54" rx="30" ry="10" fill="#1a0a00" opacity="0.8"/>
+        <rect x="62" y="60" width="76" height="12" rx="4" fill="#1a0a00" opacity="0.7"/>
+        <ellipse cx="132" cy="52" rx="10" ry="7" fill="#1a0a00" transform="rotate(-20 132 52)"/>
+  </g>
+  <!-- Border ring -->
+  <circle cx="100" cy="100" r="98" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2"/>
+</svg>

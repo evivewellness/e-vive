@@ -93,7 +93,7 @@ export default function Nav() {
           <div className="logo-mark">E</div>
           <div>
             <div className="logo-text">e<span>-</span>vive</div>
-            <div className="logo-sub">HomeCare Platform</div>
+            <div className="logo-sub">HomeCare</div>
           </div>
         </Link>
 

@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 320" width="480" height="320">
+<defs>
+  <linearGradient id="hw-bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#e8f5e9"/>
+    <stop offset="100%" stop-color="#c8e6c9"/>
+  </linearGradient>
+  <clipPath id="hw-clip"><rect width="480" height="320" rx="14"/></clipPath>
+</defs>
+<g clip-path="url(#hw-clip)">
+  <rect width="480" height="320" fill="url(#hw-bg)"/>
+  <!-- Phone/tablet in center -->
+  <rect x="168" y="40" width="144" height="232" rx="16" fill="#1a1a2e" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+  <rect x="176" y="52" width="128" height="208" rx="10" fill="#003580"/>
+  <!-- Phone screen — E-Vive match interface -->
+  <rect x="180" y="56" width="120" height="14" rx="4" fill="#004A99" opacity="0.8"/>
+  <text x="188" y="67" font-family="Arial,sans-serif" font-size="8" fill="rgba(255,255,255,0.85)">e-vive · Find a Carer</text>
+  <!-- Search bar -->
+  <rect x="182" y="74" width="116" height="14" rx="5" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.2)" stroke-width="0.8"/>
+  <text x="192" y="84" font-family="Arial,sans-serif" font-size="7.5" fill="rgba(255,255,255,0.5)">Nairobi, Westlands · 2.1 km</text>
+  <!-- HCA result cards on screen -->
+  <rect x="182" y="92" width="116" height="44" rx="5" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.15)" stroke-width="0.6"/>
+  <circle cx="194" cy="110" r="10" fill="#84BD60" opacity="0.9"/>
+  <text x="194" y="114" font-family="Arial,sans-serif" font-size="8" text-anchor="middle" fill="white" font-weight="bold">AM</text>
+  <rect x="208" y="96" width="60" height="5" rx="2" fill="rgba(255,255,255,0.7)"/>
+  <rect x="208" y="104" width="46" height="4" rx="1.5" fill="rgba(255,255,255,0.4)"/>
+  <rect x="208" y="112" width="52" height="4" rx="1.5" fill="rgba(132,189,96,0.6)"/>
+  <rect x="270" y="95" width="22" height="10" rx="3" fill="#84BD60" opacity="0.85"/>
+  <text x="274" y="103" font-family="Arial,sans-serif" font-size="6" fill="white">★ 4.9</text>
+  <rect x="208" y="120" width="76" height="12" rx="4" fill="#004A99" opacity="0.8"/>
+  <text x="222" y="129" font-family="Arial,sans-serif" font-size="6.5" fill="white">View Profile →</text>
+
+  <rect x="182" y="140" width="116" height="44" rx="5" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.12)" stroke-width="0.6"/>
+  <circle cx="194" cy="158" r="10" fill="#E8845A" opacity="0.9"/>
+  <text x="194" y="162" font-family="Arial,sans-serif" font-size="8" text-anchor="middle" fill="white" font-weight="bold">JO</text>
+  <rect x="208" y="144" width="56" height="5" rx="2" fill="rgba(255,255,255,0.6)"/>
+  <rect x="208" y="152" width="44" height="4" rx="1.5" fill="rgba(255,255,255,0.35)"/>
+  <rect x="208" y="160" width="50" height="4" rx="1.5" fill="rgba(132,189,96,0.5)"/>
+  <rect x="270" y="143" width="22" height="10" rx="3" fill="#84BD60" opacity="0.7"/>
+  <text x="274" y="151" font-family="Arial,sans-serif" font-size="6" fill="white">★ 4.8</text>
+
+  <!-- Map pin on screen -->
+  <rect x="182" y="188" width="116" height="60" rx="5" fill="rgba(56,189,248,0.12)" stroke="rgba(56,189,248,0.25)" stroke-width="0.6"/>
+  <text x="240" y="220" font-family="Arial,sans-serif" font-size="9" text-anchor="middle" fill="rgba(255,255,255,0.5)">📍 Map View</text>
+  <!-- Simple map dots -->
+  <circle cx="210" cy="210" r="4" fill="#84BD60" opacity="0.8"/>
+  <circle cx="240" cy="205" r="5" fill="#E8845A" opacity="0.8"/>
+  <circle cx="268" cy="215" r="4" fill="#84BD60" opacity="0.7"/>
+  <line x1="210" y1="210" x2="240" y2="205" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+  <line x1="240" y1="205" x2="268" y2="215" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+
+  <!-- ── Label ── -->
+  <rect x="0" y="280" width="480" height="40" fill="rgba(0,53,128,0.8)"/>
+  <text x="240" y="298" font-family="Georgia,serif" font-size="13" text-anchor="middle" fill="white" font-weight="bold">Find. Match. Care.</text>
+  <text x="240" y="312" font-family="Arial,sans-serif" font-size="9" text-anchor="middle" fill="rgba(255,255,255,0.65)">Location-based HCA matching · Verified profiles · GPS check-in</text>
+</g>
+</svg>

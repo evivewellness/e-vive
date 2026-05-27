@@ -9,54 +9,80 @@ const PAGE_CSS = `
 
   /* Hero */
   .ast-hero {
-    background: linear-gradient(135deg, var(--forest) 0%, #071a25 60%, #0c1228 100%);
+    background: radial-gradient(ellipse 90% 60% at 70% 30%, rgba(0,74,153,0.08) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 55% at 5% 80%, rgba(132,189,96,0.06) 0%, transparent 55%),
+                linear-gradient(155deg, #EBF1FA 0%, #F4F7F6 55%, #EEF5EE 100%);
     padding: 80px 24px 60px;
     position: relative; overflow: hidden;
   }
-  .ast-hero::before {
-    content:'';
-    position:absolute; inset:0;
-    background: radial-gradient(ellipse at 20% 60%, rgba(56,189,248,0.08) 0%, transparent 55%),
-                radial-gradient(ellipse at 80% 20%, rgba(168,0,64,0.06) 0%, transparent 55%);
+
+  /* Photo background layers */
+  .ast-hero-photos { position:absolute; inset:0; z-index:1; overflow:hidden; pointer-events:none; }
+  .ast-hp2 {
+    position:absolute; top:0; right:0; height:100%; width:72%; object-fit:cover; display:block;
+    object-position:55% 12%; opacity:0.58;
+    -webkit-mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.45) 14%, black 36%, black 100%);
+    mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.45) 14%, black 36%, black 100%);
   }
+  .ast-hp1 {
+    position:absolute; top:0; right:0; height:100%; width:52%; object-fit:cover; display:block;
+    object-position:48% 10%;
+    -webkit-mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.7) 16%, black 40%, black 100%);
+    mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.7) 16%, black 40%, black 100%);
+  }
+  .ast-hp-btm {
+    position:absolute; bottom:0; left:0; right:0; height:200px;
+    background:linear-gradient(to bottom, transparent 0%, rgba(235,241,250,0.97) 100%);
+  }
+  .ast-hero-overlay {
+    position:absolute; inset:0; z-index:2; pointer-events:none;
+    background:linear-gradient(to right,
+      rgba(235,241,250,0.98) 0%, rgba(235,241,250,0.96) 28%,
+      rgba(235,241,250,0.72) 44%, rgba(235,241,250,0.28) 58%,
+      rgba(235,241,250,0.06) 72%, transparent 84%);
+  }
+
   .ast-hero-inner {
-    position:relative; max-width:1100px; margin:0 auto;
+    position:relative; z-index:3; max-width:1100px; margin:0 auto;
     display:grid; grid-template-columns:1fr 420px; gap:48px; align-items:center;
   }
   @media(max-width:820px){ .ast-hero-inner { grid-template-columns:1fr; } }
 
   .ast-hero-tag {
     display:inline-block;
-    background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.3);
-    color:var(--sky); padding:6px 18px; border-radius:999px;
+    background:rgba(0,74,153,0.08); border:1px solid rgba(0,74,153,0.22);
+    color:var(--jade); padding:6px 18px; border-radius:999px;
     font-size:0.75rem; letter-spacing:0.08em; text-transform:uppercase;
     margin-bottom:24px;
   }
-  .ast-hero h1 { font-size:clamp(2rem,4.5vw,3rem); line-height:1.15; margin-bottom:18px; }
-  .ast-hero h1 span { color:var(--sky); }
-  .ast-hero p  { font-size:1.05rem; color:var(--muted); line-height:1.7; margin-bottom:28px; max-width:480px; }
+  .ast-hero h1 { font-size:clamp(2rem,4.5vw,3rem); line-height:1.15; margin-bottom:18px; color:var(--text); }
+  .ast-hero h1 span { color:var(--jade); }
+  .ast-hero p  { font-size:1.05rem; color:rgba(15,32,53,0.72); line-height:1.7; margin-bottom:28px; max-width:480px; }
   .ast-hero-btns { display:flex; gap:14px; flex-wrap:wrap; }
 
   .ast-hero-card {
-    background:rgba(255,255,255,0.05); border:1px solid rgba(56,189,248,0.15);
-    border-radius:20px; padding:28px; backdrop-filter:blur(8px);
+    background:rgba(255,255,255,0.82); border:1px solid rgba(0,74,153,0.15);
+    border-radius:20px; padding:28px; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    box-shadow:0 4px 24px rgba(0,74,153,0.1);
   }
-  .ast-hero-card h4 { font-size:0.85rem; color:var(--sky); margin-bottom:18px; text-transform:uppercase; letter-spacing:0.07em; }
+  .ast-hero-card h4 { font-size:0.85rem; color:var(--jade); margin-bottom:18px; text-transform:uppercase; letter-spacing:0.07em; }
   .hca-sample-profile { display:flex; align-items:center; gap:14px; margin-bottom:20px; }
   .hca-sp-avatar {
     width:56px; height:56px; border-radius:50%;
-    background:linear-gradient(135deg,var(--sky),var(--teal));
+    background:linear-gradient(135deg,var(--jade),var(--emerald));
     display:flex; align-items:center; justify-content:center;
     font-size:1.3rem; font-weight:700; color:#fff; flex-shrink:0;
+    overflow:hidden;
   }
-  .hca-sp-info .name { font-size:1rem; font-weight:700; margin-bottom:2px; }
-  .hca-sp-info .role { font-size:0.8rem; color:var(--sky); }
+  .hca-sp-avatar img { width:100%; height:100%; object-fit:cover; display:block; border-radius:50%; }
+  .hca-sp-info .name { font-size:1rem; font-weight:700; margin-bottom:2px; color:var(--text); }
+  .hca-sp-info .role { font-size:0.8rem; color:var(--jade); }
   .hca-sp-stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
-  .hca-sp-stat { background:rgba(255,255,255,0.04); border-radius:10px; padding:10px 12px; text-align:center; }
-  .hca-sp-stat .val { font-size:1.2rem; font-weight:700; color:var(--sky); }
+  .hca-sp-stat { background:rgba(0,74,153,0.05); border:1px solid rgba(0,74,153,0.1); border-radius:10px; padding:10px 12px; text-align:center; }
+  .hca-sp-stat .val { font-size:1.2rem; font-weight:700; color:var(--jade); }
   .hca-sp-stat .lab { font-size:0.7rem; color:var(--muted); }
   .hca-sp-tags { display:flex; flex-wrap:wrap; gap:6px; }
-  .tag-sky { background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.25); color:var(--sky); padding:4px 10px; border-radius:6px; font-size:0.72rem; }
+  .tag-sky { background:rgba(0,74,153,0.08); border:1px solid rgba(0,74,153,0.2); color:var(--jade); padding:4px 10px; border-radius:6px; font-size:0.72rem; }
 
   /* Section commons */
   .ast-section { padding:64px 24px; }
@@ -162,11 +188,11 @@ const PAGE_CSS = `
 
 const BENEFITS = [
   { icon: '📍', title: 'Location-Based Matching', desc: 'Our algorithm matches you with clients within your defined service radius, minimising commute time and transport costs.' },
-  { icon: '💰', title: 'Competitive, Transparent Pay', desc: 'Rates are set by E-Vive administration based on your certification, experience, and care specialisation — clearly communicated before your first placement.' },
+  { icon: '💰', title: 'Competitive, Transparent Pay', desc: 'Rates are set by E-Vive administration based on your certification, experience, and care specialisation - clearly communicated before your first placement.' },
   { icon: '🛡️', title: 'Verified & Protected', desc: 'Your identity is verified, your certifications are showcased, and your profile is backed by the E-Vive quality assurance badge.' },
-  { icon: '📱', title: 'Digital Cardex System', desc: 'GPS clock-in, digital shift reports, and automated payroll. No more paper records — everything is tracked and timestamped.' },
+  { icon: '📱', title: 'Digital Cardex System', desc: 'GPS clock-in, digital shift reports, and automated payroll. No more paper records - everything is tracked and timestamped.' },
   { icon: '📚', title: 'Free Ongoing Training', desc: 'Access CPD training modules, certification courses, and skill upgrades at no extra cost on Professional and Premium plans.' },
-  { icon: '💬', title: 'HCA Community & Welfare', desc: 'Peer support, confidential counselling, off-day request system, and a welfare line — we care for our carers.' },
+  { icon: '💬', title: 'HCA Community & Welfare', desc: 'Peer support, confidential counselling, off-day request system, and a welfare line - we care for our carers.' },
 ];
 
 const PLANS = [
@@ -241,20 +267,30 @@ export default function AssistantsPage() {
 
       {/* Hero */}
       <section className="ast-hero">
+        <div className="ast-hero-photos" aria-hidden="true">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="ast-hp2" src="/images/hero-photo-2.jpg" alt="" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="ast-hp1" src="/images/hero-photo-1.jpg" alt="" />
+          <div className="ast-hp-btm" />
+        </div>
+        <div className="ast-hero-overlay" aria-hidden="true" />
         <div className="ast-hero-inner">
           <div>
             <div className="ast-hero-tag">For HomeCare Assistants</div>
             <h1>Build a Career <span>You Are Proud Of</span></h1>
-            <p>Join Kenya&apos;s leading homecare platform. Get matched with clients near you, manage your shifts digitally, and grow your career — on your terms.</p>
+            <p>Join Kenya&apos;s leading homecare platform. Get matched with clients near you, manage your shifts digitally, and grow your career.</p>
             <div className="ast-hero-btns">
-              <Link href="/hca/apply" className="btn-sky">Apply Now — It&apos;s Free →</Link>
-              <a href="#plans" className="btn-o">See Subscription Plans</a>
+              <Link href="/hca/apply" className="btn-p">Apply Now - It&apos;s Free →</Link>
             </div>
           </div>
           <div className="ast-hero-card">
             <h4>Sample HCA Profile</h4>
             <div className="hca-sample-profile">
-              <div className="hca-sp-avatar">FN</div>
+              <div className="hca-sp-avatar">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/images/portraits/hca-jane-njambi.svg" alt="Florence Njeri - Senior HCA" />
+              </div>
               <div className="hca-sp-info">
                 <div className="name">Florence Njeri</div>
                 <div className="role">Senior HomeCare Assistant · Westlands</div>
@@ -275,19 +311,6 @@ export default function AssistantsPage() {
         </div>
       </section>
 
-      {/* Earnings strip */}
-      <div style={{ background:'rgba(56,189,248,0.06)', borderTop:'1px solid rgba(56,189,248,0.15)', borderBottom:'1px solid rgba(56,189,248,0.15)', padding:'36px 24px' }}>
-        <div className="ast-inner">
-          <div className="earnings-grid">
-            <div className="earn-card"><div className="val">KES 45K+</div><div className="lab">Avg. monthly earnings (top tier)</div></div>
-            <div className="earn-card"><div className="val">850+</div><div className="lab">Active HCAs on platform</div></div>
-            <div className="earn-card"><div className="val">2,400+</div><div className="lab">Families served</div></div>
-            <div className="earn-card"><div className="val">4.8★</div><div className="lab">Average HCA rating</div></div>
-            <div className="earn-card"><div className="val">47</div><div className="lab">Sub-counties covered</div></div>
-          </div>
-        </div>
-      </div>
-
       {/* Benefits */}
       <section className="ast-section">
         <div className="ast-inner">
@@ -305,42 +328,6 @@ export default function AssistantsPage() {
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* Subscription plans */}
-      <section className="ast-section ast-section-alt" id="plans">
-        <div className="ast-inner">
-          <div className="ast-section-head">
-            <span className="tag">Transparent Pricing</span>
-            <h2>Subscription Plans</h2>
-            <p>Your profile listing is powered by a simple monthly subscription. No commissions, no hidden fees — you keep your full earnings.</p>
-          </div>
-          <div className="plans-grid">
-            {PLANS.map(plan => (
-              <div className={`plan-card ${plan.featured ? 'featured' : ''}`} key={plan.name}>
-                {plan.badge && <div className="plan-badge">{plan.badge}</div>}
-                <div className="plan-name">{plan.name}</div>
-                <div className="plan-price">{plan.price}<span> {plan.period}</span></div>
-                <div className="plan-desc">{plan.desc}</div>
-                <div className="plan-divider" />
-                <div className="plan-features">
-                  {plan.features.map(f => (
-                    <div className="plan-feat" key={f.text}>
-                      <div className="check">{f.active ? '✓' : '–'}</div>
-                      <div className={`text ${f.active ? '' : 'muted'}`}>{f.text}</div>
-                    </div>
-                  ))}
-                </div>
-                <Link href="/hca/apply" className={plan.featured ? 'btn-sky btn-full' : 'btn-o btn-full'} style={{ display:'block', textAlign:'center', textDecoration:'none' }}>
-                  Get Started
-                </Link>
-              </div>
-            ))}
-          </div>
-          <p style={{ textAlign:'center', fontSize:'0.82rem', color:'var(--muted)', marginTop:24 }}>
-            All plans include a free 30-day trial. Cancel anytime. Subscription activates after successful verification.
-          </p>
         </div>
       </section>
 

@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" width="600" height="400">
+<defs>
+  <linearGradient id="cg-bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#fff8f0"/>
+    <stop offset="100%" stop-color="#ffe8d0"/>
+  </linearGradient>
+  <clipPath id="cg-clip"><rect width="600" height="400" rx="16"/></clipPath>
+</defs>
+<g clip-path="url(#cg-clip)">
+  <rect width="600" height="400" fill="url(#cg-bg)"/>
+  <!-- Floor -->
+  <rect y="325" width="600" height="75" fill="#c4a882" opacity="0.45"/>
+  <rect y="323" width="600" height="4" fill="#b8956a" opacity="0.4"/>
+
+  <!-- Sofa background -->
+  <rect x="100" y="195" width="400" height="140" rx="20" fill="#e8845a" opacity="0.75"/>
+  <rect x="86" y="250" width="44" height="90" rx="16" fill="#e8845a" opacity="0.7"/>
+  <rect x="470" y="250" width="44" height="90" rx="16" fill="#e8845a" opacity="0.7"/>
+  <!-- Sofa cushion lines -->
+  <rect x="100" y="265" width="170" height="6" rx="3" fill="rgba(0,0,0,0.06)"/>
+  <rect x="330" y="265" width="170" height="6" rx="3" fill="rgba(0,0,0,0.06)"/>
+  <!-- Sofa legs -->
+  <rect x="108" y="323" width="12" height="18" rx="4" fill="#c07040"/>
+  <rect x="480" y="323" width="12" height="18" rx="4" fill="#c07040"/>
+
+  <!-- ── Elderly mother (seated left, facing right) ── -->
+  <!-- Body -->
+  <ellipse cx="218" cy="288" rx="55" ry="32" fill="#7B5EA7" opacity="0.85"/>
+  <rect x="183" y="235" width="70" height="68" rx="14" fill="#7B5EA7" opacity="0.85"/>
+  <!-- Left arm resting on sofa arm -->
+  <path d="M183,262 Q148,272 118,282" stroke="#6a4d96" stroke-width="20" fill="none" stroke-linecap="round"/>
+  <ellipse cx="113" cy="285" rx="13" ry="9" fill="#9A6428"/>
+  <!-- Right arm (leaning, hand in daughter's hand) -->
+  <path d="M253,262 Q285,275 300,294" stroke="#6a4d96" stroke-width="20" fill="none" stroke-linecap="round"/>
+  <ellipse cx="306" cy="299" rx="14" ry="10" fill="#9A6428"/>
+  <!-- Neck -->
+  <rect x="205" y="222" width="24" height="20" rx="6" fill="#9A6428"/>
+  <!-- Head -->
+  <ellipse cx="217" cy="200" rx="32" ry="36" fill="#9A6428"/>
+  <!-- Ears -->
+  <ellipse cx="185" cy="202" rx="6" ry="9" fill="#8B6428"/>
+  <ellipse cx="249" cy="202" rx="6" ry="9" fill="#8B6428"/>
+  <!-- Grey hair — braided -->
+  <ellipse cx="217" cy="170" rx="30" ry="13" fill="#8a7878"/>
+  <rect x="187" y="172" width="60" height="11" rx="7" fill="#8a7878"/>
+  <!-- Eyes (elder, kind) -->
+  <ellipse cx="204" cy="196" rx="6" ry="5" fill="white"/>
+  <ellipse cx="230" cy="196" rx="6" ry="5" fill="white"/>
+  <circle cx="204" cy="196" r="3.5" fill="#1a0a00"/>
+  <circle cx="230" cy="196" r="3.5" fill="#1a0a00"/>
+  <!-- Warm smile -->
+  <path d="M194,212 L217,222 L240,212" stroke="rgba(100,60,20,0.35)" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+
+  <!-- ── Daughter caregiver (seated right, facing mother) ── -->
+  <!-- Body -->
+  <ellipse cx="370" cy="288" rx="55" ry="32" fill="#2e7d32" opacity="0.85"/>
+  <rect x="347" y="228" width="70" height="72" rx="14" fill="#2e7d32" opacity="0.85"/>
+  <!-- Left arm (holding mother's hand — joining hands) -->
+  <path d="M347,258 Q320,272 306,294" stroke="#1b5e20" stroke-width="20" fill="none" stroke-linecap="round"/>
+  <ellipse cx="301" cy="300" rx="14" ry="10" fill="#C68642"/>
+  <!-- Right arm -->
+  <path d="M417,260 Q446,275 462,284" stroke="#1b5e20" stroke-width="20" fill="none" stroke-linecap="round"/>
+  <ellipse cx="466" cy="288" rx="13" ry="9" fill="#C68642"/>
+  <!-- Joined hands (clasped in the center) -->
+  <ellipse cx="303" cy="300" rx="18" ry="13" fill="#C68642"/>
+  <ellipse cx="307" cy="298" rx="16" ry="11" fill="#9A6428" opacity="0.6"/>
+  <path d="M296,296 Q304,304 314,298" fill="none" stroke="rgba(100,60,20,0.3)" stroke-width="1.5"/>
+  <!-- Neck -->
+  <rect x="365" y="214" width="24" height="20" rx="6" fill="#C68642"/>
+  <!-- Head -->
+  <ellipse cx="377" cy="193" rx="32" ry="36" fill="#C68642"/>
+  <!-- Ears -->
+  <ellipse cx="345" cy="195" rx="6" ry="9" fill="#B57A35"/>
+  <ellipse cx="409" cy="195" rx="6" ry="9" fill="#B57A35"/>
+  <!-- Afro natural hair -->
+  <ellipse cx="377" cy="168" rx="34" ry="20" fill="#1a0a00"/>
+  <ellipse cx="345" cy="180" rx="12" ry="16" fill="#1a0a00"/>
+  <ellipse cx="409" cy="180" rx="12" ry="16" fill="#1a0a00"/>
+  <ellipse cx="377" cy="152" rx="24" ry="22" fill="#1a0a00"/>
+  <!-- Eyes (caring, warm) -->
+  <ellipse cx="364" cy="188" rx="6.5" ry="5.5" fill="white"/>
+  <ellipse cx="390" cy="188" rx="6.5" ry="5.5" fill="white"/>
+  <circle cx="364" cy="188" r="4" fill="#1a0a00"/>
+  <circle cx="390" cy="188" r="4" fill="#1a0a00"/>
+  <circle cx="365.5" cy="186.5" r="1.3" fill="white" opacity="0.9"/>
+  <circle cx="391.5" cy="186.5" r="1.3" fill="white" opacity="0.9"/>
+  <!-- Eyebrows -->
+  <path d="M355,178 Q364,172 371,177" stroke="#1a0a00" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M383,177 Q390,172 399,178" stroke="#1a0a00" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- Tender smile -->
+  <path d="M364,204 Q377,214 390,204" stroke="rgba(100,60,20,0.45)" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- ── E-Vive branding strip ── -->
+  <rect x="0" y="358" width="600" height="42" fill="rgba(0,53,128,0.85)"/>
+  <text x="24" y="383" font-family="Georgia,serif" font-size="13" font-weight="bold" fill="white">Family Caregiver Hub</text>
+  <text x="24" y="396" font-family="Arial,sans-serif" font-size="9.5" fill="rgba(255,255,255,0.65)" letter-spacing="0.5">TRAINING · COMMUNITY · COUNSELLING · RESOURCES · SUPPORT GROUPS</text>
+  <rect x="530" y="366" width="50" height="26" rx="6" fill="rgba(132,189,96,0.3)" stroke="rgba(132,189,96,0.5)" stroke-width="1"/>
+  <text x="540" y="382" font-family="Arial,sans-serif" font-size="10" font-weight="bold" fill="#84BD60">FREE</text>
+</g>
+</svg>
