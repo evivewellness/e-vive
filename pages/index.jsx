@@ -476,7 +476,7 @@ export default function EVivePortal() {
         <div className="hero-grid">
           <div>
             <div className="hero-eyebrow"><div className="eyebrow-line" /><span className="eyebrow-text">Nairobi · Kenya · Est. 2025</span></div>
-            <h1>Nourishing <em>Hope</em>,<br/>Sustaining <span className="gold">Life</span></h1>
+            <h1>Kamau <em>Hope</em>,<br/>Sustaining <span className="gold">Life</span></h1>
             <p className="hero-sub">E-Vive is East Africa&apos;s pioneering digital nutrition and care support platform for cancer patients, survivors, and their caregivers — founded on lived experience, clinical expertise, and compassion.</p>
             <div className="hero-actions">
               <button className="btn-primary" onClick={() => document.getElementById("consult")?.scrollIntoView({ behavior: "smooth" })}>Begin Your Care Journey →</button>
