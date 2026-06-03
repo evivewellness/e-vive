@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -50,6 +50,20 @@ import {
   addCardexQaComment,
   updateClientCoords,
   updateHcaCoords,
+  sendVisitScheduledNotification,
+  sendInvoiceNotification,
+  sendHcaMatchedNotification,
+  getLmsCourses,
+  createLmsCourse,
+  updateLmsCourse,
+  deleteLmsCourse,
+  getAllLmsEnrollments,
+  getLmsSubmissions,
+  updateLmsSubmission,
+  getHubReferrals,
+  updateHubReferral,
+  getHubAccessRequests,
+  updateHubAccessRequest,
 } from "../../lib/store";
 
 const CSS = `
@@ -150,18 +164,11 @@ const NAV = [
   { icon:"📣", label:"Announcements",     key:"announcements"  },
   { icon:"📧", label:"Newsletter",        key:"newsletter"     },
   { icon:"🏷️", label:"Pricing & Offers",  key:"pricing"        },
+  { icon:"🏠", label:"Family Hub",        key:"hub"            },
   { icon:"⚙️", label:"Settings / RBAC",   key:"settings"       },
   { icon:"🗺️", label:"Map View",          key:"map",      href:"/admin/map" },
 ];
 
-const QUALITY_METRICS = [
-  { label:"Average HCA Rating (MTD)",       val:"4.76 / 5",  bar:95, color:"var(--mint)"  },
-  { label:"Avg. Shift Timeliness",          val:"93%",       bar:93, color:"var(--sky)"   },
-  { label:"Cardex Completion Rate",         val:"98.2%",     bar:98, color:"var(--jade)"  },
-  { label:"Placement Responsiveness (hrs)", val:"18h avg",   bar:72, color:"var(--amber)" },
-  { label:"Client Satisfaction Score",      val:"4.8 / 5",  bar:96, color:"var(--mint)"  },
-  { label:"Special Needs Compliance",       val:"91%",       bar:91, color:"var(--sky)"   },
-];
 
 const EVENT_COLORS = {
   visit:    { bg:"rgba(0,74,153,0.3)",    text:"#93c5fd" },
@@ -206,16 +213,16 @@ function ClientModal({ client, hcaProfiles, onClose, onRefresh }) {
     return true;
   }
 
-  function doAction() {
+  async function doAction() {
     setSaving(true);
     try {
       if (action === "call") {
-        advanceClientJourney(client.id, "call_made");
+        await advanceClientJourney(client.id, "call_made");
         setMsg("✓ Call Made — journey updated.");
       } else if (action === "visit") {
         if (!visitDate) { setMsg("Please pick a visit date."); setSaving(false); return; }
-        advanceClientJourney(client.id, "visit_scheduled", { visitDate: `${visitDate}T${visitTime}:00` });
-        createCalendarEvent({
+        await advanceClientJourney(client.id, "visit_scheduled", { visitDate: `${visitDate}T${visitTime}:00` });
+        await createCalendarEvent({
           title: `Home Visit — ${client.name}`,
           date: visitDate,
           time: visitTime,
@@ -227,12 +234,12 @@ function ClientModal({ client, hcaProfiles, onClose, onRefresh }) {
         setMsg(`✓ Visit scheduled for ${visitDate} at ${visitTime}.`);
       } else if (action === "match") {
         if (!hcaId) { setMsg("Please select an HCA."); setSaving(false); return; }
-        advanceClientJourney(client.id, "hca_matched", { assignedHcaId: hcaId });
-        logActivity({ type: "hca_matched", clientId: client.id, clientName: client.name, hcaId });
+        await advanceClientJourney(client.id, "hca_matched", { assignedHcaId: hcaId });
+        await logActivity({ type: "hca_matched", clientId: client.id, clientName: client.name, hcaId });
         setMsg("✓ HCA matched to client.");
       } else if (action === "invoice") {
         if (!invDesc || !invAmount || !invDue) { setMsg("Fill all invoice fields."); setSaving(false); return; }
-        createInvoice({
+        await createInvoice({
           clientId: client.id,
           description: invDesc,
           lineItems: [{ label: invDesc, amount: Number(invAmount) }],
@@ -242,7 +249,7 @@ function ClientModal({ client, hcaProfiles, onClose, onRefresh }) {
         });
         // Advance to payment_pending if not already past it
         if (stageIdx >= 6 && stageIdx < 8) {
-          advanceClientJourney(client.id, "payment_pending");
+          await advanceClientJourney(client.id, "payment_pending");
         }
         setMsg(`✓ Invoice for KES ${Number(invAmount).toLocaleString()} created.`);
       }
@@ -357,14 +364,14 @@ function ClientModal({ client, hcaProfiles, onClose, onRefresh }) {
 
 // ─── HCA approve modal ─────────────────────────────────────────────────────────
 function HcaApproveModal({ app, onClose, onRefresh }) {
-  const [rate,   setRate]   = useState(1800);
+  const [rate,   setRate]   = useState(2000);
   const [saving, setSaving] = useState(false);
   const [msg,    setMsg]    = useState("");
 
-  function approve() {
+  async function approve() {
     setSaving(true);
     try {
-      const profile = createHcaProfile({
+      const profile = await createHcaProfile({
         applicationId: app.id,
         name:          app.fullName || app.name,
         email:         app.email,
@@ -377,7 +384,7 @@ function HcaApproveModal({ app, onClose, onRefresh }) {
         rate:          Number(rate),
         rateSetAt:     new Date().toISOString(),
       });
-      updateHcaApplication(app.id, { status: "approved", approvedAt: new Date().toISOString(), profileId: profile.id });
+      await updateHcaApplication(app.id, { status: "approved", approvedAt: new Date().toISOString(), profileId: profile.id });
       setMsg(`✓ ${profile.name} approved as ${profile.employeeId}.`);
       setTimeout(() => { onRefresh(); onClose(); }, 900);
     } catch (e) {
@@ -386,8 +393,8 @@ function HcaApproveModal({ app, onClose, onRefresh }) {
     }
   }
 
-  function reject() {
-    updateHcaApplication(app.id, { status: "rejected" });
+  async function reject() {
+    await updateHcaApplication(app.id, { status: "rejected" });
     onRefresh();
     onClose();
   }
@@ -419,6 +426,152 @@ function HcaApproveModal({ app, onClose, onRefresh }) {
   );
 }
 
+// ─── HCA edit modal ────────────────────────────────────────────────────────────
+function HcaEditModal({ hca, onClose, onRefresh }) {
+  const SPEC_OPTS = ["Elderly Care","Dementia Care","Post-Surgery","Palliative","Child Care","Diabetic Care","Critical Care","Cerebral Palsy","Mobility Assistance","Companionship","Driver / Transport"];
+  const LANG_OPTS = ["English","Kiswahili","Kikuyu","Luhya","Dholuo","Kamba","Meru","Somali","Kalenjin"];
+  const SHIFT_OPTS = ["Day Shift","Night Shift","24-Hour Care"];
+  const TRAVEL_OPTS = ["Local Travel","International"];
+
+  function tog(arr, v) { return arr.includes(v) ? arr.filter(x=>x!==v) : [...arr,v]; }
+
+  const [form, setForm] = useState({
+    name:             hca.name || '',
+    email:            hca.email || '',
+    mobile:           hca.mobile || '',
+    certLevel:        hca.certLevel || '',
+    yearsExp:         hca.yearsExp || 0,
+    rate:             hca.rate || 2000,
+    county:           hca.county || '',
+    gender:           hca.gender || 'Not specified',
+    ageRange:         hca.ageRange || '',
+    bio:              hca.bio || '',
+    specialisations:  hca.specialisations || [],
+    languages:        hca.languages || ['English','Kiswahili'],
+    shiftPreferences: hca.shiftPreferences || ['Day Shift'],
+    periodPreference: hca.periodPreference || 'Long Term (2+ wks)',
+    travelOptions:    hca.travelOptions || ['Local Travel'],
+    available:        hca.available !== false,
+    lat:              hca.lat ? String(hca.lat) : '',
+    lng:              hca.lng ? String(hca.lng) : '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const upd = (f,v) => setForm(p=>({...p,[f]:v}));
+
+  async function save() {
+    if (!form.name.trim()) { setMsg('Name is required.'); return; }
+    setSaving(true);
+    try {
+      await updateHcaProfile(hca.id, {
+        name: form.name, email: form.email, mobile: form.mobile,
+        certLevel: form.certLevel, yearsExp: Number(form.yearsExp),
+        rate: Number(form.rate), county: form.county,
+        gender: form.gender, ageRange: form.ageRange, bio: form.bio,
+        specialisations: form.specialisations,
+        languages: form.languages, shiftPreferences: form.shiftPreferences,
+        periodPreference: form.periodPreference, travelOptions: form.travelOptions,
+        available: form.available,
+        lat: form.lat ? Number(form.lat) : null,
+        lng: form.lng ? Number(form.lng) : null,
+      });
+      setMsg('✓ Saved.');
+      setTimeout(() => { onRefresh(); onClose(); }, 700);
+    } catch(e) { setMsg('⚠ ' + (e.message||'Error')); setSaving(false); }
+  }
+
+  return (
+    <div className="modal-bg" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal-box" style={{maxWidth:580,maxHeight:'90vh',overflowY:'auto'}}>
+        <div className="modal-title">Edit HCA — {hca.name}</div>
+        <div style={{fontSize:11,fontFamily:'var(--mono)',color:'var(--muted)',marginBottom:16}}>ID: {hca.employeeId}</div>
+
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:4}}>
+          <div className="modal-field"><label className="modal-label">Full Name *</label><input className="modal-input" value={form.name} onChange={e=>upd('name',e.target.value)} /></div>
+          <div className="modal-field"><label className="modal-label">Email</label><input className="modal-input" type="email" value={form.email} onChange={e=>upd('email',e.target.value)} /></div>
+          <div className="modal-field"><label className="modal-label">Mobile</label><input className="modal-input" value={form.mobile} onChange={e=>upd('mobile',e.target.value)} /></div>
+          <div className="modal-field"><label className="modal-label">County</label><input className="modal-input" value={form.county} onChange={e=>upd('county',e.target.value)} /></div>
+          <div className="modal-field"><label className="modal-label">Cert Level</label>
+            <select className="modal-sel" value={form.certLevel} onChange={e=>upd('certLevel',e.target.value)}>
+              {['HCA','Certificate III','Diploma','RN','BSN'].map(v=><option key={v}>{v}</option>)}
+            </select>
+          </div>
+          <div className="modal-field"><label className="modal-label">Years Exp</label><input className="modal-input" type="number" min={0} value={form.yearsExp} onChange={e=>upd('yearsExp',e.target.value)} /></div>
+          <div className="modal-field"><label className="modal-label">Rate (KES/shift)</label><input className="modal-input" type="number" min={0} value={form.rate} onChange={e=>upd('rate',e.target.value)} /></div>
+          <div className="modal-field"><label className="modal-label">Gender</label>
+            <select className="modal-sel" value={form.gender} onChange={e=>upd('gender',e.target.value)}>
+              {['Not specified','Female','Male','Non-binary'].map(v=><option key={v}>{v}</option>)}
+            </select>
+          </div>
+          <div className="modal-field"><label className="modal-label">Age Range</label>
+            <select className="modal-sel" value={form.ageRange} onChange={e=>upd('ageRange',e.target.value)}>
+              {['','21–25','26–30','31–35','36–40','41–45','46–50','51+'].map(v=><option key={v} value={v}>{v||'Not specified'}</option>)}
+            </select>
+          </div>
+          <div className="modal-field"><label className="modal-label">Period Preference</label>
+            <select className="modal-sel" value={form.periodPreference} onChange={e=>upd('periodPreference',e.target.value)}>
+              {['Short Term (1–2 wks)','Long Term (2+ wks)','Both'].map(v=><option key={v}>{v}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div className="modal-field">
+          <label className="modal-label">Bio / Profile Summary</label>
+          <textarea className="modal-input" rows={3} value={form.bio} onChange={e=>upd('bio',e.target.value)} style={{resize:'vertical'}} placeholder="Short professional profile shown to clients…" />
+        </div>
+
+        <div className="modal-field">
+          <label className="modal-label">Specialisations</label>
+          <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:4}}>
+            {SPEC_OPTS.map(v=><button key={v} type="button" onClick={()=>upd('specialisations',tog(form.specialisations,v))} style={{padding:'4px 10px',borderRadius:'100px',fontSize:11,fontFamily:'var(--mono)',border:'1px solid rgba(168,0,64,0.25)',background:form.specialisations.includes(v)?'rgba(132,189,96,0.2)':'transparent',color:form.specialisations.includes(v)?'var(--mint)':'var(--muted)',cursor:'pointer'}}>{v}</button>)}
+          </div>
+        </div>
+
+        <div className="modal-field">
+          <label className="modal-label">Languages</label>
+          <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:4}}>
+            {LANG_OPTS.map(v=><button key={v} type="button" onClick={()=>upd('languages',tog(form.languages,v))} style={{padding:'4px 10px',borderRadius:'100px',fontSize:11,fontFamily:'var(--mono)',border:'1px solid rgba(168,0,64,0.25)',background:form.languages.includes(v)?'rgba(0,74,153,0.15)':'transparent',color:form.languages.includes(v)?'var(--sky)':'var(--muted)',cursor:'pointer'}}>{v}</button>)}
+          </div>
+        </div>
+
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+          <div className="modal-field">
+            <label className="modal-label">Shift Preferences</label>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:4}}>
+              {SHIFT_OPTS.map(v=><button key={v} type="button" onClick={()=>upd('shiftPreferences',tog(form.shiftPreferences,v))} style={{padding:'4px 10px',borderRadius:'100px',fontSize:11,fontFamily:'var(--mono)',border:'1px solid rgba(168,0,64,0.25)',background:form.shiftPreferences.includes(v)?'rgba(0,74,153,0.15)':'transparent',color:form.shiftPreferences.includes(v)?'var(--sky)':'var(--muted)',cursor:'pointer'}}>{v}</button>)}
+            </div>
+          </div>
+          <div className="modal-field">
+            <label className="modal-label">Travel Options</label>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:4}}>
+              {TRAVEL_OPTS.map(v=><button key={v} type="button" onClick={()=>upd('travelOptions',tog(form.travelOptions,v))} style={{padding:'4px 10px',borderRadius:'100px',fontSize:11,fontFamily:'var(--mono)',border:'1px solid rgba(168,0,64,0.25)',background:form.travelOptions.includes(v)?'rgba(0,74,153,0.15)':'transparent',color:form.travelOptions.includes(v)?'var(--sky)':'var(--muted)',cursor:'pointer'}}>{v}</button>)}
+            </div>
+          </div>
+        </div>
+
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+          <div className="modal-field"><label className="modal-label">Latitude</label><input className="modal-input" type="number" step="any" value={form.lat} onChange={e=>upd('lat',e.target.value)} placeholder="-1.2921" /></div>
+          <div className="modal-field"><label className="modal-label">Longitude</label><input className="modal-input" type="number" step="any" value={form.lng} onChange={e=>upd('lng',e.target.value)} placeholder="36.8219" /></div>
+        </div>
+
+        <div className="modal-field">
+          <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13}}>
+            <input type="checkbox" checked={form.available} onChange={e=>upd('available',e.target.checked)} />
+            Available for new placements
+          </label>
+        </div>
+
+        {msg && <div style={{padding:'10px 14px',borderRadius:10,fontSize:13,marginBottom:12,background:msg.startsWith('✓')?'rgba(0,74,153,0.08)':'rgba(249,112,102,0.08)',border:msg.startsWith('✓')?'1px solid rgba(0,74,153,0.2)':'1px solid rgba(249,112,102,0.25)',color:msg.startsWith('✓')?'var(--mint)':'var(--coral)'}}>{msg}</div>}
+        <div className="modal-actions">
+          <button className="btn-o btn-sm" onClick={onClose}>Cancel</button>
+          <button className="btn-p btn-sm" onClick={save} disabled={saving}>{saving?'Saving…':'Save Changes'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Add calendar event modal ──────────────────────────────────────────────────
 function AddEventModal({ defaultDate, clients, hcaProfiles, onClose, onRefresh }) {
   const [title,    setTitle]    = useState("");
@@ -430,10 +583,10 @@ function AddEventModal({ defaultDate, clients, hcaProfiles, onClose, onRefresh }
   const [notes,    setNotes]    = useState("");
   const [saving,   setSaving]   = useState(false);
 
-  function save() {
+  async function save() {
     if (!title || !date) return;
     setSaving(true);
-    createCalendarEvent({ title, date, time, type, clientId: clientId||undefined, hcaId: hcaId||undefined, notes, createdBy:"admin" });
+    await createCalendarEvent({ title, date, time, type, clientId: clientId||undefined, hcaId: hcaId||undefined, notes, createdBy:"admin" });
     onRefresh();
     onClose();
   }
@@ -506,11 +659,11 @@ function ScheduleShiftModal({ clients, hcaProfiles, defaultDate, onClose, onRefr
   const selectedClient = clients.find(c=>c.id===clientId);
   const patients = selectedClient?.patients || [];
 
-  function save() {
+  async function save() {
     if (!hcaId || !clientId || !date) { setMsg("HCA, client and date are required."); return; }
     setSaving(true);
     try {
-      createShiftWithEvent({ hcaId, clientId, patientId: patId||undefined, date, startTime, type, notes, status:"scheduled" });
+      await createShiftWithEvent({ hcaId, clientId, patientId: patId||undefined, date, startTime, type, notes, status:"scheduled" });
       setMsg("✓ Shift scheduled and added to calendar.");
       setTimeout(() => { onRefresh(); onClose(); }, 800);
     } catch(e) { setMsg("⚠ " + (e.message||"Error")); setSaving(false); }
@@ -583,9 +736,9 @@ function EditClientLocForm({ client, onClose, onRefresh }) {
   const [lat,  setLat]  = useState(client.lat ? String(client.lat) : "");
   const [lng,  setLng]  = useState(client.lng ? String(client.lng) : "");
   const [msg,  setMsg]  = useState("");
-  function save() {
+  async function save() {
     if (!lat || !lng) { setMsg("Enter latitude and longitude."); return; }
-    updateClient(client.id, { address: addr, location: addr, lat: Number(lat), lng: Number(lng) });
+    await updateClient(client.id, { address: addr, location: addr, lat: Number(lat), lng: Number(lng) });
     setMsg("✓ Location saved.");
     setTimeout(() => { onRefresh(); onClose(); }, 700);
   }
@@ -617,10 +770,91 @@ function EditClientLocForm({ client, onClose, onRefresh }) {
   );
 }
 
+// ─── Client + patient edit modal ───────────────────────────────────────────────
+function ClientEditModal({ client, onClose, onRefresh }) {
+  const [form, setForm] = useState({
+    name:     client.name || '',
+    email:    client.email || '',
+    mobile:   client.mobile || '',
+    location: client.location || '',
+    address:  client.address || '',
+    password: '',
+  });
+  const [patients, setPatients] = useState(
+    (client.patients || []).map(p => ({ ...p }))
+  );
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg]     = useState('');
+
+  const upd  = (f,v) => setForm(p=>({...p,[f]:v}));
+  const updP = (i,f,v) => setPatients(pp => pp.map((p,j) => j===i ? {...p,[f]:v} : p));
+
+  async function save() {
+    if (!form.name.trim()) { setMsg('Name is required.'); return; }
+    setSaving(true);
+    try {
+      const patch = { name:form.name, email:form.email, mobile:form.mobile, location:form.location, address:form.address };
+      if (form.password.trim()) patch.password = form.password.trim();
+      await updateClient(client.id, { ...patch, patients });
+      setMsg('✓ Saved.');
+      setTimeout(() => { onRefresh(); onClose(); }, 700);
+    } catch(e) { setMsg('⚠ ' + (e.message||'Error')); setSaving(false); }
+  }
+
+  return (
+    <div className="modal-bg" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal-box" style={{maxWidth:560,maxHeight:'90vh',overflowY:'auto'}}>
+        <div className="modal-title">Edit Client — {client.name}</div>
+
+        <div style={{marginBottom:14,fontSize:12,fontWeight:700,fontFamily:'var(--mono)',color:'var(--muted)',letterSpacing:'0.05em'}}>CLIENT DETAILS</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:4}}>
+          <div className="modal-field"><label className="modal-label">Full Name *</label><input className="modal-input" value={form.name} onChange={e=>upd('name',e.target.value)} /></div>
+          <div className="modal-field"><label className="modal-label">Email</label><input className="modal-input" type="email" value={form.email} onChange={e=>upd('email',e.target.value)} /></div>
+          <div className="modal-field"><label className="modal-label">Mobile</label><input className="modal-input" value={form.mobile} onChange={e=>upd('mobile',e.target.value)} /></div>
+          <div className="modal-field"><label className="modal-label">Location</label><input className="modal-input" value={form.location} onChange={e=>upd('location',e.target.value)} placeholder="e.g. Karen, Nairobi" /></div>
+          <div className="modal-field" style={{gridColumn:'1/-1'}}><label className="modal-label">Address</label><input className="modal-input" value={form.address} onChange={e=>upd('address',e.target.value)} placeholder="Full postal/street address" /></div>
+          <div className="modal-field" style={{gridColumn:'1/-1'}}><label className="modal-label">Reset Password (leave blank to keep current)</label><input className="modal-input" type="password" value={form.password} onChange={e=>upd('password',e.target.value)} placeholder="New password…" /></div>
+        </div>
+
+        {patients.length > 0 && (
+          <>
+            <div style={{margin:'18px 0 10px',fontSize:12,fontWeight:700,fontFamily:'var(--mono)',color:'var(--muted)',letterSpacing:'0.05em'}}>PATIENTS ({patients.length})</div>
+            {patients.map((p,i)=>(
+              <div key={p.id||i} style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(168,0,64,0.1)',borderRadius:12,padding:'14px',marginBottom:12}}>
+                <div style={{fontSize:12,fontWeight:700,color:'var(--muted)',marginBottom:10,fontFamily:'var(--mono)'}}>{p.name || `Patient ${i+1}`}</div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                  <div className="modal-field" style={{margin:0}}><label className="modal-label">Name</label><input className="modal-input" value={p.name||''} onChange={e=>updP(i,'name',e.target.value)} /></div>
+                  <div className="modal-field" style={{margin:0}}><label className="modal-label">Age</label><input className="modal-input" type="number" value={p.age||''} onChange={e=>updP(i,'age',Number(e.target.value))} /></div>
+                  <div className="modal-field" style={{margin:0}}><label className="modal-label">Gender</label>
+                    <select className="modal-sel" value={p.gender||''} onChange={e=>updP(i,'gender',e.target.value)}>
+                      {['','Male','Female','Other'].map(v=><option key={v} value={v}>{v||'Not specified'}</option>)}
+                    </select>
+                  </div>
+                  <div className="modal-field" style={{margin:0}}><label className="modal-label">Relationship</label><input className="modal-input" value={p.relationship||''} onChange={e=>updP(i,'relationship',e.target.value)} /></div>
+                  <div className="modal-field" style={{margin:0,gridColumn:'1/-1'}}><label className="modal-label">Care Type</label><input className="modal-input" value={p.careType||''} onChange={e=>updP(i,'careType',e.target.value)} /></div>
+                  <div className="modal-field" style={{margin:0,gridColumn:'1/-1'}}><label className="modal-label">Conditions</label><input className="modal-input" value={p.conditions||''} onChange={e=>updP(i,'conditions',e.target.value)} /></div>
+                  <div className="modal-field" style={{margin:0,gridColumn:'1/-1'}}><label className="modal-label">Notes</label><textarea className="modal-input" rows={2} value={p.notes||''} onChange={e=>updP(i,'notes',e.target.value)} style={{resize:'vertical'}} /></div>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+
+        {msg && <div style={{padding:'10px 14px',borderRadius:10,fontSize:13,marginBottom:12,background:msg.startsWith('✓')?'rgba(0,74,153,0.08)':'rgba(249,112,102,0.08)',border:msg.startsWith('✓')?'1px solid rgba(0,74,153,0.2)':'1px solid rgba(249,112,102,0.25)',color:msg.startsWith('✓')?'var(--mint)':'var(--coral)'}}>{msg}</div>}
+        <div className="modal-actions">
+          <button className="btn-o btn-sm" onClick={onClose}>Cancel</button>
+          <button className="btn-p btn-sm" onClick={save} disabled={saving}>{saving?'Saving…':'Save Changes'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const router = useRouter();
   const [authed,    setAuthed]   = useState(false);
   const [tab,       setTab]      = useState("overview");
+  const [sideOpen,  setSideOpen] = useState(false);
   const [hcaFilter, setHcaFilter]= useState("All");
   const [search,    setSearch]   = useState("");
   const [clients,   setClients]  = useState([]);
@@ -634,6 +868,8 @@ export default function AdminDashboard() {
   // Modals
   const [clientModal,    setClientModal]    = useState(null);
   const [hcaModal,       setHcaModal]       = useState(null);
+  const [editHcaModal,   setEditHcaModal]   = useState(null);
+  const [editClientModal,setEditClientModal] = useState(null);
   const [addEvent,       setAddEvent]       = useState(null);
   const [addShift,       setAddShift]       = useState(null); // date string | true
 
@@ -662,6 +898,7 @@ export default function AdminDashboard() {
   // Pricing state
   const [pricingConfig, setPricingConfig] = useState(null);
   const [localRates, setLocalRates] = useState({});
+  const [localPlanPrices, setLocalPlanPrices] = useState({});
   const [discounts, setDiscounts] = useState([]);
   const [newDiscount, setNewDiscount] = useState({ code:"", type:"percent", value:"", minSpend:"", description:"", expiresAt:"" });
   const [discountMsg, setDiscountMsg] = useState("");
@@ -672,27 +909,48 @@ export default function AdminDashboard() {
   const [expandedCardex, setExpandedCardex] = useState(null);
   const [qaInputs, setQaInputs] = useState({}); // { [entryId]: { comment, flagged } }
 
+  // Calendar items state (async-loaded)
+  const [calItems, setCalItems] = useState([]);
+
   // Client location edit modal
   const [editClientLoc, setEditClientLoc] = useState(null);
 
-  const refresh = useCallback(() => {
-    setClients(getAllClients());
-    setHcaApps(getAllHcaApplications());
-    setHcaProfiles(getAllHcaProfiles());
-    setInvoices(getAllInvoices());
-    setShifts(getAllShifts());
-    setEvents(getAllCalendarEvents());
-    setActivity(getActivityLog().slice(0, 20));
-    setRbacRules(getRbacRules());
-    setAnnouncements(getAllAnnouncements());
-    setNewsletters(getAllNewsletters());
-    setCardexEntries(getAllCardexEntries());
-    const pc = getPricingConfig();
+  // Family Hub state
+  const [hubSubTab,        setHubSubTab]        = useState("courses");
+  const [lmsCourses,       setLmsCourses]       = useState([]);
+  const [lmsEnrollments,   setLmsEnrollments]   = useState([]);
+  const [lmsSubmissions,   setLmsSubmissions]   = useState([]);
+  const [hubReferrals,     setHubReferrals]     = useState([]);
+  const [hubAccessReqs,    setHubAccessReqs]    = useState([]);
+  const [courseModal,      setCourseModal]      = useState(null);
+  const [courseForm,       setCourseForm]       = useState({ title:'', description:'', category:'Clinical Skills', difficulty:'Beginner', duration_mins:60, cover_emoji:'📚', target:'all' });
+  const [editingLessons,   setEditingLessons]   = useState([]);
+
+  const refresh = useCallback(async () => {
+    const [clients, apps, profiles, invoices, shifts, events, activity, rbac, anns, nls, cardex, pc, discounts] = await Promise.all([
+      getAllClients(), getAllHcaApplications(), getAllHcaProfiles(), getAllInvoices(),
+      getAllShifts(), getAllCalendarEvents(), getActivityLog(), getRbacRules(),
+      getAllAnnouncements(), getAllNewsletters(), getAllCardexEntries(), getPricingConfig(), getAllDiscountCodes(),
+    ]);
+    setClients(clients);
+    setHcaApps(apps);
+    setHcaProfiles(profiles);
+    setInvoices(invoices);
+    setShifts(shifts);
+    setEvents(events);
+    setActivity(activity.slice(0, 20));
+    setRbacRules(rbac);
+    setAnnouncements(anns);
+    setNewsletters(nls);
+    setCardexEntries(cardex);
     setPricingConfig(pc);
     const rates = {};
     Object.entries(pc.rates || {}).forEach(([k, v]) => { rates[k] = v.kes; });
     setLocalRates(rates);
-    setDiscounts(getAllDiscountCodes());
+    const planPrices = {};
+    Object.entries(pc.plans || {}).forEach(([k, v]) => { planPrices[k] = v.price; });
+    setLocalPlanPrices(planPrices);
+    setDiscounts(discounts);
   }, []);
 
   // ── Auth guard ──
@@ -705,6 +963,49 @@ export default function AdminDashboard() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { if (authed) refresh(); }, [authed, refresh]);
+
+  useEffect(() => {
+    if (!authed) return;
+    getCalendarItemsForMonth(calYear, calMonth).then(setCalItems);
+  }, [authed, calYear, calMonth]);
+
+  useEffect(() => {
+    if (tab !== "hub") return;
+    async function loadHub() {
+      const [courses, enrollments, submissions, referrals, accessReqs] = await Promise.all([
+        getLmsCourses(),
+        getAllLmsEnrollments(),
+        getLmsSubmissions(),
+        getHubReferrals(),
+        getHubAccessRequests(),
+      ]);
+      setLmsCourses(courses);
+      setLmsEnrollments(enrollments);
+      setLmsSubmissions(submissions);
+      setHubReferrals(referrals);
+      setHubAccessReqs(accessReqs);
+    }
+    loadHub();
+  }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── quality metrics computed from real store data ──
+  const qualityMetrics = useMemo(() => {
+    const completedShifts = shifts.filter(s => s.status === "completed");
+    const ratings = hcaProfiles.filter(h => h.rating).map(h => Number(h.rating));
+    const avgRating = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
+    const cardexRate = completedShifts.length
+      ? Math.min(Math.round((cardexEntries.length / completedShifts.length) * 100), 100)
+      : null;
+    const flagged = cardexEntries.filter(c => c.flagged).length;
+    return [
+      { label:"Average HCA Rating (MTD)",       val:avgRating ? `${avgRating.toFixed(2)} / 5` : "—",          bar:avgRating ? Math.round(avgRating*20) : 0, color:"var(--mint)"  },
+      { label:"Cardex Completion Rate",         val:cardexRate !== null ? `${cardexRate}%` : "—",               bar:cardexRate ?? 0,                          color:"var(--jade)"  },
+      { label:"Completed Shifts (MTD)",         val:String(completedShifts.length),                             bar:Math.min(completedShifts.length*5,100),    color:"var(--sky)"   },
+      { label:"Active HCAs",                    val:String(hcaProfiles.filter(h=>h.status==="active").length), bar:Math.min(hcaProfiles.filter(h=>h.status==="active").length*10,100), color:"var(--amber)" },
+      { label:"Cardex Entries Total",           val:String(cardexEntries.length),                               bar:Math.min(cardexEntries.length*5,100),      color:"var(--mint)"  },
+      { label:"Flagged Entries",                val:flagged > 0 ? String(flagged) : "None",                    bar:flagged>0 ? Math.min(flagged*10,100) : 100, color:flagged>0?"var(--coral)":"var(--sky)" },
+    ];
+  }, [shifts, hcaProfiles, cardexEntries]);
 
   // ── derived stats ──
   const activeClients    = clients.filter(c => c.status === "active");
@@ -776,6 +1077,8 @@ export default function AdminDashboard() {
           onRefresh={refresh}
         />
       )}
+      {editHcaModal && <HcaEditModal hca={editHcaModal} onClose={()=>setEditHcaModal(null)} onRefresh={refresh} />}
+      {editClientModal && <ClientEditModal client={editClientModal} onClose={()=>setEditClientModal(null)} onRefresh={refresh} />}
       {addEvent && (
         <AddEventModal
           defaultDate={typeof addEvent === "string" ? addEvent : ""}
@@ -804,8 +1107,11 @@ export default function AdminDashboard() {
       )}
 
       <div className="dash-wrap">
+        {/* ── SIDEBAR OVERLAY (mobile) ── */}
+        <div className={`dash-side-overlay${sideOpen?" open":""}`} onClick={()=>setSideOpen(false)} />
+
         {/* ── SIDEBAR ── */}
-        <aside className="dash-side">
+        <aside className={`dash-side${sideOpen?" open":""}`}>
           <div className="dash-logo">
             <Link href="/" style={{textDecoration:"none"}}>
               <div className="dash-logo-text">e<span>-</span>vive</div>
@@ -824,7 +1130,7 @@ export default function AdminDashboard() {
             {NAV.map(n=>(
               n.href
                 ? <Link key={n.key} href={n.href} className={`dash-nav-item${tab===n.key?" active gold":""}`}><span className="dash-nav-icon">{n.icon}</span>{n.label}</Link>
-                : <button key={n.key} className={`dash-nav-item${tab===n.key?" active":""}`} onClick={()=>setTab(n.key)} style={{width:"100%",textAlign:"left",background:"none",border:"none",cursor:"pointer",color:"inherit",font:"inherit"}}>
+                : <button key={n.key} className={`dash-nav-item${tab===n.key?" active":""}`} onClick={()=>{setTab(n.key);setSideOpen(false);}} style={{width:"100%",textAlign:"left",background:"none",border:"none",cursor:"pointer",color:"inherit",font:"inherit"}}>
                     <span className="dash-nav-icon">{n.icon}</span>{n.label}
                     {n.key==="hcas" && pendingApps.length > 0 && <span className="dash-nav-badge">{pendingApps.length}</span>}
                   </button>
@@ -841,6 +1147,7 @@ export default function AdminDashboard() {
         {/* ── MAIN ── */}
         <main className="dash-main">
           <div className="dash-topbar">
+            <button className="dash-hamburger" onClick={()=>setSideOpen(o=>!o)} aria-label="Toggle menu">☰</button>
             <div>
               <div className="dash-title">Admin <span>Dashboard</span></div>
               <div style={{fontSize:12,color:"var(--muted)",marginTop:3,fontFamily:"var(--mono)"}}>
@@ -927,7 +1234,7 @@ export default function AdminDashboard() {
                   <div className="panel">
                     <div className="panel-head"><div className="panel-title">📊 Care Quality Snapshot</div></div>
                     <div className="panel-body">
-                      {QUALITY_METRICS.map((m,i)=>(
+                      {qualityMetrics.map((m,i)=>(
                         <div key={i} style={{marginBottom:14}}>
                           <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
                             <div style={{fontSize:12,color:"var(--muted)"}}>{m.label}</div>
@@ -1049,10 +1356,11 @@ export default function AdminDashboard() {
                             <td><span className={`badge ${h.status==="active"?"badge-mint":"badge-dim"}`}>{h.status}</span></td>
                             <td>
                               <div style={{display:"flex",gap:6}}>
-                                <button className="btn-o btn-sm" onClick={()=>{
+                                <button className="btn-p btn-sm" onClick={()=>setEditHcaModal(h)}>Edit</button>
+                                <button className="btn-o btn-sm" onClick={async ()=>{
                                   const newStatus = h.status === "active" ? "inactive" : "active";
-                                  updateHcaProfile(h.id, { status: newStatus });
-                                  refresh();
+                                  await updateHcaProfile(h.id, { status: newStatus });
+                                  await refresh();
                                 }}>
                                   {h.status === "active" ? "Deactivate" : "Activate"}
                                 </button>
@@ -1121,6 +1429,7 @@ export default function AdminDashboard() {
                               <td>
                                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                                   <button className="btn-p btn-sm" onClick={()=>setClientModal(c)}>Manage</button>
+                                  <button className="btn-o btn-sm" onClick={()=>setEditClientModal(c)}>Edit</button>
                                   <button className="btn-o btn-sm" onClick={()=>setEditClientLoc(c)} title="Edit map location">📍</button>
                                 </div>
                               </td>
@@ -1138,7 +1447,12 @@ export default function AdminDashboard() {
             {tab==="quality" && (
               <>
                 <div className="stat-grid">
-                  {[{icon:"⭐",lbl:"Avg. HCA Rating",val:"4.76",color:"amber"},{icon:"⏱️",lbl:"Timeliness",val:"93%",color:"mint"},{icon:"📋",lbl:"Cardex Rate",val:"98.2%",color:"sky"},{icon:"🚩",lbl:"Flags This Month",val:"0",color:"coral"}].map(s=>(
+                  {[
+                    {icon:"⭐",lbl:"Avg. HCA Rating",  val:qualityMetrics[0]?.val||"—", color:"amber"},
+                    {icon:"📋",lbl:"Cardex Rate",       val:qualityMetrics[1]?.val||"—", color:"mint" },
+                    {icon:"✅",lbl:"Completed Shifts",  val:qualityMetrics[2]?.val||"—", color:"sky"  },
+                    {icon:"🚩",lbl:"Flagged Entries",   val:qualityMetrics[5]?.val||"—", color:"coral"},
+                  ].map(s=>(
                     <div className="stat-box" key={s.lbl}><div className="stat-box-icon">{s.icon}</div><div className={`stat-box-val ${s.color}`}>{s.val}</div><div className="stat-box-label">{s.lbl}</div></div>
                   ))}
                 </div>
@@ -1146,7 +1460,7 @@ export default function AdminDashboard() {
                   <div className="panel">
                     <div className="panel-head"><div className="panel-title">Quality Metrics</div></div>
                     <div className="panel-body">
-                      {QUALITY_METRICS.map((m,i)=>(
+                      {qualityMetrics.map((m,i)=>(
                         <div key={i} style={{marginBottom:16}}>
                           <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
                             <div style={{fontSize:13,color:"var(--muted)"}}>{m.label}</div>
@@ -1218,7 +1532,7 @@ export default function AdminDashboard() {
                                 <textarea className="modal-input" style={{flex:1,resize:"vertical",minHeight:48,fontSize:12}} placeholder="Add QA comment..." value={qa.comment} onChange={e=>setQaInputs(p=>({...p,[entry.id]:{...qa,comment:e.target.value}}))} />
                                 <div style={{display:"flex",flexDirection:"column",gap:6}}>
                                   <label style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:"var(--muted)",cursor:"pointer"}}><input type="checkbox" checked={qa.flagged} onChange={e=>setQaInputs(p=>({...p,[entry.id]:{...qa,flagged:e.target.checked}}))} /> 🚩 Flag</label>
-                                  <button className="btn-p btn-sm" disabled={!qa.comment.trim()} onClick={()=>{addCardexQaComment(entry.id,{comment:qa.comment,flagged:qa.flagged});setQaInputs(p=>({...p,[entry.id]:{comment:"",flagged:false}}));refresh();}}>Save</button>
+                                  <button className="btn-p btn-sm" disabled={!qa.comment.trim()} onClick={async ()=>{await addCardexQaComment(entry.id,{comment:qa.comment,flagged:qa.flagged});setQaInputs(p=>({...p,[entry.id]:{comment:"",flagged:false}}));await refresh();}}>Save</button>
                                 </div>
                               </div>
                             </div>
@@ -1264,7 +1578,7 @@ export default function AdminDashboard() {
                                 <td style={{fontFamily:"var(--mono)",fontSize:12}}>{e.date}</td>
                                 <td style={{fontFamily:"var(--mono)",fontSize:12}}>{e.time||"—"}</td>
                                 <td style={{fontSize:12,color:"var(--muted)"}}>{e.notes||"—"}</td>
-                                <td><button className="btn-o btn-sm" onClick={()=>{deleteCalendarEvent(e.id);refresh();}}>Remove</button></td>
+                                <td><button className="btn-o btn-sm" onClick={async ()=>{await deleteCalendarEvent(e.id);await refresh();}}>Remove</button></td>
                               </tr>
                             ))}
                           </tbody>
@@ -1277,13 +1591,8 @@ export default function AdminDashboard() {
             )}
 
             {/* ── CALENDAR / HR ── */}
-            {tab==="calendar" && (
-              () => {
-                // Combined calendar items: events + shifts
-                const allItems = getCalendarItemsForMonth(calYear, calMonth);
-
-                // Apply filters
-                const filteredItems = allItems.filter(item => {
+            {tab==="calendar" && (() => {
+                const filteredItems = calItems.filter(item => {
                   if (calFilter === "shifts") return item.source === "shift";
                   if (calFilter === "events") return item.source === "event";
                   if (calHcaFilter) return item.hcaId === calHcaFilter;
@@ -1404,7 +1713,7 @@ export default function AdminDashboard() {
                                     </span>
                                   )}
                                   {!isShift && (
-                                    <button className="btn-o btn-sm" onClick={e=>{e.stopPropagation();deleteCalendarEvent(item.id);refresh();}}>✕</button>
+                                    <button className="btn-o btn-sm" onClick={async e=>{e.stopPropagation();await deleteCalendarEvent(item.id);await refresh();}}>✕</button>
                                   )}
                                 </div>
                               );
@@ -1488,7 +1797,7 @@ export default function AdminDashboard() {
                       <div><label className="modal-label">Priority</label><select className="modal-sel" value={newAnn.priority} onChange={e=>setNewAnn(p=>({...p,priority:e.target.value}))}><option value="normal">Normal</option><option value="high">High</option><option value="critical">Critical</option></select></div>
                     </div>
                     {annSaved && <div style={{padding:"8px 14px",borderRadius:8,fontSize:12,color:"var(--mint)",background:"rgba(0,74,153,0.08)",border:"1px solid rgba(0,74,153,0.15)",marginBottom:12}}>✓ Announcement published.</div>}
-                    <button className="btn-p btn-sm" disabled={!newAnn.title||!newAnn.body} onClick={()=>{createAnnouncement(newAnn);setNewAnn({title:"",body:"",target:"all",type:"info",priority:"normal"});setAnnSaved(true);refresh();setTimeout(()=>setAnnSaved(false),2500);}}>Publish Announcement</button>
+                    <button className="btn-p btn-sm" disabled={!newAnn.title||!newAnn.body} onClick={async ()=>{await createAnnouncement(newAnn);setNewAnn({title:"",body:"",target:"all",type:"info",priority:"normal"});setAnnSaved(true);await refresh();setTimeout(()=>setAnnSaved(false),2500);}}>Publish Announcement</button>
                   </div>
                 </div>
                 <div className="panel">
@@ -1513,8 +1822,8 @@ export default function AdminDashboard() {
                             <div style={{fontSize:10,color:"var(--muted)",fontFamily:"var(--mono)",marginTop:4}}>{new Date(a.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</div>
                           </div>
                           <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0,marginLeft:12}}>
-                            <button className="btn-o btn-sm" onClick={()=>{updateAnnouncement(a.id,{published:!a.published});refresh();}}>{a.published?"Unpublish":"Publish"}</button>
-                            <button className="btn-o btn-sm" style={{color:"var(--coral)"}} onClick={()=>{deleteAnnouncement(a.id);refresh();}}>Delete</button>
+                            <button className="btn-o btn-sm" onClick={async ()=>{await updateAnnouncement(a.id,{published:!a.published});await refresh();}}>{a.published?"Unpublish":"Publish"}</button>
+                            <button className="btn-o btn-sm" style={{color:"var(--coral)"}} onClick={async ()=>{await deleteAnnouncement(a.id);await refresh();}}>Delete</button>
                           </div>
                         </div>
                       );
@@ -1558,7 +1867,7 @@ export default function AdminDashboard() {
                       <div className="modal-field"><label className="modal-label">Subject Line</label><input className="modal-input" value={newNl.subject} onChange={e=>setNewNl(p=>({...p,subject:e.target.value}))} placeholder="Email subject line..." /></div>
                       <div className="modal-field"><label className="modal-label">Email Body</label><textarea className="modal-input" rows={7} style={{resize:"vertical"}} value={newNl.body} onChange={e=>setNewNl(p=>({...p,body:e.target.value}))} placeholder={"Dear [Name],\n\nYour message here...\n\nWarm regards,\nThe E-Vive Team"} /></div>
                       {nlSaved && <div style={{padding:"8px 14px",borderRadius:8,fontSize:12,color:"var(--mint)",background:"rgba(0,74,153,0.08)",border:"1px solid rgba(0,74,153,0.15)",marginBottom:12}}>✓ Campaign saved as draft.</div>}
-                      <button className="btn-o btn-sm" disabled={!newNl.name||!newNl.subject||!newNl.body} onClick={()=>{const nl=createNewsletter(newNl);setNlPreview(nl);setNewNl({name:"",subject:"",body:"",targetAudience:"all"});setNlSaved(true);refresh();setTimeout(()=>setNlSaved(false),2500);}}>Save Draft &amp; Preview</button>
+                      <button className="btn-o btn-sm" disabled={!newNl.name||!newNl.subject||!newNl.body} onClick={async ()=>{const nl=await createNewsletter(newNl);setNlPreview(nl);setNewNl({name:"",subject:"",body:"",targetAudience:"all"});setNlSaved(true);await refresh();setTimeout(()=>setNlSaved(false),2500);}}>Save Draft &amp; Preview</button>
                     </div>
                   </div>
                 )}
@@ -1575,8 +1884,8 @@ export default function AdminDashboard() {
                         <span style={{fontFamily:"var(--mono)",fontSize:12}}>{n.status==="sent"?n.recipientCount:"—"}</span>
                         <div style={{display:"flex",gap:6}}>
                           <button className="btn-o btn-sm" onClick={()=>setNlPreview(n)}>Preview</button>
-                          {n.status==="draft"&&<button className="btn-p btn-sm" onClick={()=>{markNewsletterSent(n.id);refresh();}}>Send</button>}
-                          <button className="btn-o btn-sm" style={{color:"var(--coral)"}} onClick={()=>{deleteNewsletter(n.id);refresh();}}>✕</button>
+                          {n.status==="draft"&&<button className="btn-p btn-sm" onClick={async ()=>{await markNewsletterSent(n.id);await refresh();}}>Send</button>}
+                          <button className="btn-o btn-sm" style={{color:"var(--coral)"}} onClick={async ()=>{await deleteNewsletter(n.id);await refresh();}}>✕</button>
                         </div>
                       </div>
                     ))}
@@ -1613,13 +1922,35 @@ export default function AdminDashboard() {
                       </div>
                     ))}
                     {pricingMsg&&<div style={{padding:"8px 14px",borderRadius:8,fontSize:12,color:"var(--mint)",background:"rgba(0,74,153,0.08)",border:"1px solid rgba(0,74,153,0.15)",margin:"12px 0"}}>{pricingMsg}</div>}
-                    <button className="btn-p btn-sm" style={{marginTop:14}} onClick={()=>{
+                    <button className="btn-p btn-sm" style={{marginTop:14}} onClick={async ()=>{
                       const newRates={};
                       Object.entries(pricingConfig.rates||{}).forEach(([k,v])=>{newRates[k]={...v,kes:localRates[k]??v.kes};});
-                      const newCfg={...pricingConfig,rates:newRates};
-                      savePricingConfig(newCfg);setPricingConfig(newCfg);
+                      const newPlans={};
+                      Object.entries(pricingConfig.plans||{}).forEach(([k,v])=>{newPlans[k]={...v,price:Number(localPlanPrices[k]??v.price)};});
+                      const newCfg={...pricingConfig,rates:newRates,plans:newPlans};
+                      await savePricingConfig(newCfg);setPricingConfig(newCfg);
                       setPricingMsg("✓ Rates saved.");setTimeout(()=>setPricingMsg(""),2500);
-                    }}>Save Rates</button>
+                    }}>Save Rates &amp; Plans</button>
+                  </div>
+                </div>
+
+                {/* HCA Subscription Plans */}
+                <div className="panel" style={{marginBottom:18}}>
+                  <div className="panel-head">
+                    <div className="panel-title">📋 HCA Subscription Plans (KES/month)</div>
+                    <span style={{fontSize:11,color:"var(--muted)",fontFamily:"var(--mono)"}}>Shown to HCAs on the Apply page</span>
+                  </div>
+                  <div className="panel-body">
+                    <div style={{display:"grid",gridTemplateColumns:"1.5fr 160px",gap:8,paddingBottom:8,borderBottom:"1px solid rgba(168,0,64,0.1)",marginBottom:4}}>
+                      <span style={{fontSize:10,fontFamily:"var(--mono)",color:"var(--muted)",letterSpacing:"0.05em"}}>PLAN NAME</span>
+                      <span style={{fontSize:10,fontFamily:"var(--mono)",color:"var(--muted)",letterSpacing:"0.05em"}}>PRICE (KES/month)</span>
+                    </div>
+                    {Object.entries(pricingConfig.plans||{}).map(([key,val])=>(
+                      <div key={key} className="rate-row">
+                        <div><div style={{fontSize:13,fontWeight:600}}>{val.name}</div><div style={{fontSize:11,color:"var(--muted)",fontFamily:"var(--mono)"}}>{val.badge}</div></div>
+                        <input type="number" className="rate-input" min={0} value={localPlanPrices[key]??val.price} onChange={e=>setLocalPlanPrices(p=>({...p,[key]:Number(e.target.value)}))} />
+                      </div>
+                    ))}
                   </div>
                 </div>
 
@@ -1636,10 +1967,10 @@ export default function AdminDashboard() {
                     </div>
                     <div style={{marginBottom:12}}><label className="modal-label">Description (optional)</label><input className="rate-input" value={newDiscount.description} onChange={e=>setNewDiscount(p=>({...p,description:e.target.value}))} placeholder="e.g. New client — 20% off first month" /></div>
                     {discountMsg&&<div style={{padding:"8px 14px",borderRadius:8,fontSize:12,marginBottom:10,color:discountMsg.startsWith("✓")?"var(--mint)":"var(--coral)",background:discountMsg.startsWith("✓")?"rgba(0,74,153,0.08)":"rgba(249,112,102,0.08)",border:discountMsg.startsWith("✓")?"1px solid rgba(0,74,153,0.15)":"1px solid rgba(249,112,102,0.25)"}}>{discountMsg}</div>}
-                    <button className="btn-p btn-sm" disabled={!newDiscount.code||!newDiscount.value} onClick={()=>{
-                      try{createDiscountCode({code:newDiscount.code,type:newDiscount.type,value:newDiscount.value,minSpend:newDiscount.minSpend||0,description:newDiscount.description,expiresAt:newDiscount.expiresAt||null});
+                    <button className="btn-p btn-sm" disabled={!newDiscount.code||!newDiscount.value} onClick={async ()=>{
+                      try{await createDiscountCode({code:newDiscount.code,type:newDiscount.type,value:newDiscount.value,minSpend:newDiscount.minSpend||0,description:newDiscount.description,expiresAt:newDiscount.expiresAt||null});
                       setNewDiscount({code:"",type:"percent",value:"",minSpend:"",description:"",expiresAt:""});
-                      setDiscountMsg("✓ Code created.");refresh();setTimeout(()=>setDiscountMsg(""),2500);}catch(e){setDiscountMsg("⚠ "+e.message);}
+                      setDiscountMsg("✓ Code created.");await refresh();setTimeout(()=>setDiscountMsg(""),2500);}catch(e){setDiscountMsg("⚠ "+e.message);}
                     }}>Create Code</button>
                     {discounts.length>0&&(
                       <div style={{marginTop:18}}>
@@ -1652,8 +1983,8 @@ export default function AdminDashboard() {
                             {d.expiresAt&&<span style={{fontSize:11,fontFamily:"var(--mono)",color:"var(--muted)"}}>exp {d.expiresAt}</span>}
                             {d.description&&<span style={{fontSize:11,color:"var(--muted)",flex:1}}>{d.description}</span>}
                             <div style={{marginLeft:"auto",display:"flex",gap:6}}>
-                              <button className="btn-o btn-sm" onClick={()=>{updateDiscountCode(d.id,{active:!d.active});refresh();}}>{d.active?"Deactivate":"Activate"}</button>
-                              <button className="btn-o btn-sm" style={{color:"var(--coral)"}} onClick={()=>{deleteDiscountCode(d.id);refresh();}}>Delete</button>
+                              <button className="btn-o btn-sm" onClick={async ()=>{await updateDiscountCode(d.id,{active:!d.active});await refresh();}}>{d.active?"Deactivate":"Activate"}</button>
+                              <button className="btn-o btn-sm" style={{color:"var(--coral)"}} onClick={async ()=>{await deleteDiscountCode(d.id);await refresh();}}>Delete</button>
                             </div>
                           </div>
                         ))}
@@ -1724,7 +2055,7 @@ export default function AdminDashboard() {
                             ))}
                           </div>
                           <button className="btn-o btn-sm" style={{color:"var(--coral)"}}
-                            onClick={()=>{removeRbacRule(userId);setRbacRules(getRbacRules());}}>Revoke</button>
+                            onClick={async ()=>{await removeRbacRule(userId);setRbacRules(await getRbacRules());}}>Revoke</button>
                         </div>
                       ))
                     )}
@@ -1766,11 +2097,11 @@ export default function AdminDashboard() {
                     </div>
 
                     <button className="btn-p btn-sm" disabled={!newRbacUser.userId}
-                      onClick={()=>{
+                      onClick={async ()=>{
                         if(!newRbacUser.userId) return;
                         const perms = newRbacUser.permissions.length>0 ? newRbacUser.permissions : (ROLE_DEFAULTS[newRbacUser.role]?.permissions||[]).filter(x=>x!=="all");
-                        setRbacRule(newRbacUser.userId, newRbacUser.role, perms);
-                        setRbacRules(getRbacRules());
+                        await setRbacRule(newRbacUser.userId, newRbacUser.role, perms);
+                        setRbacRules(await getRbacRules());
                         setNewRbacUser({userId:"",role:"client_coordinator",permissions:[]});
                       }}>
                       Grant Access
@@ -1781,6 +2112,310 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {tab==="hub" && (
+              <div>
+                {/* Sub-tab navigation */}
+                <div style={{display:'flex',gap:4,marginBottom:24,borderBottom:'1px solid rgba(168,0,64,0.12)',paddingBottom:0}}>
+                  {[
+                    {key:'courses',     label:'📚 Courses',             count: lmsCourses.length},
+                    {key:'submissions', label:'📬 Partner Submissions',  count: lmsSubmissions.filter(s=>s.status==='pending').length},
+                    {key:'referrals',   label:'💬 Referrals',            count: hubReferrals.filter(r=>r.status==='new').length},
+                    {key:'access',      label:'🔑 Access Requests',      count: hubAccessReqs.filter(r=>r.status==='pending').length},
+                  ].map(st=>(
+                    <button key={st.key}
+                      onClick={()=>setHubSubTab(st.key)}
+                      style={{padding:'10px 18px',background:'none',border:'none',borderBottom: hubSubTab===st.key?'2px solid var(--mint)':'2px solid transparent',cursor:'pointer',fontSize:13,fontWeight:hubSubTab===st.key?700:400,color:hubSubTab===st.key?'var(--mint)':'var(--muted)',transition:'all 0.2s',display:'flex',alignItems:'center',gap:6}}>
+                      {st.label}
+                      {st.count > 0 && <span style={{background:'rgba(168,0,64,0.18)',color:'var(--mint)',borderRadius:100,padding:'1px 7px',fontSize:10,fontFamily:'var(--mono)',fontWeight:700}}>{st.count}</span>}
+                    </button>
+                  ))}
+                </div>
+
+                {/* ── COURSES sub-tab ── */}
+                {hubSubTab==='courses' && (
+                  <div>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+                      <div style={{fontSize:13,color:'var(--muted)'}}>
+                        {lmsCourses.length} courses · {lmsEnrollments.length} total enrollments
+                      </div>
+                      <button className="btn-p btn-sm" onClick={()=>{
+                        setCourseForm({title:'',description:'',category:'Clinical Skills',difficulty:'Beginner',duration_mins:60,cover_emoji:'📚',target:'all'});
+                        setEditingLessons([]);
+                        setCourseModal('new');
+                      }}>+ New Course</button>
+                    </div>
+                    <div className="dash-table-wrap">
+                      <table className="dash-table">
+                        <thead><tr><th>Course</th><th>Target</th><th>Difficulty</th><th>Lessons</th><th>Enrolled</th><th>Status</th><th>Actions</th></tr></thead>
+                        <tbody>
+                          {lmsCourses.map(c=>{
+                            const enrolled = lmsEnrollments.filter(e=>e.course_id===c.id).length;
+                            const completed = lmsEnrollments.filter(e=>e.course_id===c.id && e.progress_pct===100).length;
+                            return (
+                              <tr key={c.id}>
+                                <td><div style={{fontWeight:600}}>{c.cover_emoji} {c.title}</div><div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{c.category} · {Math.round((c.duration_mins||0)/60*10)/10} hrs</div></td>
+                                <td><span className="badge badge-dim" style={{fontSize:11}}>{c.target==='clients'?'Family':c.target==='hcas'?'HCAs':'All'}</span></td>
+                                <td style={{fontSize:12,color:'var(--muted)'}}>{c.difficulty}</td>
+                                <td style={{fontFamily:'var(--mono)',fontSize:12}}>{Array.isArray(c.lessons)?c.lessons.length:0}</td>
+                                <td><div style={{fontFamily:'var(--mono)',fontSize:12}}>{enrolled}</div><div style={{fontSize:10,color:'var(--mint)'}}>({completed} complete)</div></td>
+                                <td><span className={`badge ${c.status==='active'?'badge-mint':'badge-dim'}`}>{c.status}</span></td>
+                                <td>
+                                  <div style={{display:'flex',gap:6}}>
+                                    <button className="btn-o btn-sm" onClick={()=>{
+                                      setCourseForm({title:c.title,description:c.description||'',category:c.category||'',difficulty:c.difficulty||'Beginner',duration_mins:c.duration_mins||60,cover_emoji:c.cover_emoji||'📚',target:c.target||'all'});
+                                      setEditingLessons(Array.isArray(c.lessons)?c.lessons:[]);
+                                      setCourseModal(c);
+                                    }}>Edit</button>
+                                    <button className="btn-sm" style={{background:'rgba(168,0,64,0.1)',border:'1px solid rgba(168,0,64,0.2)',borderRadius:8,padding:'4px 10px',color:'var(--coral)',fontSize:12,cursor:'pointer'}}
+                                      onClick={async()=>{
+                                        if(!confirm('Archive this course?')) return;
+                                        await updateLmsCourse(c.id, {status: c.status==='active'?'archived':'active'});
+                                        setLmsCourses(await getLmsCourses());
+                                      }}>
+                                      {c.status==='active'?'Archive':'Activate'}
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── PARTNER SUBMISSIONS sub-tab ── */}
+                {hubSubTab==='submissions' && (
+                  <div>
+                    <div style={{marginBottom:16,fontSize:13,color:'var(--muted)'}}>{lmsSubmissions.filter(s=>s.status==='pending').length} pending · {lmsSubmissions.length} total submissions</div>
+                    {lmsSubmissions.length===0 ? (
+                      <div style={{textAlign:'center',padding:'48px 0',color:'var(--muted)'}}>No partner submissions yet.</div>
+                    ) : lmsSubmissions.map(s=>(
+                      <div key={s.id} style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(168,0,64,0.1)',borderRadius:14,padding:'18px 20px',marginBottom:12}}>
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,flexWrap:'wrap'}}>
+                          <div style={{flex:1}}>
+                            <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>{s.course_title}</div>
+                            <div style={{fontSize:12,color:'var(--muted)',marginBottom:6}}>
+                              {s.org_name} · {s.contact_email} · {new Date(s.submitted_at).toLocaleDateString('en-GB')}
+                            </div>
+                            <div style={{fontSize:12,color:'var(--muted)',marginBottom:4}}>{s.description}</div>
+                            {s.content_url && <a href={s.content_url} target="_blank" rel="noreferrer" style={{fontSize:12,color:'var(--sky)'}}>{s.content_url}</a>}
+                          </div>
+                          <div style={{display:'flex',flexDirection:'column',gap:6,alignItems:'flex-end'}}>
+                            <span className={`badge ${s.status==='pending'?'badge-gold':s.status==='approved'?'badge-mint':'badge-coral'}`}>{s.status}</span>
+                            {s.status==='pending' && (
+                              <div style={{display:'flex',gap:6}}>
+                                <button className="btn-p btn-sm" onClick={async()=>{
+                                  await updateLmsSubmission(s.id,{status:'approved',reviewed_by:'admin',review_notes:'Approved by Super Admin'});
+                                  setLmsSubmissions(await getLmsSubmissions());
+                                }}>Approve</button>
+                                <button className="btn-sm" style={{background:'rgba(249,112,102,0.1)',border:'1px solid rgba(249,112,102,0.2)',borderRadius:8,padding:'4px 10px',color:'var(--coral)',fontSize:12,cursor:'pointer'}} onClick={async()=>{
+                                  await updateLmsSubmission(s.id,{status:'rejected',reviewed_by:'admin'});
+                                  setLmsSubmissions(await getLmsSubmissions());
+                                }}>Reject</button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* ── REFERRALS sub-tab ── */}
+                {hubSubTab==='referrals' && (
+                  <div>
+                    <div style={{marginBottom:16,fontSize:13,color:'var(--muted)'}}>{hubReferrals.filter(r=>r.status==='new').length} new · {hubReferrals.length} total</div>
+                    {hubReferrals.length===0 ? (
+                      <div style={{textAlign:'center',padding:'48px 0',color:'var(--muted)'}}>No counselling referral requests yet.</div>
+                    ) : hubReferrals.map(r=>(
+                      <div key={r.id} style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(168,0,64,0.1)',borderRadius:14,padding:'18px 20px',marginBottom:12}}>
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,flexWrap:'wrap'}}>
+                          <div style={{flex:1}}>
+                            <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>{r.name}</div>
+                            <div style={{fontSize:12,color:'var(--muted)',marginBottom:6}}>
+                              {r.phone && <span style={{marginRight:14}}>📞 {r.phone}</span>}
+                              {r.email && <span>📧 {r.email}</span>}
+                              <span style={{marginLeft:14,color:'var(--muted)'}}>· {new Date(r.created_at).toLocaleDateString('en-GB')}</span>
+                            </div>
+                            <div style={{fontSize:13,color:'var(--text)',lineHeight:1.6}}>{r.message}</div>
+                            {r.admin_notes && <div style={{marginTop:8,fontSize:12,color:'var(--mint)',fontStyle:'italic'}}>Note: {r.admin_notes}</div>}
+                          </div>
+                          <div style={{display:'flex',flexDirection:'column',gap:6,alignItems:'flex-end'}}>
+                            <span className={`badge ${r.status==='new'?'badge-gold':r.status==='contacted'?'badge-mint':'badge-dim'}`}>{r.status}</span>
+                            {r.status==='new' && (
+                              <button className="btn-p btn-sm" onClick={async()=>{
+                                await updateHubReferral(r.id,{status:'contacted',contacted_at:new Date().toISOString()});
+                                setHubReferrals(await getHubReferrals());
+                              }}>Mark Contacted</button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* ── ACCESS REQUESTS sub-tab ── */}
+                {hubSubTab==='access' && (
+                  <div>
+                    <div style={{marginBottom:16,fontSize:13,color:'var(--muted)'}}>{hubAccessReqs.filter(r=>r.status==='pending').length} pending · {hubAccessReqs.length} total</div>
+                    {hubAccessReqs.length===0 ? (
+                      <div style={{textAlign:'center',padding:'48px 0',color:'var(--muted)'}}>No access requests yet.</div>
+                    ) : hubAccessReqs.map(r=>(
+                      <div key={r.id} style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(168,0,64,0.1)',borderRadius:14,padding:'18px 20px',marginBottom:12}}>
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,flexWrap:'wrap'}}>
+                          <div style={{flex:1}}>
+                            <div style={{fontWeight:700,fontSize:14,marginBottom:2}}>{r.name}</div>
+                            <div style={{fontSize:12,color:'var(--muted)',marginBottom:6}}>{r.organisation && `${r.organisation} · `}{r.email} · {new Date(r.created_at).toLocaleDateString('en-GB')}</div>
+                            <div style={{fontSize:13,lineHeight:1.6}}>{r.message}</div>
+                            {r.designation && <div style={{marginTop:6,fontSize:12,color:'var(--sky)'}}>Designation: {r.designation}</div>}
+                            {r.admin_notes && <div style={{marginTop:4,fontSize:12,color:'var(--mint)',fontStyle:'italic'}}>Note: {r.admin_notes}</div>}
+                          </div>
+                          <div style={{display:'flex',flexDirection:'column',gap:6,alignItems:'flex-end'}}>
+                            <span className={`badge ${r.status==='pending'?'badge-gold':r.status==='approved'?'badge-mint':'badge-coral'}`}>{r.status}</span>
+                            {r.status==='pending' && (
+                              <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                                <select
+                                  defaultValue="partner"
+                                  id={`desig-${r.id}`}
+                                  style={{background:'#14182a',border:'1px solid rgba(168,0,64,0.18)',borderRadius:8,padding:'4px 8px',color:'var(--text)',fontSize:12,outline:'none'}}>
+                                  <option value="partner">Partner Organisation</option>
+                                  <option value="healthcare_provider">Healthcare Provider</option>
+                                  <option value="training_provider">Training Provider</option>
+                                  <option value="researcher">Researcher</option>
+                                </select>
+                                <button className="btn-p btn-sm" onClick={async()=>{
+                                  const sel = document.getElementById(`desig-${r.id}`);
+                                  await updateHubAccessRequest(r.id,{status:'approved',designation:sel.value,reviewed_by:'admin',reviewed_at:new Date().toISOString()});
+                                  setHubAccessReqs(await getHubAccessRequests());
+                                }}>Approve</button>
+                                <button className="btn-sm" style={{background:'rgba(249,112,102,0.1)',border:'1px solid rgba(249,112,102,0.2)',borderRadius:8,padding:'4px 10px',color:'var(--coral)',fontSize:12,cursor:'pointer'}} onClick={async()=>{
+                                  await updateHubAccessRequest(r.id,{status:'rejected',reviewed_by:'admin',reviewed_at:new Date().toISOString()});
+                                  setHubAccessReqs(await getHubAccessRequests());
+                                }}>Reject</button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* ── COURSE EDITOR MODAL ── */}
+                {courseModal && (
+                  <div className="modal-bg" onClick={()=>setCourseModal(null)}>
+                    <div className="modal-box" style={{maxWidth:700}} onClick={e=>e.stopPropagation()}>
+                      <div className="modal-title">{courseModal==='new'?'Add New Course':'Edit Course'}</div>
+
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                        <div style={{gridColumn:'1/-1'}} className="modal-field">
+                          <label className="modal-label">Course Title</label>
+                          <input className="modal-input" value={courseForm.title} onChange={e=>setCourseForm(p=>({...p,title:e.target.value}))} placeholder="e.g. Advanced Wound Care" />
+                        </div>
+                        <div style={{gridColumn:'1/-1'}} className="modal-field">
+                          <label className="modal-label">Description</label>
+                          <textarea className="modal-input" rows={3} value={courseForm.description} onChange={e=>setCourseForm(p=>({...p,description:e.target.value}))} placeholder="What will learners achieve?" style={{resize:'vertical'}} />
+                        </div>
+                        <div className="modal-field">
+                          <label className="modal-label">Category</label>
+                          <select className="modal-sel" value={courseForm.category} onChange={e=>setCourseForm(p=>({...p,category:e.target.value}))}>
+                            {['Clinical Skills','Specialist Care','Palliative Care','Caregiver Wellness','Professional Practice','Mental Health','Communication','General'].map(c=><option key={c}>{c}</option>)}
+                          </select>
+                        </div>
+                        <div className="modal-field">
+                          <label className="modal-label">Difficulty</label>
+                          <select className="modal-sel" value={courseForm.difficulty} onChange={e=>setCourseForm(p=>({...p,difficulty:e.target.value}))}>
+                            {['Beginner','Intermediate','Advanced','All Levels'].map(d=><option key={d}>{d}</option>)}
+                          </select>
+                        </div>
+                        <div className="modal-field">
+                          <label className="modal-label">Target Audience</label>
+                          <select className="modal-sel" value={courseForm.target} onChange={e=>setCourseForm(p=>({...p,target:e.target.value}))}>
+                            <option value="all">All Users</option>
+                            <option value="clients">Family Caregivers</option>
+                            <option value="hcas">HomeCare Assistants</option>
+                          </select>
+                        </div>
+                        <div className="modal-field">
+                          <label className="modal-label">Duration (minutes)</label>
+                          <input className="modal-input" type="number" value={courseForm.duration_mins} onChange={e=>setCourseForm(p=>({...p,duration_mins:Number(e.target.value)}))} />
+                        </div>
+                        <div className="modal-field">
+                          <label className="modal-label">Cover Emoji</label>
+                          <input className="modal-input" value={courseForm.cover_emoji} onChange={e=>setCourseForm(p=>({...p,cover_emoji:e.target.value}))} placeholder="📚" maxLength={2} />
+                        </div>
+                      </div>
+
+                      {/* Lessons editor */}
+                      <div style={{marginTop:20,borderTop:'1px solid rgba(168,0,64,0.1)',paddingTop:16}}>
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                          <div style={{fontSize:12,fontFamily:'var(--mono)',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.05em'}}>Lessons ({editingLessons.length})</div>
+                          <button className="btn-o btn-sm" onClick={()=>setEditingLessons(p=>[...p,{idx:p.length,title:'',objectives:[''],summary:'',key_points:[''],resource_url:'',duration_mins:20}])}>+ Add Lesson</button>
+                        </div>
+                        {editingLessons.map((lesson,li)=>(
+                          <div key={li} style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(168,0,64,0.08)',borderRadius:10,padding:14,marginBottom:10}}>
+                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                              <div style={{fontSize:12,fontFamily:'var(--mono)',color:'var(--sky)'}}>Lesson {li+1}</div>
+                              <button onClick={()=>setEditingLessons(p=>p.filter((_,i)=>i!==li))} style={{background:'none',border:'none',color:'var(--coral)',cursor:'pointer',fontSize:14}}>✕</button>
+                            </div>
+                            <div className="modal-field">
+                              <label className="modal-label">Title</label>
+                              <input className="modal-input" style={{fontSize:13,padding:'8px 12px'}} value={lesson.title} onChange={e=>setEditingLessons(p=>p.map((l,i)=>i===li?{...l,title:e.target.value}:l))} placeholder="Lesson title" />
+                            </div>
+                            <div className="modal-field">
+                              <label className="modal-label">Summary</label>
+                              <textarea className="modal-input" rows={2} style={{fontSize:13,padding:'8px 12px',resize:'vertical'}} value={lesson.summary||''} onChange={e=>setEditingLessons(p=>p.map((l,i)=>i===li?{...l,summary:e.target.value}:l))} placeholder="Lesson content summary..." />
+                            </div>
+                            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                              <div className="modal-field">
+                                <label className="modal-label">Objectives (comma-separated)</label>
+                                <input className="modal-input" style={{fontSize:13,padding:'8px 12px'}} value={(lesson.objectives||[]).join(', ')} onChange={e=>setEditingLessons(p=>p.map((l,i)=>i===li?{...l,objectives:e.target.value.split(',').map(s=>s.trim()).filter(Boolean)}:l))} placeholder="Objective 1, Objective 2" />
+                              </div>
+                              <div className="modal-field">
+                                <label className="modal-label">Key Points (comma-separated)</label>
+                                <input className="modal-input" style={{fontSize:13,padding:'8px 12px'}} value={(lesson.key_points||[]).join(', ')} onChange={e=>setEditingLessons(p=>p.map((l,i)=>i===li?{...l,key_points:e.target.value.split(',').map(s=>s.trim()).filter(Boolean)}:l))} placeholder="Key point 1, Key point 2" />
+                              </div>
+                              <div className="modal-field">
+                                <label className="modal-label">Resource URL</label>
+                                <input className="modal-input" style={{fontSize:13,padding:'8px 12px'}} value={lesson.resource_url||''} onChange={e=>setEditingLessons(p=>p.map((l,i)=>i===li?{...l,resource_url:e.target.value}:l))} placeholder="https://..." />
+                              </div>
+                              <div className="modal-field">
+                                <label className="modal-label">Duration (minutes)</label>
+                                <input className="modal-input" type="number" style={{fontSize:13,padding:'8px 12px'}} value={lesson.duration_mins||20} onChange={e=>setEditingLessons(p=>p.map((l,i)=>i===li?{...l,duration_mins:Number(e.target.value)}:l))} />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="modal-actions">
+                        <button className="btn-o btn-sm" onClick={()=>setCourseModal(null)}>Cancel</button>
+                        <button className="btn-p" onClick={async()=>{
+                          const lessons = editingLessons.map((l,i)=>({...l,idx:i}));
+                          const payload = { ...courseForm, lessons, tags: [] };
+                          try {
+                            if (courseModal==='new') {
+                              await createLmsCourse(payload);
+                            } else {
+                              await updateLmsCourse(courseModal.id, payload);
+                            }
+                            setLmsCourses(await getLmsCourses());
+                            setCourseModal(null);
+                          } catch(e) { alert('Error saving course: ' + e.message); }
+                        }}>
+                          {courseModal==='new' ? 'Create Course' : 'Save Changes'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
               </div>
             )}
 

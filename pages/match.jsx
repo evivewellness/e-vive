@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import Nav from "../components/Nav";
 import Footer from "../components/Footer";
 import { BASE_CSS } from "../components/SharedStyles";
+import { getAllHcaProfiles } from "../lib/store";
 
 const PAGE_CSS = `
   body { padding-top:72px; }
@@ -323,6 +324,38 @@ const PAGE_CSS = `
   .rota-legend-dot { width:10px; height:10px; border-radius:3px; }
 `;
 
+// ── DB profile → match-page format ─────────────────────────────────────────
+function profileToHca(p) {
+  return {
+    id: p.id,
+    av: (p.name || '?')[0],
+    bg: 'rgba(0,74,153,0.12)',
+    photo: null,
+    name: p.name || 'HCA',
+    gender: p.gender || 'Not specified',
+    age: p.ageRange || '',
+    role: p.certLevel || 'Home Care Assistant',
+    cert: true,
+    rat: Number(p.rating) || 0,
+    reviews: p.reviewCount || 0,
+    dist: 0,
+    care: p.specialisations || [],
+    langs: p.languages || ['English','Kiswahili'],
+    shifts: p.shiftPreferences || ['Day Shift'],
+    period: p.periodPreference || 'Long Term (2+ wks)',
+    travel: p.travelOptions || ['Local Travel'],
+    rate: p.rate || 2000,
+    exp: p.yearsExp || 0,
+    placements: p.placementCount || 0,
+    avail: p.available !== false && p.status === 'active',
+    bio: p.bio || `Certified HCA with ${p.yearsExp || 0} year${(p.yearsExp||0)===1?'':'s'} of experience.${p.certLevel ? ' ' + p.certLevel + '.' : ''}`,
+    cultural: '',
+    rota: {},
+    county: p.county || '',
+    employeeId: p.employeeId || '',
+  };
+}
+
 // ── Data constants ──────────────────────────────────────────────────────────
 const CARE_TYPES = ["Palliative","Dementia","Companionship","Critical Care","Diabetic Care","Cerebral Palsy","Visual Impairment","Mobility Assistance","Driver / Transport","Child Care","Post-Surgery","Mental Health","Other"];
 const LANGUAGES  = ["English","Kiswahili","Kikuyu","Dholuo","Luhya","Kalenjin","Maasai","Kamba","French","German","Arabic","Sign Language"];
@@ -334,189 +367,6 @@ const TRAVEL     = ["Local Travel","International"];
 const GENDERS    = ["Any","Female","Male"];
 const DAYS       = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 
-// rota: per day - "day" | "night" | "full" | "off"
-const ALL_HCAS = [
-  {
-    id:1, av:"👩🏾", bg:"rgba(107,0,40,0.22)", photo:"/images/portraits/hca-amina-njeri.svg", name:"Amina Njeri", gender:"Female", age:"26–30",
-    role:"Certified Nursing Assistant", cert:true, rat:4.9, reviews:42, dist:1.2,
-    care:["Palliative","Post-Surgery"], langs:["English","Kiswahili","Kikuyu"],
-    shifts:["Day Shift","Night Shift"], period:"Long Term (2+ wks)", travel:["Local Travel"],
-    rate:800, exp:5, placements:18, avail:true,
-    bio:"Compassionate nursing assistant with 5 years' specialist experience in post-surgical recovery and end-of-life palliative care. Known for her calm bedside manner and thorough Cardex documentation.",
-    cultural:"Extensive experience with Kikuyu, Swahili and English-speaking households. Comfortable in both urban and rural Nairobi settings.",
-    rota:{ Mon:"day", Tue:"day", Wed:"night", Thu:"day", Fri:"day", Sat:"off", Sun:"off" },
-  },
-  {
-    id:2, av:"👨🏿", bg:"rgba(14,165,233,0.18)", photo:"/images/portraits/hca-john-omondi.svg", name:"John Omondi", gender:"Male", age:"31–35",
-    role:"Home Care Specialist", cert:true, rat:4.8, reviews:31, dist:2.7,
-    care:["Dementia","Critical Care"], langs:["English","Dholuo","Kiswahili"],
-    shifts:["Night Shift","24-Hour Care"], period:"Long Term (2+ wks)", travel:["Local Travel","International"],
-    rate:650, exp:8, placements:24, avail:true,
-    bio:"Specialist in dementia and critical care with 8 years' experience across hospital and home settings. Holds a valid international travel document and has worked in the UK and UAE.",
-    cultural:"Fluent in Dholuo and deeply familiar with Luo cultural practices around illness and family care.",
-    rota:{ Mon:"night", Tue:"night", Wed:"full", Thu:"off", Fri:"night", Sat:"full", Sun:"night" },
-  },
-  {
-    id:3, av:"👩🏽", bg:"rgba(232,213,168,0.18)", photo:"/images/portraits/hca-grace-otieno.svg", name:"Grace Otieno", gender:"Female", age:"36–40",
-    role:"Palliative Care Aide", cert:true, rat:4.6, reviews:18, dist:3.4,
-    care:["Palliative","Child Care"], langs:["Luhya","Kiswahili","English"],
-    shifts:["Day Shift"], period:"Short Term (1–2 wks)", travel:["Local Travel"],
-    rate:700, exp:4, placements:12, avail:false,
-    bio:"Palliative and child care specialist trained at AMPATH. Currently on placement until end of month - available from the 2nd of next month.",
-    cultural:"Experienced working with Luhya and Kikuyu families. Strong understanding of community-based palliative practices in Western Kenya.",
-    rota:{ Mon:"off", Tue:"off", Wed:"off", Thu:"off", Fri:"off", Sat:"off", Sun:"off" },
-  },
-  {
-    id:4, av:"👩🏿", bg:"rgba(0,74,153,0.12)", photo:"/images/portraits/hca-faith-wanjiku.svg", name:"Faith Wanjiku", gender:"Female", age:"26–30",
-    role:"Companion & Mobility Carer", cert:false, rat:4.3, reviews:9, dist:1.8,
-    care:["Companionship","Mobility Assistance"], langs:["Kikuyu","Kiswahili"],
-    shifts:["Day Shift"], period:"Short Term (1–2 wks)", travel:["Local Travel"],
-    rate:450, exp:2, placements:6, avail:true,
-    bio:"Warm and attentive companion carer with 2 years' experience supporting elderly clients with mobility challenges. Skilled in safe patient transfers and daily routine support.",
-    cultural:"Raised in Kiambu; highly familiar with Kikuyu family dynamics and expectations.",
-    rota:{ Mon:"day", Tue:"day", Wed:"day", Thu:"day", Fri:"day", Sat:"off", Sun:"off" },
-  },
-  {
-    id:5, av:"👨🏾", bg:"rgba(249,112,102,0.16)", photo:"/images/portraits/hca-samuel-kamau.svg", name:"Samuel Kamau", gender:"Male", age:"41–45",
-    role:"Driver & Companion Carer", cert:false, rat:4.7, reviews:22, dist:4.1,
-    care:["Driver / Transport","Companionship"], langs:["Kikuyu","Kiswahili","English"],
-    shifts:["Day Shift","Night Shift"], period:"Long Term (2+ wks)", travel:["Local Travel","International"],
-    rate:550, exp:6, placements:15, avail:true,
-    bio:"Experienced driver-carer with a clean Class B license and 6 years accompanying clients to medical appointments, therapy sessions, and social engagements.",
-    cultural:"Conversant in both urban Nairobi and upcountry contexts. Holds a valid passport and has accompanied clients to India for medical treatment.",
-    rota:{ Mon:"day", Tue:"off", Wed:"day", Thu:"day", Fri:"day", Sat:"day", Sun:"off" },
-  },
-  {
-    id:6, av:"👩🏾", bg:"rgba(232,213,168,0.2)", photo:"/images/portraits/hca-rose-adhiambo.svg", name:"Rose Adhiambo", gender:"Female", age:"21–25",
-    role:"Child & Disability Specialist", cert:true, rat:4.5, reviews:14, dist:2.2,
-    care:["Child Care","Cerebral Palsy"], langs:["Dholuo","Kiswahili","English"],
-    shifts:["Day Shift"], period:"Long Term (2+ wks)", travel:["Local Travel"],
-    rate:600, exp:3, placements:9, avail:true,
-    bio:"Certified carer specialising in children with cerebral palsy and developmental disabilities. Trained in physiotherapy support techniques and augmentative communication.",
-    cultural:"Strong understanding of Luo family structures. Experienced in working within faith-based family settings.",
-    rota:{ Mon:"day", Tue:"day", Wed:"day", Thu:"off", Fri:"day", Sat:"day", Sun:"off" },
-  },
-  {
-    id:7, av:"👨🏽", bg:"rgba(14,165,233,0.2)", photo:"/images/portraits/hca-peter-mutua.svg", name:"Peter Mutua", gender:"Male", age:"36–40",
-    role:"Diabetic & Critical Care HCA", cert:true, rat:4.9, reviews:36, dist:5.0,
-    care:["Diabetic Care","Critical Care"], langs:["Kamba","Kiswahili","English"],
-    shifts:["24-Hour Care","Night Shift"], period:"Long Term (2+ wks)", travel:["International","Local Travel"],
-    rate:900, exp:9, placements:30, avail:true,
-    bio:"Senior HCA with 9 years' specialised experience in diabetic management and critical care. Proficient in insulin administration, wound care, and post-ICU home recovery protocols.",
-    cultural:"Has worked with Kamba, Kikuyu, and Maasai families across Machakos, Nairobi, and Kajiado counties.",
-    rota:{ Mon:"full", Tue:"night", Wed:"full", Thu:"night", Fri:"full", Sat:"off", Sun:"night" },
-  },
-  {
-    id:8, av:"👩🏾", bg:"rgba(132,189,96,0.15)", photo:"/images/portraits/hca-mary-chebet.svg", name:"Mary Chebet", gender:"Female", age:"46–50",
-    role:"Elderly & Dementia Care", cert:true, rat:4.7, reviews:28, dist:3.8,
-    care:["Dementia","Palliative"], langs:["Kalenjin","Kiswahili","English"],
-    shifts:["Day Shift","Night Shift"], period:"Long Term (2+ wks)", travel:["Local Travel"],
-    rate:750, exp:12, placements:38, avail:false,
-    bio:"Highly experienced dementia and palliative care specialist with 12 years in the field. Expert in validation therapy, sundowning management, and family education.",
-    cultural:"Kalenjin-speaking, well-versed in Rift Valley communities. Trusted by over 38 families across Nakuru, Eldoret, and Nairobi.",
-    rota:{ Mon:"off", Tue:"day", Wed:"day", Thu:"day", Fri:"day", Sat:"off", Sun:"off" },
-  },
-  {
-    id:9, av:"👩🏿", bg:"rgba(249,112,102,0.12)", photo:"/images/portraits/hca-esther-kariuki.svg", name:"Esther Kariuki", gender:"Female", age:"31–35",
-    role:"Mobility & Visual Impairment", cert:true, rat:4.4, reviews:11, dist:2.0,
-    care:["Visual Impairment","Mobility Assistance"], langs:["Kikuyu","Kiswahili","French"],
-    shifts:["Day Shift","24-Hour Care"], period:"Short Term (1–2 wks)", travel:["Local Travel","International"],
-    rate:700, exp:5, placements:14, avail:true,
-    bio:"Specialist carer for clients with visual impairments and mobility restrictions. Fluent in French - has supported clients in Kenya and France. Trained in guide techniques and white cane navigation.",
-    cultural:"Bicultural exposure in Kenyan and Francophone African contexts. Experienced with international families and expatriate communities in Nairobi.",
-    rota:{ Mon:"day", Tue:"off", Wed:"day", Thu:"full", Fri:"day", Sat:"off", Sun:"full" },
-  },
-  {
-    id:10, av:"👨🏿", bg:"rgba(107,0,40,0.2)", photo:"/images/portraits/hca-david-barasa.svg", name:"David Barasa", gender:"Male", age:"41–45",
-    role:"Critical & Post-Surgical Care", cert:true, rat:4.8, reviews:24, dist:6.2,
-    care:["Critical Care","Post-Surgery","Mobility Assistance"], langs:["Luhya","Kiswahili","English"],
-    shifts:["Day Shift","Night Shift","24-Hour Care"], period:"Long Term (2+ wks)", travel:["Local Travel"],
-    rate:850, exp:10, placements:27, avail:true,
-    bio:"Decade of experience in post-surgical and critical home care. Trained in stoma care, catheter management, and complex wound dressing. Trusted by cardiac surgery teams at Nairobi Hospital.",
-    cultural:"Luhya-speaking, experienced in Western Kenya communities. Patient, methodical and trusted by families managing complex conditions.",
-    rota:{ Mon:"night", Tue:"full", Wed:"night", Thu:"full", Fri:"night", Sat:"day", Sun:"off" },
-  },
-  {
-    id:11, av:"👩🏽", bg:"rgba(200,149,42,0.14)", photo:"/images/portraits/hca-lillian-waweru.svg", name:"Lillian Waweru", gender:"Female", age:"31–35",
-    role:"Mental Health Support Carer", cert:true, rat:4.6, reviews:17, dist:3.1,
-    care:["Mental Health","Companionship"], langs:["Kikuyu","English","Kiswahili"],
-    shifts:["Day Shift"], period:"Long Term (2+ wks)", travel:["Local Travel"],
-    rate:720, exp:6, placements:16, avail:true,
-    bio:"Trained in mental health first aid and psychosocial support. Works with clients managing depression, anxiety, and early dementia in home settings. Empathetic, non-judgmental approach.",
-    cultural:"Nairobi-based with experience across Kikuyu, Luo, and mixed urban households.",
-    rota:{ Mon:"day", Tue:"day", Wed:"off", Thu:"day", Fri:"day", Sat:"day", Sun:"off" },
-  },
-  {
-    id:12, av:"👨🏾", bg:"rgba(14,165,233,0.15)", photo:"/images/portraits/hca-hassan-abdalla.svg", name:"Hassan Abdalla", gender:"Male", age:"26–30",
-    role:"Palliative & Companion Care", cert:true, rat:4.5, reviews:13, dist:4.5,
-    care:["Palliative","Companionship"], langs:["Arabic","Kiswahili","English"],
-    shifts:["Day Shift","Night Shift"], period:"Short Term (1–2 wks)", travel:["Local Travel","International"],
-    rate:680, exp:4, placements:11, avail:true,
-    bio:"Arabic-speaking carer with training in Islamic palliative care protocols. Highly recommended for Muslim families requiring culturally aligned end-of-life care.",
-    cultural:"Deeply versed in Somali, Arab, and Swahili Coast cultural norms around illness, death, and family roles.",
-    rota:{ Mon:"day", Tue:"day", Wed:"night", Thu:"night", Fri:"off", Sat:"day", Sun:"day" },
-  },
-  {
-    id:13, av:"👩🏾", bg:"rgba(232,132,90,0.14)", photo:"/images/portraits/hca-agnes-ndungu.svg", name:"Agnes Ndungu", gender:"Female", age:"46–50",
-    role:"Child Care & Special Needs", cert:false, rat:4.2, reviews:8, dist:2.9,
-    care:["Child Care","Cerebral Palsy","Visual Impairment"], langs:["Kikuyu","Kiswahili"],
-    shifts:["Day Shift"], period:"Long Term (2+ wks)", travel:["Local Travel"],
-    rate:500, exp:7, placements:19, avail:true,
-    bio:"Experienced non-certified carer with 7 years working with children with special needs. Highly regarded by families for patience, creativity in play therapy, and communication.",
-    cultural:"Based in Githurai. Comfortable in Kikuyu-speaking households and familiar with Nairobi's northern corridor communities.",
-    rota:{ Mon:"day", Tue:"day", Wed:"day", Thu:"day", Fri:"off", Sat:"day", Sun:"off" },
-  },
-  {
-    id:14, av:"👨🏽", bg:"rgba(249,112,102,0.14)", photo:"/images/portraits/hca-kelvin-rop.svg", name:"Kelvin Rop", gender:"Male", age:"21–25",
-    role:"Mobility & Exercise Support", cert:false, rat:4.4, reviews:7, dist:1.5,
-    care:["Mobility Assistance","Companionship"], langs:["Kalenjin","Kiswahili","English"],
-    shifts:["Day Shift"], period:"Short Term (1–2 wks)", travel:["Local Travel"],
-    rate:400, exp:2, placements:5, avail:true,
-    bio:"Young, energetic carer with sports science background. Specialises in mobility exercises, physiotherapy support, and active ageing. Perfect for clients who need daily exercise supervision.",
-    cultural:"Kalenjin from Eldoret - experienced with Rift Valley communities and recently relocated to Nairobi.",
-    rota:{ Mon:"day", Tue:"day", Wed:"off", Thu:"day", Fri:"day", Sat:"off", Sun:"off" },
-  },
-  {
-    id:15, av:"👩🏿", bg:"rgba(232,213,168,0.18)", photo:"/images/portraits/hca-jane-njambi.svg", name:"Jane Njambi", gender:"Female", age:"51+",
-    role:"Senior Dementia Specialist", cert:true, rat:4.9, reviews:51, dist:5.5,
-    care:["Dementia","Palliative","Companionship"], langs:["Kikuyu","Kiswahili","English"],
-    shifts:["Day Shift","24-Hour Care"], period:"Long Term (2+ wks)", travel:["Local Travel"],
-    rate:950, exp:18, placements:55, avail:true,
-    bio:"18 years as one of Kenya's most experienced dementia carers. Mentor to over 30 junior HCAs. Renowned for her life review therapy techniques and family education sessions.",
-    cultural:"Extensive cross-community experience, trusted across Kikuyu, Luo, Luhya, and Kamba families throughout her career.",
-    rota:{ Mon:"day", Tue:"full", Wed:"day", Thu:"full", Fri:"day", Sat:"off", Sun:"off" },
-  },
-  {
-    id:16, av:"👩🏾", bg:"rgba(14,165,233,0.18)", photo:"/images/portraits/hca-sylvia-achieng.svg", name:"Sylvia Achieng", gender:"Female", age:"36–40",
-    role:"Diabetic Home Management", cert:true, rat:4.7, reviews:20, dist:3.3,
-    care:["Diabetic Care","Post-Surgery"], langs:["Dholuo","Kiswahili","English"],
-    shifts:["Day Shift","Night Shift"], period:"Long Term (2+ wks)", travel:["Local Travel"],
-    rate:780, exp:7, placements:21, avail:false,
-    bio:"Diabetic care specialist experienced in insulin management, dietary supervision, and foot care for Type 1 and Type 2 diabetes patients. Currently placed - available mid-next month.",
-    cultural:"Luo-speaking from Kisumu. Well-regarded in both Nairobi and Nyanza region families.",
-    rota:{ Mon:"off", Tue:"off", Wed:"off", Thu:"off", Fri:"off", Sat:"off", Sun:"off" },
-  },
-  {
-    id:17, av:"👨🏿", bg:"rgba(0,74,153,0.12)", photo:"/images/portraits/hca-michael-oduya.svg", name:"Michael Oduya", gender:"Male", age:"36–40",
-    role:"Driver & Medical Transport", cert:false, rat:4.6, reviews:16, dist:2.4,
-    care:["Driver / Transport","Mobility Assistance"], langs:["Dholuo","Kiswahili","English"],
-    shifts:["Day Shift"], period:"Short Term (1–2 wks)", travel:["Local Travel","International"],
-    rate:520, exp:5, placements:13, avail:true,
-    bio:"Dedicated driver-carer with 5 years' experience in medical transport. Skilled in wheelchair-accessible vehicle operation and accompanying clients to dialysis, chemotherapy, and outpatient appointments.",
-    cultural:"Luo-speaking, Nairobi-based. Has driven clients across East Africa for regional medical travel.",
-    rota:{ Mon:"day", Tue:"day", Wed:"day", Thu:"off", Fri:"day", Sat:"day", Sun:"off" },
-  },
-  {
-    id:18, av:"👩🏽", bg:"rgba(249,112,102,0.18)", photo:"/images/portraits/hca-priya-mehta.svg", name:"Priya Mehta", gender:"Female", age:"26–30",
-    role:"Critical Care & ICU Step-Down", cert:true, rat:4.8, reviews:19, dist:7.1,
-    care:["Critical Care","Post-Surgery","Diabetic Care"], langs:["English","Kiswahili","German"],
-    shifts:["24-Hour Care","Night Shift"], period:"Long Term (2+ wks)", travel:["Local Travel","International"],
-    rate:1100, exp:6, placements:20, avail:true,
-    bio:"Trained in Kenya and Germany, Priya specialises in ICU step-down home care for complex cardiac, respiratory, and surgical patients. German-speaking, ideal for expatriate families.",
-    cultural:"Cross-cultural specialist - works with Kenyan, Asian, European and expatriate families across Nairobi and Karen.",
-    rota:{ Mon:"full", Tue:"night", Wed:"off", Thu:"full", Fri:"night", Sat:"full", Sun:"night" },
-  },
-];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 const EMPTY = {
@@ -594,18 +444,30 @@ export default function MatchPage() {
   const [shortlist,    setShortlist]    = useState([]);
   const [modal,        setModal]        = useState(null);
   const [mobileFilter, setMobileFilter] = useState(false);
+  const [hcas,         setHcas]         = useState([]);
+  const [loading,      setLoading]      = useState(true);
+
+  useEffect(() => {
+    getAllHcaProfiles()
+      .then(profiles => {
+        const active = profiles.filter(p => p.status === 'active');
+        setHcas(active.map(profileToHca));
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   // Live draft preview count (updates on every chip click)
-  const draftCount = useMemo(() => applyFilters(ALL_HCAS, draft).length, [draft]);
+  const draftCount = useMemo(() => applyFilters(hcas, draft).length, [draft, hcas]);
 
   // Stable results - only update when Apply is hit
   const results = useMemo(() => {
-    let r = applyFilters(ALL_HCAS, applied);
+    let r = applyFilters(hcas, applied);
     if (sort === "distance")   r = [...r].sort((a,b) => a.dist - b.dist);
     if (sort === "rating")     r = [...r].sort((a,b) => b.rat  - a.rat);
     if (sort === "experience") r = [...r].sort((a,b) => b.exp  - a.exp);
     return r;
-  }, [applied, sort]);
+  }, [applied, sort, hcas]);
 
   const draftFilterCount   = countFilters(draft);
   const appliedFilterCount = countFilters(applied);
@@ -617,7 +479,7 @@ export default function MatchPage() {
     const cc = {};
     const base = (omitField) => {
       const d = {...draft, [omitField]: Array.isArray(draft[omitField]) ? [] : (omitField === "gender" ? "Any" : "")};
-      return applyFilters(ALL_HCAS, d);
+      return applyFilters(hcas, d);
     };
     CARE_TYPES.forEach(v  => { cc[`care:${v}`]   = base("care").filter(h => h.care.includes(v)).length; });
     LANGUAGES.forEach(v   => { cc[`langs:${v}`]  = base("langs").filter(h => h.langs.includes(v)).length; });
@@ -628,7 +490,7 @@ export default function MatchPage() {
     TRAVEL.forEach(v      => { cc[`travel:${v}`] = base("travel").filter(h => h.travel.includes(v)).length; });
     GENDERS.forEach(v     => { cc[`gender:${v}`] = base("gender").filter(h => v === "Any" || h.gender === v).length; });
     return cc;
-  }, [draft]);
+  }, [draft, hcas]);
 
   function setDraftField(field, value) {
     setDraft(prev => ({...prev, [field]: value}));
@@ -680,7 +542,7 @@ export default function MatchPage() {
         </div>
         {draftFilterCount > 0 && (
           <div style={{marginTop:6,fontSize:11,color:"var(--muted)",fontFamily:"var(--mono)"}}>
-            {draftCount} of {ALL_HCAS.length} match your selections
+            {draftCount} of {hcas.length} match your selections
           </div>
         )}
       </div>
@@ -704,7 +566,7 @@ export default function MatchPage() {
               <span style={{marginRight:7}}>🟢</span>Available Now Only
               {chipCounts["gender:Any"] != null && (
                 <span style={{marginLeft:6,fontSize:10,color:"var(--muted)",fontFamily:"var(--mono)",fontWeight:500}}>
-                  ({ALL_HCAS.filter(h=>h.avail).length})
+                  ({hcas.filter(h=>h.avail).length})
                 </span>
               )}
             </span>
@@ -959,7 +821,7 @@ export default function MatchPage() {
           <div className="results-topbar">
             <div className="topbar-row1">
               <div className="results-count">
-                <span>{results.length}</span> of {ALL_HCAS.length} assistants
+                <span>{results.length}</span> of {hcas.length} assistants
                 {appliedFilterCount > 0 && " match your filters"}
               </div>
               <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
@@ -1016,7 +878,10 @@ export default function MatchPage() {
             )}
           </div>
 
-          {results.length === 0 ? (
+          {loading && (
+            <div style={{textAlign:'center',padding:'48px',color:'var(--muted)'}}>Loading HCAs…</div>
+          )}
+          {!loading && results.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">🔍</div>
               <div className="empty-text">
@@ -1025,7 +890,7 @@ export default function MatchPage() {
               </div>
               <button className="btn-o" style={{marginTop:20}} onClick={resetAll}>Clear All Filters</button>
             </div>
-          ) : (
+          ) : !loading && (
             <div className="results-grid">
               {results.map(h => {
                 const isSL = shortlist.includes(h.id);
@@ -1102,7 +967,7 @@ export default function MatchPage() {
                 <div className="sl-cnt">{shortlist.length}</div>
                 <div>
                   <div style={{fontSize:13,fontWeight:700}}>Shortlisted</div>
-                  <div className="sl-names">{ALL_HCAS.filter(h=>shortlist.includes(h.id)).map(h=>h.name).join(", ")}</div>
+                  <div className="sl-names">{hcas.filter(h=>shortlist.includes(h.id)).map(h=>h.name).join(", ")}</div>
                 </div>
               </div>
               <Link href="/client/register" className="btn-a">Continue - Create Account →</Link>

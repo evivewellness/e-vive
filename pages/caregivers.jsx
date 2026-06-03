@@ -1,12 +1,122 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 import { BASE_CSS } from '../components/SharedStyles';
+import {
+  getClientSession, getHcaSession, getAdminSession,
+  getLmsCourses, getEnrollmentsForUser, enrollInCourse,
+  updateCourseProgress, submitPartnerCourse, getAllClients,
+  createHubAccessRequest, createHubReferral,
+} from '../lib/store';
 
+// ─── Real free resources ──────────────────────────────────────────────────────
+const RESOURCES = [
+  {
+    type: 'WHO Manual', icon: '📖',
+    title: 'Home Care for Patients — WHO Primary Health Care Manual',
+    desc: 'The WHO\'s definitive guide for home care workers and family members. Covers assessment, basic nursing, medication, nutrition, and mental health support.',
+    meta: 'Free PDF · WHO Publications',
+    url: 'https://www.who.int/publications/i/item/9789241503662',
+    filterType: 'Guides',
+  },
+  {
+    type: 'Resource Hub', icon: '🏛️',
+    title: 'Family Caregiver Alliance — Complete Resource Library',
+    desc: 'The world\'s leading caregiver resource. Free fact sheets, guides, and toolkits on every aspect of family caregiving, from dementia to legal planning.',
+    meta: 'Free · Online Library · FCA',
+    url: 'https://www.caregiver.org/resource/fact-sheets/',
+    filterType: 'Online Hubs',
+  },
+  {
+    type: 'Dementia Guide', icon: '🧠',
+    title: 'Alzheimer\'s Association Caregiver Resource Centre',
+    desc: 'Comprehensive, evidence-based resources for dementia caregiving including stage-by-stage guidance, communication tips, and legal planning tools.',
+    meta: 'Free · Online · Alzheimer\'s Association',
+    url: 'https://www.alz.org/help-support/caregiving',
+    filterType: 'Mental Health',
+  },
+  {
+    type: 'Self-Care Guide', icon: '🧘',
+    title: 'Taking Care of YOU: Self-Care for Family Caregivers',
+    desc: 'A practical, evidence-based guide to preventing and recovering from caregiver burnout. Covers stress management, building support systems, and protecting your own health.',
+    meta: 'Free PDF · Family Caregiver Alliance',
+    url: 'https://www.caregiver.org/resource/taking-care-you-self-care-family-caregivers/',
+    filterType: 'Guides',
+  },
+  {
+    type: 'Ageing Guide', icon: '👴',
+    title: 'Healthy Ageing: A Life Course Perspective — WHO',
+    desc: 'WHO factsheet on healthy ageing, covering chronic disease management, functional ability, and supporting older adults to maintain independence at home.',
+    meta: 'Free PDF · World Health Organization',
+    url: 'https://www.who.int/docs/default-source/documents/healthy-ageing-factsheet.pdf',
+    filterType: 'Guides',
+  },
+  {
+    type: 'Caregiver Hub', icon: '❤️',
+    title: 'AARP Family Caregiving Resource Centre',
+    desc: 'Practical tools including care guides, legal and financial planning resources, and wellbeing tools for caregivers. The largest caregiving resource in English.',
+    meta: 'Free · Online · AARP',
+    url: 'https://www.aarp.org/caregiving/',
+    filterType: 'Online Hubs',
+  },
+  {
+    type: 'Palliative Care', icon: '🕊️',
+    title: 'HPCA Africa — Palliative Care for Families Guide',
+    desc: 'The Hospice and Palliative Care Association of Africa provides free resources specifically for African contexts, covering pain management, emotional support, and end-of-life care.',
+    meta: 'Free · Online · HPCA Africa',
+    url: 'https://www.hpca.co.za/page/palliative-care-guidelines',
+    filterType: 'End-of-Life',
+  },
+  {
+    type: 'Medication Guide', icon: '💊',
+    title: 'Caregiver\'s Guide to Medications and Ageing — FCA',
+    desc: 'A comprehensive guide to managing medications safely at home: polypharmacy risks, organising schedules, avoiding errors, and communicating with healthcare providers.',
+    meta: 'Free PDF · Family Caregiver Alliance',
+    url: 'https://www.caregiver.org/resource/caregivers-guide-medications-and-aging/',
+    filterType: 'Guides',
+  },
+  {
+    type: 'NIA Guide', icon: '🏥',
+    title: 'Caring for a Person with Alzheimer\'s — National Institute on Aging',
+    desc: 'The US National Institute on Aging\'s free online guide covers all stages of Alzheimer\'s care from diagnosis to end of life. Available in downloadable PDF.',
+    meta: 'Free PDF/Web · National Institute on Aging',
+    url: 'https://www.nia.nih.gov/health/alzheimers-and-dementia/caring-person-alzheimers-disease',
+    filterType: 'Mental Health',
+  },
+  {
+    type: 'Mental Health', icon: '🧩',
+    title: 'Mental Health First Aid International — Caregiver Edition',
+    desc: 'Learn to recognise and respond to mental health challenges in yourself and those you care for. Free resources from Mental Health First Aid International.',
+    meta: 'Free · Online · MHFA International',
+    url: 'https://mhfa.com.au/mental-health-first-aid-guidelines',
+    filterType: 'Mental Health',
+  },
+  {
+    type: 'WHO mhGAP', icon: '📋',
+    title: 'WHO mhGAP Intervention Guide v2.0',
+    desc: 'The WHO\'s guide for managing mental, neurological, and substance use disorders in non-specialist settings — highly relevant for home care of patients with dementia, depression, or substance issues.',
+    meta: 'Free PDF · World Health Organization',
+    url: 'https://www.who.int/publications/i/item/mhGAP-intervention-guide---version-2.0',
+    filterType: 'Mental Health',
+  },
+  {
+    type: 'End-of-Life', icon: '📝',
+    title: 'End-of-Life Planning Guide — National Institute on Aging',
+    desc: 'Practical guidance on advance care planning, legal documents, and having end-of-life conversations. Helps families prepare while the patient can still express their wishes.',
+    meta: 'Free Web/PDF · National Institute on Aging',
+    url: 'https://www.nia.nih.gov/health/end-of-life',
+    filterType: 'End-of-Life',
+  },
+];
+
+const RESOURCE_FILTERS = ['All', 'Guides', 'Mental Health', 'End-of-Life', 'Online Hubs'];
+
+// ─── CSS ──────────────────────────────────────────────────────────────────────
 const PAGE_CSS = `
   body { padding-top: 72px; }
 
+  /* ── Hero ── */
   .cg-hero {
     background: radial-gradient(ellipse 80% 60% at 75% 35%, rgba(0,74,153,0.08) 0%, transparent 58%),
                 radial-gradient(ellipse 50% 55% at 5% 75%, rgba(132,189,96,0.07) 0%, transparent 55%),
@@ -16,8 +126,6 @@ const PAGE_CSS = `
     position: relative;
     overflow: hidden;
   }
-
-  /* Photo background layers */
   .cg-hero-photos { position:absolute; inset:0; z-index:1; overflow:hidden; pointer-events:none; }
   .cg-hp2 {
     position:absolute; top:0; right:0; height:100%; width:62%; object-fit:cover; display:block;
@@ -42,7 +150,6 @@ const PAGE_CSS = `
       rgba(235,241,250,0.80) 48%, rgba(235,241,250,0.55) 62%,
       rgba(235,241,250,0.22) 78%, transparent 90%);
   }
-
   .cg-hero-inner { position: relative; z-index: 3; max-width: 720px; margin: 0 auto; }
   .cg-hero-tag {
     display: inline-block;
@@ -58,16 +165,56 @@ const PAGE_CSS = `
   }
   .cg-hero h1 { font-size: clamp(2rem,5vw,3.2rem); margin-bottom: 18px; color: var(--text); }
   .cg-hero p { font-size: 1.1rem; color: rgba(15,32,53,0.72); max-width: 540px; margin: 0 auto 32px; line-height: 1.7; }
-  .cg-hero-stats {
-    display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; margin-top: 40px;
-  }
+  .cg-hero-stats { display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; margin-top: 40px; }
   .cg-hero-stat { text-align: center; }
   .cg-hero-stat .val { font-size: 2rem; font-weight: 700; color: var(--jade); }
   .cg-hero-stat .lab { font-size: 0.8rem; color: var(--muted); }
 
-  /* Section layout */
+  /* ── Auth gate ── */
+  .gate-overlay {
+    position: absolute; inset: 0; z-index: 5;
+    background: linear-gradient(to bottom, rgba(235,241,250,0.6) 0%, rgba(235,241,250,0.97) 70%);
+    display: flex; align-items: flex-end; justify-content: center; padding-bottom: 40px;
+  }
+  .gate-lock {
+    text-align: center;
+  }
+  .gate-lock-icon { font-size: 2.4rem; margin-bottom: 12px; }
+  .gate-lock h2 { font-size: 1.5rem; margin-bottom: 8px; color: var(--text); }
+  .gate-lock p { font-size: 0.95rem; color: var(--muted); margin-bottom: 24px; }
+  .gate-cards {
+    max-width: 900px; margin: 0 auto;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; padding: 0 24px 48px;
+  }
+  .gate-card {
+    background: rgba(255,255,255,0.92); border: 1px solid rgba(0,74,153,0.14);
+    border-radius: 18px; padding: 28px 24px; text-align: center;
+    box-shadow: 0 4px 24px rgba(0,74,153,0.08);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .gate-card:hover { transform: translateY(-3px); box-shadow: 0 8px 32px rgba(0,74,153,0.14); }
+  .gate-card .gate-icon { font-size: 2rem; margin-bottom: 12px; }
+  .gate-card h3 { font-size: 1rem; margin-bottom: 8px; }
+  .gate-card p { font-size: 0.83rem; color: var(--muted); line-height: 1.55; margin-bottom: 18px; }
+  .partner-gate-form { display: flex; flex-direction: column; gap: 10px; text-align: left; }
+  .partner-gate-form input, .partner-gate-form textarea {
+    width: 100%; background: rgba(255,255,255,0.9); border: 1px solid rgba(0,74,153,0.18);
+    border-radius: 8px; padding: 9px 12px; color: var(--text); font-family: var(--sans);
+    font-size: 0.82rem; outline: none; transition: border-color 0.2s;
+  }
+  .partner-gate-form input:focus, .partner-gate-form textarea:focus { border-color: var(--jade); }
+  .partner-gate-form textarea { min-height: 70px; resize: vertical; }
+
+  /* ── User badge ── */
+  .user-badge {
+    background: rgba(0,74,153,0.05); border-bottom: 1px solid rgba(0,74,153,0.1);
+    padding: 10px 24px; text-align: center; font-size: 0.82rem; color: var(--muted);
+  }
+  .user-badge a { color: var(--jade); text-decoration: none; font-weight: 600; }
+  .user-badge a:hover { text-decoration: underline; }
+
+  /* ── Section layout ── */
   .cg-section { padding: 64px 24px; }
-  .cg-section-alt { background: rgba(255,255,255,0.02); }
   .cg-inner { max-width: 1100px; margin: 0 auto; }
   .cg-section-head { text-align: center; margin-bottom: 48px; }
   .cg-section-head .tag {
@@ -78,498 +225,994 @@ const PAGE_CSS = `
   .cg-section-head h2 { font-size: clamp(1.5rem,3vw,2.2rem); margin-bottom: 12px; }
   .cg-section-head p { color: var(--muted); max-width: 560px; margin: 0 auto; line-height: 1.7; }
 
-  /* Training modules grid */
-  .modules-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 20px;
+  /* ── Tab nav ── */
+  .tab-nav {
+    border-bottom: 1px solid rgba(0,74,153,0.1); background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    position: sticky; top: 72px; z-index: 80;
   }
-  .module-card {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 16px;
-    padding: 24px;
-    transition: border-color 0.2s, transform 0.2s;
-    cursor: pointer;
+  .tab-nav-inner {
+    max-width: 1100px; margin: 0 auto; display: flex;
+    overflow-x: auto; gap: 4px; padding: 0 20px;
   }
-  .module-card:hover { border-color: rgba(168,0,64,0.35); transform: translateY(-3px); }
-  .module-icon {
-    width: 48px; height: 48px; border-radius: 12px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.4rem; margin-bottom: 16px;
+  .tab-btn {
+    padding: 16px 22px; background: none; border: none; cursor: pointer;
+    font-size: 0.88rem; white-space: nowrap; transition: color 0.2s;
+    border-bottom: 2px solid transparent;
   }
-  .icon-mint { background: rgba(168,0,64,0.12); }
-  .icon-sky  { background: rgba(56,189,248,0.12); }
-  .icon-gold { background: rgba(251,191,36,0.12); }
-  .icon-coral{ background: rgba(251,113,133,0.12); }
-  .icon-teal { background: rgba(45,212,191,0.12); }
-  .module-card h3 { font-size: 1rem; margin-bottom: 8px; }
-  .module-card p  { font-size: 0.85rem; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
-  .module-meta {
-    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
-    font-size: 0.75rem; color: var(--muted);
+  .tab-btn.active {
+    font-weight: 700; color: var(--jade); border-bottom-color: var(--jade);
   }
-  .module-meta span { display: flex; align-items: center; gap: 4px; }
-  .module-actions { margin-top: 16px; display: flex; gap: 10px; }
-  .mod-progress {
-    height: 4px; background: rgba(255,255,255,0.08); border-radius: 999px;
-    margin-top: 14px; overflow: hidden;
-  }
-  .mod-progress-bar { height: 100%; border-radius: 999px; background: var(--mint); }
+  .tab-btn:not(.active) { font-weight: 400; color: var(--muted); }
 
-  /* Community / Forum */
-  .community-grid {
-    display: grid; grid-template-columns: 1fr 340px; gap: 28px;
+  /* ── LMS Filter chips ── */
+  .lms-filter-row {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 28px;
   }
-  @media(max-width:768px){ .community-grid { grid-template-columns: 1fr; } }
+  .lms-filter-label { font-size: 0.82rem; color: var(--muted); }
+  .filter-chip {
+    padding: 6px 16px; border-radius: 999px; border: 1px solid rgba(0,74,153,0.2);
+    background: transparent; cursor: pointer; font-size: 0.8rem; font-family: var(--sans);
+    color: var(--muted); transition: all 0.2s;
+  }
+  .filter-chip.active {
+    background: var(--jade); color: #fff; border-color: var(--jade); font-weight: 600;
+  }
+  .filter-chip:not(.active):hover { border-color: var(--jade); color: var(--jade); }
 
-  .forum-threads { display: flex; flex-direction: column; gap: 12px; }
-  .thread-card {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 12px; padding: 18px; cursor: pointer;
-    transition: border-color 0.2s;
+  /* ── Course cards ── */
+  .courses-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 22px;
   }
-  .thread-card:hover { border-color: rgba(168,0,64,0.3); }
-  .thread-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-  .thread-avatar {
-    width: 36px; height: 36px; border-radius: 50%;
-    background: linear-gradient(135deg,var(--jade),var(--teal));
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: 0.8rem; color: #fff; flex-shrink: 0;
+  .course-card {
+    background: rgba(255,255,255,0.9); border: 1px solid rgba(0,74,153,0.12);
+    border-radius: 18px; padding: 24px;
+    transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    display: flex; flex-direction: column;
   }
-  .thread-meta { flex: 1; }
-  .thread-meta .author { font-size: 0.85rem; font-weight: 600; }
-  .thread-meta .time   { font-size: 0.73rem; color: var(--muted); }
-  .thread-card h4 { font-size: 0.95rem; margin-bottom: 6px; }
-  .thread-card p  { font-size: 0.82rem; color: var(--muted); line-height: 1.5; margin-bottom: 10px; }
-  .thread-footer  { display: flex; gap: 16px; font-size: 0.75rem; color: var(--muted); }
-  .thread-footer span { display: flex; align-items: center; gap: 4px; }
+  .course-card:hover {
+    border-color: rgba(0,74,153,0.28); transform: translateY(-3px);
+    box-shadow: 0 10px 32px rgba(0,74,153,0.1);
+  }
+  .course-emoji {
+    width: 54px; height: 54px; border-radius: 14px;
+    background: rgba(0,74,153,0.07); display: flex; align-items: center;
+    justify-content: center; font-size: 1.6rem; margin-bottom: 16px; flex-shrink: 0;
+  }
+  .course-card h3 { font-size: 1rem; margin-bottom: 8px; line-height: 1.4; }
+  .course-card > p { font-size: 0.83rem; color: var(--muted); line-height: 1.6; margin-bottom: 16px; flex: 1; }
+  .course-meta {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px;
+    font-size: 0.75rem;
+  }
+  .course-meta .diff-badge {
+    padding: 3px 10px; border-radius: 999px; font-weight: 600;
+    font-size: 0.72rem;
+  }
+  .diff-beginner { background: rgba(132,189,96,0.12); color: var(--mint); border: 1px solid rgba(132,189,96,0.25); }
+  .diff-intermediate { background: rgba(240,169,139,0.12); color: var(--gold); border: 1px solid rgba(232,132,90,0.2); }
+  .diff-advanced { background: rgba(249,112,102,0.12); color: var(--coral); border: 1px solid rgba(249,112,102,0.2); }
+  .diff-all { background: rgba(14,165,233,0.1); color: var(--sky); border: 1px solid rgba(14,165,233,0.2); }
+  .target-chip {
+    padding: 3px 9px; border-radius: 999px; font-size: 0.7rem;
+    background: rgba(0,74,153,0.07); color: var(--jade); border: 1px solid rgba(0,74,153,0.15);
+  }
+  .course-meta .meta-item { color: var(--muted); display: flex; align-items: center; gap: 3px; }
+  .course-progress-bar-wrap {
+    height: 5px; background: rgba(0,74,153,0.1); border-radius: 999px;
+    margin-bottom: 6px; overflow: hidden;
+  }
+  .course-progress-bar { height: 100%; border-radius: 999px; background: var(--mint); transition: width 0.4s; }
+  .course-progress-pct { font-size: 0.72rem; color: var(--muted); margin-bottom: 12px; }
+  .cert-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(132,189,96,0.1); color: var(--mint);
+    border: 1px solid rgba(132,189,96,0.3); border-radius: 999px;
+    padding: 4px 12px; font-size: 0.75rem; font-weight: 600; margin-bottom: 12px;
+  }
+  .course-actions { display: flex; gap: 10px; margin-top: auto; }
 
-  .forum-sidebar { display: flex; flex-direction: column; gap: 16px; }
-  .sidebar-widget {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 12px; padding: 20px;
+  /* ── Skeleton loader ── */
+  .skeleton-card {
+    background: rgba(255,255,255,0.9); border: 1px solid rgba(0,74,153,0.08);
+    border-radius: 18px; padding: 24px; height: 280px;
+    animation: skeleton-pulse 1.4s ease-in-out infinite;
   }
-  .sidebar-widget h4 { font-size: 0.9rem; margin-bottom: 14px; color: var(--mint); }
-  .widget-list { display: flex; flex-direction: column; gap: 10px; }
-  .widget-item { display: flex; align-items: center; gap: 10px; }
-  .widget-item .badge-count {
-    background: rgba(168,0,64,0.15); color: var(--mint);
-    border-radius: 999px; padding: 2px 10px; font-size: 0.72rem; font-weight: 700;
+  @keyframes skeleton-pulse {
+    0%,100% { opacity: 1; } 50% { opacity: 0.5; }
   }
-  .widget-item .label { font-size: 0.83rem; flex: 1; }
-  .new-post-btn {
-    width: 100%; padding: 12px; border-radius: 10px;
-    background: rgba(168,0,64,0.12); border: 1px solid rgba(168,0,64,0.3);
-    color: var(--mint); font-size: 0.88rem; font-weight: 600; cursor: pointer;
+  .skel-line {
+    height: 14px; background: rgba(0,74,153,0.07); border-radius: 7px; margin-bottom: 12px;
+  }
+  .skel-emoji {
+    width: 54px; height: 54px; background: rgba(0,74,153,0.07); border-radius: 14px; margin-bottom: 16px;
+  }
+
+  /* ── Lesson viewer modal ── */
+  .lv-overlay {
+    position: fixed; inset: 0; z-index: 300;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(6px);
+    display: flex; align-items: stretch; justify-content: center;
+  }
+  .lv-modal {
+    background: #fff; width: 100%; max-width: 1100px; margin: 20px;
+    border-radius: 20px; display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.22);
+  }
+  .lv-header {
+    background: linear-gradient(135deg, #EBF1FA, #F4F7F6);
+    border-bottom: 1px solid rgba(0,74,153,0.12);
+    padding: 20px 28px; display: flex; align-items: center; gap: 16px; flex-shrink: 0;
+  }
+  .lv-header-emoji { font-size: 2rem; flex-shrink: 0; }
+  .lv-header-info { flex: 1; min-width: 0; }
+  .lv-header-info h2 { font-size: 1.1rem; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lv-header-meta { display: flex; gap: 10px; flex-wrap: wrap; }
+  .lv-close {
+    background: rgba(0,74,153,0.08); border: none; border-radius: 50%; width: 36px; height: 36px;
+    font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    color: var(--text); flex-shrink: 0; transition: background 0.2s;
+  }
+  .lv-close:hover { background: rgba(0,74,153,0.15); }
+  .lv-body {
+    flex: 1; display: flex; overflow: hidden; min-height: 0;
+  }
+  .lv-sidebar {
+    width: 240px; min-width: 240px; border-right: 1px solid rgba(0,74,153,0.1);
+    overflow-y: auto; padding: 16px 12px; flex-shrink: 0;
+    background: rgba(244,247,246,0.6);
+  }
+  .lv-sidebar-title { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; padding: 0 8px; }
+  .lv-lesson-btn {
+    width: 100%; text-align: left; padding: 10px 12px; border-radius: 10px;
+    border: none; background: transparent; cursor: pointer;
+    font-family: var(--sans); font-size: 0.82rem; color: var(--text);
+    display: flex; align-items: flex-start; gap: 10px; margin-bottom: 4px;
+    transition: background 0.15s;
+    line-height: 1.4;
+  }
+  .lv-lesson-btn:hover { background: rgba(0,74,153,0.06); }
+  .lv-lesson-btn.active { background: rgba(0,74,153,0.1); font-weight: 600; color: var(--jade); }
+  .lv-lesson-num {
+    width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; font-size: 0.7rem;
+    display: flex; align-items: center; justify-content: center; font-weight: 700;
+    background: rgba(0,74,153,0.1); color: var(--jade);
+  }
+  .lv-lesson-num.done { background: var(--mint); color: #fff; }
+  .lv-lesson-num.active-num { background: var(--jade); color: #fff; }
+  .lv-content {
+    flex: 1; overflow-y: auto; padding: 28px 32px;
+  }
+  .lv-content h3 { font-size: 1.2rem; margin-bottom: 16px; color: var(--text); }
+  .lv-objectives {
+    background: rgba(0,74,153,0.04); border: 1px solid rgba(0,74,153,0.12);
+    border-radius: 12px; padding: 16px 20px; margin-bottom: 20px;
+  }
+  .lv-objectives h4 { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--jade); margin-bottom: 10px; }
+  .lv-objectives ul { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .lv-objectives li { font-size: 0.85rem; color: var(--text); display: flex; gap: 8px; }
+  .lv-objectives li::before { content: '→'; color: var(--jade); flex-shrink: 0; }
+  .lv-summary { font-size: 0.92rem; color: var(--muted); line-height: 1.75; margin-bottom: 24px; }
+  .lv-keypoints { margin-bottom: 24px; }
+  .lv-keypoints h4 { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mint); margin-bottom: 10px; }
+  .lv-keypoints ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .lv-keypoints li {
+    font-size: 0.88rem; color: var(--text); display: flex; gap: 10px;
+    background: rgba(132,189,96,0.06); border: 1px solid rgba(132,189,96,0.15);
+    border-radius: 10px; padding: 10px 14px; line-height: 1.5;
+  }
+  .lv-keypoints li::before { content: '✓'; color: var(--mint); font-weight: 700; flex-shrink: 0; }
+  .lv-resource-link {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 18px; border-radius: 10px;
+    background: rgba(14,165,233,0.08); border: 1px solid rgba(14,165,233,0.2);
+    color: var(--sky); text-decoration: none; font-size: 0.85rem; font-weight: 500;
+    transition: background 0.2s; margin-bottom: 24px; display: inline-flex;
+  }
+  .lv-resource-link:hover { background: rgba(14,165,233,0.15); }
+  .lv-complete-btn {
+    background: linear-gradient(135deg, var(--mint), #5a9e38);
+    color: #fff; border: none; border-radius: 10px; padding: 12px 24px;
+    font-family: var(--sans); font-size: 0.9rem; font-weight: 600; cursor: pointer;
+    transition: opacity 0.2s, transform 0.2s;
+  }
+  .lv-complete-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+  .lv-complete-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .lv-completed-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(132,189,96,0.1); color: var(--mint);
+    border: 1px solid rgba(132,189,96,0.3); border-radius: 10px;
+    padding: 10px 18px; font-size: 0.88rem; font-weight: 600;
+  }
+  .lv-footer {
+    border-top: 1px solid rgba(0,74,153,0.1);
+    padding: 14px 28px; display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0; background: #fafbfc; flex-wrap: wrap; gap: 10px;
+  }
+  .lv-nav-btns { display: flex; gap: 10px; }
+  .lv-cert-banner {
+    background: linear-gradient(135deg, rgba(132,189,96,0.12), rgba(0,74,153,0.06));
+    border: 1px solid rgba(132,189,96,0.3); border-radius: 14px;
+    padding: 24px; text-align: center; margin-top: 24px;
+  }
+  .lv-cert-banner h3 { font-size: 1.1rem; margin-bottom: 6px; color: var(--mint); }
+  .lv-cert-banner p { font-size: 0.85rem; color: var(--muted); margin-bottom: 16px; }
+
+  /* Mobile lesson nav row */
+  .lv-mobile-progress {
+    display: none; overflow-x: auto; padding: 12px 16px; gap: 8px;
+    border-bottom: 1px solid rgba(0,74,153,0.1); background: rgba(244,247,246,0.6);
+    flex-shrink: 0;
+  }
+  .lv-mob-step {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 0.72rem;
+    font-weight: 700; cursor: pointer; border: 2px solid transparent; transition: all 0.2s;
+    background: rgba(0,74,153,0.08); color: var(--jade);
+  }
+  .lv-mob-step.done { background: var(--mint); color: #fff; border-color: var(--mint); }
+  .lv-mob-step.active-step { border-color: var(--jade); background: var(--jade); color: #fff; }
+  @media (max-width: 700px) {
+    .lv-modal { margin: 0; border-radius: 0; }
+    .lv-sidebar { display: none; }
+    .lv-mobile-progress { display: flex; }
+    .lv-content { padding: 20px 18px; }
+    .lv-header { padding: 14px 16px; }
+    .lv-footer { padding: 12px 16px; }
+  }
+
+  /* ── Partner panel ── */
+  .partner-panel {
+    margin-top: 40px; border: 1px solid rgba(0,74,153,0.15); border-radius: 16px;
+    overflow: hidden;
+  }
+  .partner-toggle {
+    width: 100%; padding: 18px 24px; background: rgba(0,74,153,0.04);
+    border: none; border-radius: 0; cursor: pointer; font-family: var(--sans);
+    font-size: 0.9rem; font-weight: 600; color: var(--jade); text-align: left;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
     transition: background 0.2s;
   }
-  .new-post-btn:hover { background: rgba(168,0,64,0.22); }
-
-  /* Counselling */
-  .counselling-grid {
-    display: grid; grid-template-columns: repeat(auto-fill,minmax(280px,1fr)); gap: 20px;
+  .partner-toggle:hover { background: rgba(0,74,153,0.08); }
+  .partner-form-wrap {
+    padding: 24px; background: rgba(255,255,255,0.8);
+    border-top: 1px solid rgba(0,74,153,0.1);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
   }
-  .counsellor-card {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 16px; padding: 24px; text-align: center;
+  @media (max-width: 600px) { .partner-form-wrap { grid-template-columns: 1fr; } }
+  .partner-form-full { grid-column: 1 / -1; }
+  .pf-label { font-size: 0.75rem; font-weight: 600; color: var(--jade); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 6px; display: block; }
+  .pf-input, .pf-select, .pf-textarea {
+    width: 100%; background: rgba(255,255,255,0.9); border: 1px solid rgba(0,74,153,0.18);
+    border-radius: 9px; padding: 10px 14px; color: var(--text); font-family: var(--sans);
+    font-size: 0.85rem; outline: none; transition: border-color 0.2s;
+  }
+  .pf-input:focus, .pf-select:focus, .pf-textarea:focus { border-color: var(--jade); box-shadow: 0 0 0 3px rgba(0,74,153,0.08); }
+  .pf-textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
+  .pf-note { font-size: 0.78rem; color: var(--muted); margin-top: 8px; grid-column: 1 / -1; }
+
+  /* ── Counselling ── */
+  .counsel-contact-card {
+    background: rgba(255,255,255,0.92); border: 1px solid rgba(0,74,153,0.14);
+    border-radius: 20px; padding: 32px; max-width: 620px; margin: 0 auto 36px;
+    box-shadow: 0 4px 28px rgba(0,74,153,0.08);
+  }
+  .counsel-contact-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 20px; color: var(--text); }
+  .counsel-contact-list { list-style: none; display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; }
+  .counsel-contact-list li { display: flex; align-items: flex-start; gap: 12px; font-size: 0.9rem; }
+  .counsel-contact-list .ci-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+  .counsel-contact-list .ci-text { line-height: 1.5; color: var(--text); }
+  .counsel-contact-list a { color: var(--jade); text-decoration: none; }
+  .counsel-contact-list a:hover { text-decoration: underline; }
+  .counsel-info-note {
+    background: rgba(0,74,153,0.04); border: 1px solid rgba(0,74,153,0.1);
+    border-radius: 10px; padding: 14px 18px; font-size: 0.85rem; color: var(--muted); line-height: 1.6;
+  }
+  .counsel-referral-box {
+    max-width: 620px; margin: 0 auto;
+    background: rgba(255,255,255,0.92); border: 1px solid rgba(0,74,153,0.14);
+    border-radius: 20px; padding: 32px; box-shadow: 0 4px 28px rgba(0,74,153,0.08);
+  }
+  .counsel-referral-box h3 { font-size: 1rem; margin-bottom: 6px; }
+  .counsel-referral-box > p { font-size: 0.85rem; color: var(--muted); margin-bottom: 22px; line-height: 1.6; }
+  .counsel-form { display: flex; flex-direction: column; gap: 14px; }
+  .counsel-success {
+    text-align: center; padding: 28px 16px;
+  }
+  .counsel-success .cs-icon { font-size: 2.4rem; margin-bottom: 12px; }
+  .counsel-success h3 { font-size: 1.05rem; margin-bottom: 8px; color: var(--mint); }
+  .counsel-success p { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+
+  /* ── Resources ── */
+  .resources-filter-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; }
+  .resources-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
+  .resource-card {
+    background: rgba(255,255,255,0.9); border: 1px solid rgba(0,74,153,0.1);
+    border-radius: 14px; padding: 22px; display: flex; flex-direction: column;
     transition: border-color 0.2s, transform 0.2s;
   }
-  .counsellor-card:hover { border-color: rgba(56,189,248,0.35); transform: translateY(-3px); }
-  .counsellor-avatar {
-    width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 14px;
-    background: linear-gradient(135deg,var(--sky),var(--teal));
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.6rem; font-weight: 700; color: #fff; overflow: hidden;
+  .resource-card:hover { border-color: rgba(0,74,153,0.25); transform: translateY(-2px); }
+  .resource-card-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .resource-icon { font-size: 1.6rem; flex-shrink: 0; }
+  .resource-type-badge {
+    font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--gold); font-weight: 600;
   }
-  .counsellor-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%; }
-  .counsellor-card h3 { font-size: 1rem; margin-bottom: 4px; }
-  .counsellor-card .role { font-size: 0.8rem; color: var(--sky); margin-bottom: 8px; }
-  .counsellor-card p   { font-size: 0.82rem; color: var(--muted); line-height: 1.5; margin-bottom: 16px; }
-  .avail-slots { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 16px; }
-  .slot {
-    padding: 4px 10px; border-radius: 6px; font-size: 0.72rem;
-    background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25);
-    color: var(--sky);
+  .resource-card h4 { font-size: 0.9rem; margin-bottom: 8px; line-height: 1.4; }
+  .resource-card p { font-size: 0.8rem; color: var(--muted); line-height: 1.55; margin-bottom: 14px; flex: 1; }
+  .resource-meta { font-size: 0.72rem; color: var(--muted); margin-bottom: 14px; }
+  .resource-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: 8px;
+    background: rgba(0,74,153,0.06); border: 1px solid rgba(0,74,153,0.2);
+    color: var(--jade); text-decoration: none; font-size: 0.8rem; font-weight: 600;
+    transition: background 0.2s; margin-top: auto; align-self: flex-start;
   }
-  .slot.full { opacity: 0.4; text-decoration: line-through; }
+  .resource-btn:hover { background: rgba(0,74,153,0.12); }
 
-  /* Booking modal */
-  .modal-overlay {
-    position: fixed; inset: 0; z-index: 200;
-    background: rgba(0,0,0,0.75); backdrop-filter: blur(4px);
-    display: flex; align-items: center; justify-content: center; padding: 24px;
-  }
-  .modal-box {
-    background: #0d2b1e; border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 20px; padding: 32px; max-width: 480px; width: 100%;
-  }
-  .modal-box h3 { font-size: 1.2rem; margin-bottom: 6px; }
-  .modal-box p  { font-size: 0.85rem; color: var(--muted); margin-bottom: 24px; }
-  .modal-close {
-    float: right; background: none; border: none; color: var(--muted);
-    font-size: 1.4rem; cursor: pointer; line-height: 1;
-  }
-
-  /* Resource library */
-  .resources-grid {
-    display: grid; grid-template-columns: repeat(auto-fill,minmax(240px,1fr)); gap: 16px;
-  }
-  .resource-card {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 12px; padding: 20px;
-    transition: border-color 0.2s;
-  }
-  .resource-card:hover { border-color: rgba(251,191,36,0.3); }
-  .resource-type {
-    font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase;
-    color: var(--gold); margin-bottom: 8px;
-  }
-  .resource-card h4 { font-size: 0.92rem; margin-bottom: 6px; }
-  .resource-card p  { font-size: 0.8rem; color: var(--muted); line-height: 1.5; margin-bottom: 14px; }
-  .resource-meta { font-size: 0.73rem; color: var(--muted); }
-
-  /* Support groups */
-  .groups-list { display: flex; flex-direction: column; gap: 16px; }
-  .group-card {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 14px; padding: 22px;
-    display: flex; align-items: center; gap: 20px;
-    transition: border-color 0.2s;
-  }
-  .group-card:hover { border-color: rgba(45,212,191,0.3); }
-  .group-icon {
-    width: 56px; height: 56px; border-radius: 14px; flex-shrink: 0;
-    background: rgba(45,212,191,0.12);
-    display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
-  }
-  .group-info { flex: 1; }
-  .group-info h4 { font-size: 0.95rem; margin-bottom: 4px; }
-  .group-info p  { font-size: 0.82rem; color: var(--muted); line-height: 1.5; }
-  .group-meta   { display: flex; gap: 12px; margin-top: 8px; font-size: 0.75rem; color: var(--muted); flex-wrap: wrap; }
-  .group-meta span { display: flex; align-items: center; gap: 4px; }
-  .group-actions { display: flex; flex-direction: column; gap: 8px; }
-  @media(max-width:600px){ .group-card { flex-direction: column; align-items: flex-start; } }
-
-  /* CTA bottom */
+  /* ── CTA bottom ── */
   .cg-cta {
-    background: linear-gradient(135deg,rgba(168,0,64,0.08),rgba(56,189,248,0.05));
-    border: 1px solid rgba(168,0,64,0.2);
+    background: linear-gradient(135deg, rgba(0,74,153,0.06), rgba(132,189,96,0.05));
+    border: 1px solid rgba(0,74,153,0.14);
     border-radius: 20px; padding: 48px 32px; text-align: center; margin-top: 24px;
   }
   .cg-cta h2 { font-size: clamp(1.4rem,3vw,2rem); margin-bottom: 12px; }
-  .cg-cta p  { color: var(--muted); max-width: 480px; margin: 0 auto 28px; }
+  .cg-cta p  { color: var(--muted); max-width: 480px; margin: 0 auto 28px; line-height: 1.7; }
   .cg-cta-btns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
 `;
 
-const MODULES = [
-  { id: 1, icon: '🩺', iconCls: 'icon-mint', title: 'Basic Home Nursing Skills', desc: 'Learn wound dressing, medication administration, and vital signs monitoring from certified nurses.', lessons: 12, duration: '4 hrs', level: 'Beginner', progress: 0 },
-  { id: 2, icon: '🧠', iconCls: 'icon-sky',  title: 'Dementia & Memory Care', desc: 'Practical strategies for managing challenging behaviour, communication, and daily routines.', lessons: 8, duration: '3 hrs', level: 'Intermediate', progress: 45 },
-  { id: 3, icon: '❤️', iconCls: 'icon-coral', title: 'Palliative & End-of-Life Care', desc: 'Compassionate guidance on pain management, emotional support, and family communication.', lessons: 10, duration: '3.5 hrs', level: 'Intermediate', progress: 80 },
-  { id: 4, icon: '💊', iconCls: 'icon-gold', title: 'Medication Management', desc: 'Safe handling, scheduling, and record-keeping of medications for common chronic conditions.', lessons: 6, duration: '2 hrs', level: 'Beginner', progress: 100 },
-  { id: 5, icon: '🧘', iconCls: 'icon-teal', title: 'Caregiver Self-Care & Burnout Prevention', desc: 'Recognise burnout signals, set boundaries, and build sustainable routines for your own wellbeing.', lessons: 7, duration: '2.5 hrs', level: 'All Levels', progress: 20 },
-  { id: 6, icon: '🏃', iconCls: 'icon-mint', title: 'Mobility & Safe Transfers', desc: 'Safe lifting, transfer, and positioning techniques to prevent injury to both caregiver and patient.', lessons: 9, duration: '3 hrs', level: 'Beginner', progress: 0 },
-];
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function diffClass(d) {
+  if (!d) return 'diff-beginner';
+  const dl = d.toLowerCase();
+  if (dl.includes('intermediate')) return 'diff-intermediate';
+  if (dl.includes('advanced')) return 'diff-advanced';
+  if (dl.includes('all')) return 'diff-all';
+  return 'diff-beginner';
+}
 
-const THREADS = [
-  { id: 1, initials: 'WN', author: 'Wanjiku N.', time: '2 hours ago', title: 'Tips for convincing a stubborn parent to take medication?', preview: 'My 78-year-old father refuses his BP medication. I have tried everything from hiding it in food to gentle persuasion...', replies: 14, likes: 22 },
-  { id: 2, initials: 'AO', author: 'Amina O.', time: '5 hours ago', title: 'Respite care - how do you cope when you need a break?', preview: 'I have been the sole caregiver for my mother for 14 months and I am exhausted. How do others handle needing time off?', replies: 31, likes: 47 },
-  { id: 3, initials: 'KM', author: 'Kamau M.', time: '1 day ago', title: 'Managing incontinence with dignity - what works?', preview: 'Looking for practical product recommendations and routines that preserve my uncle\'s dignity...', replies: 9, likes: 15 },
-  { id: 4, initials: 'FW', author: 'Faith W.', time: '2 days ago', title: 'How to explain a terminal diagnosis to young grandchildren?', preview: 'Our family is struggling to find age-appropriate language. Any experiences to share?', replies: 18, likes: 34 },
-];
+function targetLabel(t) {
+  if (t === 'clients') return 'Family Caregivers';
+  if (t === 'hcas') return 'HCAs';
+  return 'All Users';
+}
 
-const COUNSELLORS = [
-  { initials: 'SK', photo: '/images/portraits/counsellor-sarah-kamau.svg', name: 'Dr. Sarah Kamau', role: 'Grief & Bereavement Counsellor', bio: 'Specialises in supporting families navigating chronic illness and loss. 12 years experience.', slots: ['Mon 9am', 'Wed 11am', 'Fri 2pm'] },
-  { initials: 'JO', photo: '/images/portraits/counsellor-james-otieno.svg', name: 'James Otieno', role: 'Family Therapist', bio: 'Works with family systems under caregiving stress. Offers both individual and family sessions.', slots: ['Tue 10am', 'Thu 3pm', 'Sat 10am'] },
-  { initials: 'RM', photo: '/images/portraits/counsellor-rose-mutua.svg', name: 'Rose Mutua', role: 'Mental Health Counsellor', bio: 'Caregiver burnout, anxiety, and depression specialist. Swahili and English sessions available.', slots: ['Mon 2pm', 'Wed 4pm'] },
-  { initials: 'PM', photo: '/images/portraits/counsellor-peter-mwangi.svg', name: 'Peter Mwangi', role: 'Social Worker', bio: 'Helps families access community resources, navigate systems, and plan sustainable care arrangements.', slots: ['Tue 11am', 'Thu 11am', 'Fri 10am'] },
-];
+// ─── Partner gate form (inline, client-side only) ─────────────────────────────
+function PartnerGateForm() {
+  const [form, setForm] = useState({ name: '', email: '', org: '', message: '' });
+  const [sent, setSent] = useState(false);
+  async function handleSubmit(e) {
+    e.preventDefault();
+    try {
+      await createHubAccessRequest({ name: form.name, email: form.email, organisation: form.org, message: form.message });
+    } catch (err) {
+      console.error('Access request error:', err);
+    }
+    setSent(true);
+  }
+  if (sent) return (
+    <div style={{ textAlign: 'center', padding: '12px 0' }}>
+      <div style={{ fontSize: '1.6rem', marginBottom: 8 }}>✅</div>
+      <p style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>Request received. We will be in touch shortly.</p>
+    </div>
+  );
+  return (
+    <form className="partner-gate-form" onSubmit={handleSubmit}>
+      <input required placeholder="Your name" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
+      <input required type="email" placeholder="Email address" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} />
+      <input required placeholder="Organisation name" value={form.org} onChange={e => setForm(p => ({ ...p, org: e.target.value }))} />
+      <textarea placeholder="Brief message (optional)" value={form.message} onChange={e => setForm(p => ({ ...p, message: e.target.value }))} />
+      <button type="submit" className="btn-p btn-sm btn-full">Request Access</button>
+    </form>
+  );
+}
 
-const RESOURCES = [
-  { type: 'Guide', title: 'Caregiver\'s Complete Handbook', desc: 'Comprehensive PDF covering all aspects of home care for seniors.', meta: '48 pages · PDF' },
-  { type: 'Video', title: 'Safe Patient Transfer Techniques', desc: 'Step-by-step video demonstration with a physiotherapist.', meta: '22 min · Video' },
-  { type: 'Checklist', title: 'Daily Care Routine Template', desc: 'Printable checklist for morning, afternoon, and evening care tasks.', meta: '2 pages · PDF' },
-  { type: 'Guide',    title: 'Managing Dementia Behaviour', desc: 'Evidence-based strategies for common dementia-related behaviours.', meta: '18 pages · PDF' },
-  { type: 'Webinar',  title: 'Navigating the Healthcare System in Kenya', desc: 'Recording: how to access NHIF, referrals, and specialist care.', meta: '55 min · Video' },
-  { type: 'Template', title: 'Medication & Appointment Tracker', desc: 'Spreadsheet template for tracking medications, dosages, and appointments.', meta: 'Excel · Template' },
-  { type: 'Guide',    title: 'Grief Support for Family Members', desc: 'For families in palliative situations - processing anticipatory grief.', meta: '12 pages · PDF' },
-  { type: 'Checklist','title': 'Home Safety Assessment Checklist', desc: 'Audit your home environment for fall and safety risks.', meta: '4 pages · PDF' },
-];
-
-const GROUPS = [
-  { icon: '🧠', name: 'Dementia Caregivers Kenya', desc: 'A supportive community for families navigating dementia at home. Share challenges, celebrate small wins, and learn from each other.', meets: 'Every Saturday, 10:00 AM', platform: 'Zoom + WhatsApp', members: 142 },
-  { icon: '🕊️', name: 'Palliative Care Family Circle', desc: 'For families walking alongside a loved one in palliative or end-of-life care. Grief, hope, and practical support.', meets: 'Every Wednesday, 6:00 PM', platform: 'Zoom', members: 89 },
-  { icon: '♿', name: 'Mobility & Disability Caregivers', desc: 'Support group for families caring for loved ones with physical disabilities, stroke recovery, and mobility challenges.', meets: 'Every Tuesday, 5:30 PM', platform: 'WhatsApp + Zoom', members: 63 },
-  { icon: '👶', name: 'Childhood Illness & Disability Parents', desc: 'A caring space for parents managing complex childhood health conditions, palsy, developmental delays, and chronic illness.', meets: 'Every Thursday, 4:00 PM', platform: 'WhatsApp', members: 110 },
-];
-
+// ─── Main component ───────────────────────────────────────────────────────────
 export default function CaregiversPage() {
+  // ── State
+  const [user, setUser] = useState(null);
+  const [authed, setAuthed] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [courses, setCourses] = useState([]);
+  const [enrollments, setEnrollments] = useState([]);
+  const [clientCount, setClientCount] = useState(0);
   const [activeTab, setActiveTab] = useState('training');
-  const [bookingModal, setBookingModal] = useState(null);
-  const [bookForm, setBookForm] = useState({ name: '', phone: '', date: '', slot: '' });
-  const [bookingDone, setBookingDone] = useState(false);
+  const [lmsFilter, setLmsFilter] = useState('all');
+  const [selectedCourse, setSelectedCourse] = useState(null);
+  const [selectedLesson, setSelectedLesson] = useState(-1);
+  const [partnerFormOpen, setPartnerFormOpen] = useState(false);
+  const [partnerForm, setPartnerForm] = useState({ orgName: '', contactEmail: '', courseTitle: '', description: '', contentUrl: '', target: 'all' });
+  const [partnerSubmitted, setPartnerSubmitted] = useState(false);
+  const [partnerSubmitting, setPartnerSubmitting] = useState(false);
+  const [markingComplete, setMarkingComplete] = useState(false);
+  const [resourceFilter, setResourceFilter] = useState('All');
+  const [counselForm, setCounselForm] = useState({ name: '', phone: '', email: '', message: '' });
+  const [counselSent, setCounselSent] = useState(false);
+  const [enrolling, setEnrolling] = useState(null);
+
+  // ── Load on mount
+  useEffect(() => {
+    async function init() {
+      try {
+        // Determine session
+        const clientSess = getClientSession();
+        const hcaSess    = getHcaSession();
+        const adminSess  = getAdminSession();
+
+        let resolvedUser = null;
+        if (adminSess?.id) {
+          resolvedUser = { id: adminSess.id, name: adminSess.name || adminSess.email || 'Admin', type: 'admin' };
+        } else if (hcaSess?.id) {
+          resolvedUser = { id: hcaSess.id, name: hcaSess.name || 'HCA', type: 'hca' };
+        } else if (clientSess?.id) {
+          resolvedUser = { id: clientSess.id, name: clientSess.name || 'Client', type: 'client' };
+        }
+
+        setUser(resolvedUser);
+        setAuthed(!!resolvedUser);
+
+        // Load courses & stats (available to all — used even on gate)
+        const [fetchedCourses, fetchedClients] = await Promise.all([
+          getLmsCourses(),
+          getAllClients(),
+        ]);
+        setCourses(fetchedCourses);
+        setClientCount(fetchedClients.length);
+
+        // Load enrollments if authed
+        if (resolvedUser) {
+          const fetchedEnrollments = await getEnrollmentsForUser(resolvedUser.id, resolvedUser.type);
+          setEnrollments(fetchedEnrollments);
+
+          // Default lmsFilter based on user type
+          if (resolvedUser.type === 'hca') setLmsFilter('hcas');
+          else if (resolvedUser.type === 'client') setLmsFilter('clients');
+        }
+      } catch (err) {
+        console.error('Caregivers hub init error:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    init();
+  }, []);
+
+  // ── Helpers
+  function getEnrollment(courseId) {
+    return enrollments.find(e => e.course_id === courseId) || null;
+  }
+
+  function isLessonComplete(enrollment, idx) {
+    if (!enrollment) return false;
+    return (enrollment.completed_lessons || []).includes(idx);
+  }
+
+  // ── Filter courses
+  const filteredCourses = courses.filter(c => {
+    if (lmsFilter === 'all') return true;
+    return c.target === 'all' || c.target === lmsFilter;
+  });
+
+  // ── Enrol + open lesson viewer
+  async function handleOpenCourse(course) {
+    if (!user) return;
+    const enr = getEnrollment(course.id);
+    if (!enr) {
+      setEnrolling(course.id);
+      try {
+        const newEnr = await enrollInCourse(user.id, user.type, course.id);
+        setEnrollments(prev => [...prev, newEnr]);
+      } catch (err) {
+        console.error('Enrol error:', err);
+      } finally {
+        setEnrolling(null);
+      }
+    }
+    setSelectedCourse(course);
+    setSelectedLesson(0);
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLessonViewer() {
+    setSelectedCourse(null);
+    setSelectedLesson(-1);
+    document.body.style.overflow = '';
+  }
+
+  async function handleMarkComplete() {
+    if (!user || !selectedCourse || selectedLesson < 0) return;
+    const lessons = selectedCourse.lessons || [];
+    setMarkingComplete(true);
+    try {
+      const updated = await updateCourseProgress(user.id, selectedCourse.id, selectedLesson, lessons.length);
+      if (updated) {
+        setEnrollments(prev => prev.map(e => e.course_id === selectedCourse.id ? { ...e, ...updated } : e));
+      }
+    } catch (err) {
+      console.error('Progress update error:', err);
+    } finally {
+      setMarkingComplete(false);
+    }
+  }
+
+  async function handlePartnerSubmit(e) {
+    e.preventDefault();
+    setPartnerSubmitting(true);
+    try {
+      await submitPartnerCourse(partnerForm);
+      setPartnerSubmitted(true);
+    } catch (err) {
+      alert('Submission failed: ' + err.message);
+    } finally {
+      setPartnerSubmitting(false);
+    }
+  }
+
+  async function handleCounselSubmit(e) {
+    e.preventDefault();
+    try {
+      await createHubReferral({ name: counselForm.name, phone: counselForm.phone, email: counselForm.email, message: counselForm.message });
+    } catch (err) {
+      console.error('Referral submission error:', err);
+    }
+    setCounselSent(true);
+  }
 
   const tabs = [
-    { id: 'training',    label: 'Training Modules' },
-    { id: 'community',  label: 'Community' },
-    { id: 'counselling',label: 'Counselling' },
-    { id: 'resources',  label: 'Resource Library' },
-    { id: 'groups',     label: 'Support Groups' },
+    { id: 'training',    label: 'Training' },
+    { id: 'resources',   label: 'Resource Library' },
+    { id: 'counselling', label: 'Counselling' },
+    // COMMUNITY & SUPPORT GROUPS — COMING SOON. Activate after moderation system is ready.
   ];
 
-  function handleBook(c) { setBookingModal(c); setBookingDone(false); setBookForm({ name:'',phone:'',date:'',slot:'' }); }
-  function submitBooking(e) { e.preventDefault(); setBookingDone(true); }
+  // ── Stats
+  const statsClientLabel = clientCount > 0 ? `${clientCount}+` : 'Growing';
 
+  // ── Auth gate
+  if (!loading && !authed) {
+    return (
+      <>
+        <style>{BASE_CSS + PAGE_CSS}</style>
+        <Nav />
+
+        {/* Hero with lock overlay */}
+        <section className="cg-hero" style={{ minHeight: 440, paddingBottom: 0 }}>
+          <div className="cg-hero-photos" aria-hidden="true">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="cg-hp2" src="/images/hero-group-care.png" alt="" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="cg-hp1" src="/images/hero-group-care.png" alt="" />
+            <div className="cg-hp-btm" />
+          </div>
+          <div className="cg-hero-overlay" aria-hidden="true" />
+          <div className="cg-hero-inner" style={{ paddingBottom: 60 }}>
+            <div className="cg-hero-tag">Family Caregiver Hub</div>
+            <h1>You Are Not Alone in This</h1>
+            <p>Training, professional counselling, and resources designed for family members who care for a loved one at home. Members only.</p>
+          </div>
+          <div className="gate-overlay" aria-label="Access restricted">
+            <div className="gate-lock">
+              <div className="gate-lock-icon">🔒</div>
+              <h2>Members Only</h2>
+              <p>Sign in or create an account to access the Caregiver Hub.</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Gate cards */}
+        <div className="gate-cards">
+          <div className="gate-card">
+            <div className="gate-icon">👨‍👩‍👧</div>
+            <h3>I&apos;m a Family Client</h3>
+            <p>Access training courses, resource library, and counselling support.</p>
+            <Link href="/client/register" className="btn-p btn-full" style={{ textAlign: 'center' }}>Create Account</Link>
+            <div style={{ marginTop: 10 }}>
+              <Link href="/client/login" className="btn-o btn-sm btn-full" style={{ textAlign: 'center', marginTop: 8, display: 'block' }}>Already a member? Sign In</Link>
+            </div>
+          </div>
+
+          <div className="gate-card">
+            <div className="gate-icon">👩‍⚕️</div>
+            <h3>I&apos;m an HCA</h3>
+            <p>Access professional development courses and HCA-specific training resources.</p>
+            <Link href="/hca/login" className="btn-sky btn-full" style={{ textAlign: 'center' }}>HCA Sign In</Link>
+          </div>
+
+          <div className="gate-card">
+            <div className="gate-icon">🤝</div>
+            <h3>Apply for Partner Access</h3>
+            <p>Healthcare organisations can submit learning content for E-Vive&apos;s platform.</p>
+            <PartnerGateForm />
+          </div>
+        </div>
+
+        <Footer />
+      </>
+    );
+  }
+
+  // ─── Lesson viewer modal ────────────────────────────────────────────────────
+  const lessonViewerOpen = !!selectedCourse && selectedLesson >= 0;
+  const currentLessons   = selectedCourse?.lessons || [];
+  const currentLesson    = currentLessons[selectedLesson] || null;
+  const currentEnr       = selectedCourse ? getEnrollment(selectedCourse.id) : null;
+  const lessonDone       = currentLesson ? isLessonComplete(currentEnr, selectedLesson) : false;
+  const allDone          = currentEnr?.progress_pct === 100;
+
+  // ─── Render main hub ────────────────────────────────────────────────────────
   return (
     <>
       <style>{BASE_CSS + PAGE_CSS}</style>
       <Nav />
 
+      {/* User badge */}
+      {user && (
+        <div className="user-badge">
+          👤 Logged in as <strong>{user.name}</strong> ·{' '}
+          {user.type === 'client' ? 'Family Client' : user.type === 'hca' ? 'HomeCare Assistant' : 'E-Vive Staff'}
+          {' · '}
+          <Link href={user.type === 'hca' ? '/hca/dashboard' : user.type === 'admin' ? '/admin/dashboard' : '/client/dashboard'}>
+            Go to dashboard →
+          </Link>
+        </div>
+      )}
+
       {/* Hero */}
       <section className="cg-hero">
         <div className="cg-hero-photos" aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="cg-hp2" src="/images/hero-photo-2.jpg" alt="" />
+          <img className="cg-hp2" src="/images/hero-group-care.png" alt="" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="cg-hp1" src="/images/hero-photo-1.jpg" alt="" />
+          <img className="cg-hp1" src="/images/hero-group-care.png" alt="" />
           <div className="cg-hp-btm" />
         </div>
         <div className="cg-hero-overlay" aria-hidden="true" />
         <div className="cg-hero-inner">
           <div className="cg-hero-tag">Family Caregiver Hub</div>
           <h1>You Are Not Alone in This</h1>
-          <p>Training, community, professional counselling, and resources designed specifically for family members who care for a loved one at home.</p>
-          <div style={{ display:'flex', gap:14, justifyContent:'center', flexWrap:'wrap' }}>
+          <p>Training, professional counselling, and resources designed for family members who care for a loved one at home.</p>
+          <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button className="btn-p" onClick={() => setActiveTab('training')}>Explore Training →</button>
-            <button className="btn-o" onClick={() => setActiveTab('counselling')}>Book Counselling</button>
+            <button className="btn-o" onClick={() => setActiveTab('counselling')}>Contact Counselling</button>
           </div>
           <div className="cg-hero-stats">
-            <div className="cg-hero-stat"><div className="val">3,200+</div><div className="lab">Family caregivers supported</div></div>
-            <div className="cg-hero-stat"><div className="val">18</div><div className="lab">Training modules</div></div>
-            <div className="cg-hero-stat"><div className="val">4</div><div className="lab">Active support groups</div></div>
-            <div className="cg-hero-stat"><div className="val">Free</div><div className="lab">Core resources</div></div>
+            <div className="cg-hero-stat">
+              <div className="val">{statsClientLabel}</div>
+              <div className="lab">Families supported</div>
+            </div>
+            <div className="cg-hero-stat">
+              <div className="val">{courses.length > 0 ? courses.length : '—'}</div>
+              <div className="lab">Training courses</div>
+            </div>
+            <div className="cg-hero-stat">
+              <div className="val">Free</div>
+              <div className="lab">Core resources free</div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Tab navigation */}
-      <div style={{ borderBottom:'1px solid rgba(0,74,153,0.1)', background:'rgba(255,255,255,0.92)', backdropFilter:'blur(16px)', WebkitBackdropFilter:'blur(16px)', position:'sticky', top:72, zIndex:80 }}>
-        <div style={{ maxWidth:1100, margin:'0 auto', display:'flex', overflowX:'auto', gap:4, padding:'0 20px' }}>
+      {/* COMMUNITY & SUPPORT GROUPS — COMING SOON. Activate after moderation system is ready. */}
+
+      {/* Tab navigation — only 3 active tabs */}
+      <div className="tab-nav">
+        <div className="tab-nav-inner">
           {tabs.map(t => (
             <button
               key={t.id}
+              className={`tab-btn${activeTab === t.id ? ' active' : ''}`}
               onClick={() => setActiveTab(t.id)}
-              style={{
-                padding:'16px 22px', background:'none', border:'none', cursor:'pointer',
-                fontSize:'0.88rem', fontWeight: activeTab===t.id ? 700 : 400,
-                color: activeTab===t.id ? 'var(--jade)' : 'var(--muted)',
-                borderBottom: activeTab===t.id ? '2px solid var(--jade)' : '2px solid transparent',
-                whiteSpace:'nowrap', transition:'color 0.2s',
-              }}
             >{t.label}</button>
           ))}
         </div>
       </div>
 
-      {/* Training Modules */}
-      {activeTab==='training' && (
+      {/* ── TRAINING TAB ─────────────────────────────────────────────────────── */}
+      {activeTab === 'training' && (
         <section className="cg-section">
           <div className="cg-inner">
             <div className="cg-section-head">
               <div className="tag">Self-Paced Learning</div>
-              <h2>Caregiver Training Modules</h2>
-              <p>Developed with nurses and doctors, these modules give you practical skills to care for your loved one with confidence.</p>
+              <h2>Caregiver Training Courses</h2>
+              <p>Evidence-based courses developed with nurses, doctors, and specialist caregiving organisations. Learn at your own pace.</p>
             </div>
-            <div className="modules-grid">
-              {MODULES.map(m => (
-                <div className="module-card" key={m.id}>
-                  <div className={`module-icon ${m.iconCls}`}>{m.icon}</div>
-                  <h3>{m.title}</h3>
-                  <p>{m.desc}</p>
-                  <div className="module-meta">
-                    <span>📚 {m.lessons} lessons</span>
-                    <span>⏱ {m.duration}</span>
-                    <span style={{ marginLeft:'auto', color: m.level==='Beginner'?'var(--mint)':m.level==='Intermediate'?'var(--gold)':'var(--sky)' }}>{m.level}</span>
-                  </div>
-                  {m.progress > 0 && (
-                    <div className="mod-progress">
-                      <div className="mod-progress-bar" style={{ width:`${m.progress}%` }} />
-                    </div>
-                  )}
-                  {m.progress > 0 && (
-                    <div style={{ fontSize:'0.72rem', color:'var(--muted)', marginTop:6 }}>{m.progress}% complete</div>
-                  )}
-                  <div className="module-actions">
-                    <button className="btn-p btn-sm" style={{ flex:1 }}>
-                      {m.progress===0 ? 'Start Module' : m.progress===100 ? 'Review' : 'Continue'}
-                    </button>
-                    {m.progress===100 && <span className="badge-mint" style={{ padding:'4px 10px', alignSelf:'center' }}>✓ Done</span>}
-                  </div>
-                </div>
+
+            {/* Filter chips */}
+            <div className="lms-filter-row">
+              <span className="lms-filter-label">Showing courses for:</span>
+              {[
+                { val: 'all',     label: 'All Users' },
+                { val: 'clients', label: 'Family Caregivers' },
+                { val: 'hcas',    label: 'All HCAs' },
+              ].map(chip => (
+                <button
+                  key={chip.val}
+                  className={`filter-chip${lmsFilter === chip.val ? ' active' : ''}`}
+                  onClick={() => setLmsFilter(chip.val)}
+                >{chip.label}</button>
               ))}
+            </div>
+
+            {/* Loading skeletons */}
+            {loading && (
+              <div className="courses-grid">
+                {[1, 2, 3, 4, 5, 6].map(n => (
+                  <div className="skeleton-card" key={n}>
+                    <div className="skel-emoji" />
+                    <div className="skel-line" style={{ width: '70%' }} />
+                    <div className="skel-line" style={{ width: '90%' }} />
+                    <div className="skel-line" style={{ width: '55%' }} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Course grid */}
+            {!loading && filteredCourses.length === 0 && (
+              <p style={{ textAlign: 'center', color: 'var(--muted)', padding: '40px 0' }}>
+                No courses found for this filter. Try &ldquo;All Users&rdquo;.
+              </p>
+            )}
+
+            {!loading && filteredCourses.length > 0 && (
+              <div className="courses-grid">
+                {filteredCourses.map(course => {
+                  const enr = getEnrollment(course.id);
+                  const pct = enr?.progress_pct || 0;
+                  const done = pct === 100;
+                  const lessons = course.lessons || [];
+                  const isEnrolling = enrolling === course.id;
+
+                  return (
+                    <div className="course-card" key={course.id}>
+                      <div className="course-emoji">{course.cover_emoji || '📚'}</div>
+                      <h3>{course.title}</h3>
+                      <p>{course.description}</p>
+
+                      <div className="course-meta">
+                        <span className={`diff-badge ${diffClass(course.difficulty)}`}>{course.difficulty || 'Beginner'}</span>
+                        <span className="target-chip">{targetLabel(course.target)}</span>
+                        <span className="meta-item">⏱ {course.duration_mins} min</span>
+                        <span className="meta-item">📚 {lessons.length} lesson{lessons.length !== 1 ? 's' : ''}</span>
+                      </div>
+
+                      {done && (
+                        <div className="cert-badge">🎓 Completed</div>
+                      )}
+
+                      {enr && !done && (
+                        <>
+                          <div className="course-progress-bar-wrap">
+                            <div className="course-progress-bar" style={{ width: `${pct}%` }} />
+                          </div>
+                          <div className="course-progress-pct">{pct}% complete</div>
+                        </>
+                      )}
+
+                      <div className="course-actions">
+                        <button
+                          className="btn-p btn-sm"
+                          style={{ flex: 1 }}
+                          disabled={isEnrolling}
+                          onClick={() => handleOpenCourse(course)}
+                        >
+                          {isEnrolling ? 'Enrolling…' : enr ? (done ? 'Review Course' : 'Continue →') : 'Enrol & Start →'}
+                        </button>
+                        {done && (
+                          <button className="btn-o btn-sm" onClick={() => handleOpenCourse(course)}>🎓 Certificate</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Partner submission panel */}
+            <div className="partner-panel">
+              <button className="partner-toggle" onClick={() => setPartnerFormOpen(p => !p)}>
+                <span>🤝 Submit Learning Content as a Partner Organisation</span>
+                <span style={{ fontSize: '1rem' }}>{partnerFormOpen ? '▲' : '▼'}</span>
+              </button>
+
+              {partnerFormOpen && (
+                <div className="partner-form-wrap">
+                  {partnerSubmitted ? (
+                    <div className="partner-form-full" style={{ textAlign: 'center', padding: '16px 0' }}>
+                      <div style={{ fontSize: '2rem', marginBottom: 10 }}>✅</div>
+                      <strong>Submission received.</strong>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: 6 }}>E-Vive&apos;s clinical team will review your content and contact you within 5 business days.</p>
+                    </div>
+                  ) : (
+                    <form onSubmit={handlePartnerSubmit} style={{ display: 'contents' }}>
+                      <div>
+                        <label className="pf-label">Organisation Name *</label>
+                        <input className="pf-input" required value={partnerForm.orgName}
+                          onChange={e => setPartnerForm(p => ({ ...p, orgName: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="pf-label">Contact Email *</label>
+                        <input className="pf-input" required type="email" value={partnerForm.contactEmail}
+                          onChange={e => setPartnerForm(p => ({ ...p, contactEmail: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="pf-label">Course Title *</label>
+                        <input className="pf-input" required value={partnerForm.courseTitle}
+                          onChange={e => setPartnerForm(p => ({ ...p, courseTitle: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="pf-label">Target Audience</label>
+                        <select className="pf-select" value={partnerForm.target}
+                          onChange={e => setPartnerForm(p => ({ ...p, target: e.target.value }))}>
+                          <option value="all">All Users</option>
+                          <option value="clients">Family Caregivers</option>
+                          <option value="hcas">HCAs</option>
+                        </select>
+                      </div>
+                      <div className="partner-form-full">
+                        <label className="pf-label">Description</label>
+                        <textarea className="pf-textarea" value={partnerForm.description}
+                          onChange={e => setPartnerForm(p => ({ ...p, description: e.target.value }))}
+                          placeholder="Brief description of the course content…" />
+                      </div>
+                      <div className="partner-form-full">
+                        <label className="pf-label">Content URL (optional)</label>
+                        <input className="pf-input" type="url" value={partnerForm.contentUrl}
+                          onChange={e => setPartnerForm(p => ({ ...p, contentUrl: e.target.value }))}
+                          placeholder="https://…" />
+                      </div>
+                      <div className="partner-form-full" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <button type="submit" className="btn-p btn-sm" disabled={partnerSubmitting}>
+                          {partnerSubmitting ? 'Submitting…' : 'Submit for Review →'}
+                        </button>
+                      </div>
+                      <p className="pf-note">All submissions are reviewed by E-Vive&apos;s clinical team before publication. We will contact you within 5 business days.</p>
+                    </form>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </section>
       )}
 
-      {/* Community Forum */}
-      {activeTab==='community' && (
+      {/* ── RESOURCE LIBRARY TAB ─────────────────────────────────────────────── */}
+      {activeTab === 'resources' && (
         <section className="cg-section">
           <div className="cg-inner">
             <div className="cg-section-head">
-              <div className="tag">Peer Support</div>
-              <h2>Community Forum</h2>
-              <p>Real conversations with real caregivers. Ask questions, share experiences, and know you are not walking this road alone.</p>
+              <div className="tag">Free Professional Resources</div>
+              <h2>Resource Library</h2>
+              <p>Curated free resources from the world&apos;s leading healthcare and caregiving organisations. All links go directly to the original source.</p>
             </div>
-            <div className="community-grid">
-              <div>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-                  <div style={{ fontSize:'0.85rem', color:'var(--muted)' }}>Showing 4 of 312 discussions</div>
-                  <button className="new-post-btn" style={{ width:'auto', padding:'10px 20px' }}>+ New Post</button>
-                </div>
-                <div className="forum-threads">
-                  {THREADS.map(t => (
-                    <div className="thread-card" key={t.id}>
-                      <div className="thread-top">
-                        <div className="thread-avatar">{t.initials}</div>
-                        <div className="thread-meta">
-                          <div className="author">{t.author}</div>
-                          <div className="time">{t.time}</div>
-                        </div>
-                      </div>
-                      <h4>{t.title}</h4>
-                      <p>{t.preview}</p>
-                      <div className="thread-footer">
-                        <span>💬 {t.replies} replies</span>
-                        <span>❤️ {t.likes} likes</span>
-                        <span style={{ marginLeft:'auto', color:'var(--mint)', cursor:'pointer' }}>Read more →</span>
-                      </div>
+
+            {/* Filter row */}
+            <div className="resources-filter-row">
+              {RESOURCE_FILTERS.map(f => (
+                <button
+                  key={f}
+                  className={`filter-chip${resourceFilter === f ? ' active' : ''}`}
+                  onClick={() => setResourceFilter(f)}
+                >{f}</button>
+              ))}
+            </div>
+
+            <div className="resources-grid">
+              {RESOURCES
+                .filter(r => resourceFilter === 'All' || r.filterType === resourceFilter)
+                .map(r => (
+                  <div className="resource-card" key={r.url}>
+                    <div className="resource-card-top">
+                      <span className="resource-icon">{r.icon}</span>
+                      <span className="resource-type-badge">{r.type}</span>
                     </div>
-                  ))}
-                </div>
-                <button className="btn-o btn-full" style={{ marginTop:20 }}>Load More Discussions</button>
-              </div>
-              <div className="forum-sidebar">
-                <button className="new-post-btn">+ Start a New Discussion</button>
-                <div className="sidebar-widget">
-                  <h4>Popular Topics</h4>
-                  <div className="widget-list">
-                    {[['Dementia Care',47],['Medication',31],['Burnout',28],['End-of-Life',19],['Mobility',16],['Nutrition',12]].map(([t,n]) => (
-                      <div className="widget-item" key={t}>
-                        <div className="badge-count">{n}</div>
-                        <div className="label">{t}</div>
-                      </div>
-                    ))}
+                    <h4>{r.title}</h4>
+                    <p>{r.desc}</p>
+                    <div className="resource-meta">{r.meta}</div>
+                    <a href={r.url} target="_blank" rel="noopener noreferrer" className="resource-btn">
+                      Open Resource →
+                    </a>
                   </div>
-                </div>
-                <div className="sidebar-widget">
-                  <h4>Community Guidelines</h4>
-                  <p style={{ fontSize:'0.8rem', color:'var(--muted)', lineHeight:1.6 }}>This is a safe, moderated space. Be kind, protect privacy, and seek professional advice for medical decisions.</p>
-                </div>
-              </div>
+                ))
+              }
             </div>
           </div>
         </section>
       )}
 
-      {/* Counselling */}
-      {activeTab==='counselling' && (
+      {/* ── COUNSELLING TAB ──────────────────────────────────────────────────── */}
+      {activeTab === 'counselling' && (
         <section className="cg-section">
           <div className="cg-inner">
             <div className="cg-section-head">
               <div className="tag">Professional Support</div>
-              <h2>Book a Counselling Session</h2>
-              <p>Speak confidentially with trained mental health professionals who understand the unique challenges of caregiving.</p>
+              <h2>Counselling &amp; Mental Health Support</h2>
+              <p>Our clinical team can connect you with an appropriate counsellor based on your specific needs. Sessions conducted via phone, video call, or in person.</p>
             </div>
-            <div className="counselling-grid">
-              {COUNSELLORS.map(c => (
-                <div className="counsellor-card" key={c.name}>
-                  <div className="counsellor-avatar">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    {c.photo ? <img src={c.photo} alt={c.name} /> : c.initials}
-                  </div>
-                  <h3>{c.name}</h3>
-                  <div className="role">{c.role}</div>
-                  <p>{c.bio}</p>
-                  <div className="avail-slots">
-                    {c.slots.map(s => <div className="slot" key={s}>{s}</div>)}
-                  </div>
-                  <button className="btn-sky btn-full" onClick={() => handleBook(c)}>Book Session</button>
-                </div>
-              ))}
-            </div>
-            <div style={{ marginTop:32, padding:24, background:'rgba(56,189,248,0.06)', border:'1px solid rgba(56,189,248,0.15)', borderRadius:14, textAlign:'center' }}>
-              <p style={{ color:'var(--muted)', fontSize:'0.88rem' }}>Sessions are confidential and conducted via video call or phone. First session is free for new members.</p>
-            </div>
-          </div>
-        </section>
-      )}
 
-      {/* Resource Library */}
-      {activeTab==='resources' && (
-        <section className="cg-section">
-          <div className="cg-inner">
-            <div className="cg-section-head">
-              <div className="tag">Free Downloads</div>
-              <h2>Resource Library</h2>
-              <p>Practical guides, templates, videos, and checklists curated by our clinical team for family caregivers.</p>
+            {/* E-Vive contact card */}
+            <div className="counsel-contact-card">
+              <div className="counsel-contact-title">📞 Contact E-Vive Directly</div>
+              <ul className="counsel-contact-list">
+                <li>
+                  <span className="ci-icon">📧</span>
+                  <span className="ci-text">Email: <a href="mailto:hello@e-vive.co.ke">hello@e-vive.co.ke</a></span>
+                </li>
+                <li>
+                  <span className="ci-icon">📞</span>
+                  <span className="ci-text">Phone: <a href="tel:+254720053455">+254 720 053 455</a></span>
+                </li>
+                <li>
+                  <span className="ci-icon">💬</span>
+                  <span className="ci-text">
+                    WhatsApp: <a href="https://wa.me/254720053455" target="_blank" rel="noopener noreferrer">+254 720 053 455</a>
+                  </span>
+                </li>
+                <li>
+                  <span className="ci-icon">📍</span>
+                  <span className="ci-text">Mararo Avenue, off Riara Road, Nairobi</span>
+                </li>
+                <li>
+                  <span className="ci-icon">🕐</span>
+                  <span className="ci-text">Mon–Sat, 7:00am – 8:00pm</span>
+                </li>
+              </ul>
+              <div className="counsel-info-note">
+                Our clinical team can connect you with an appropriate counsellor based on your specific needs. Sessions are conducted via phone, video call, or in person. First sessions for new clients are offered at a reduced rate — ask us for details.
+              </div>
             </div>
-            <div className="resources-grid">
-              {RESOURCES.map(r => (
-                <div className="resource-card" key={r.title}>
-                  <div className="resource-type">{r.type}</div>
-                  <h4>{r.title}</h4>
-                  <p>{r.desc}</p>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <div className="resource-meta">{r.meta}</div>
-                    <button className="btn-o btn-sm" style={{ fontSize:'0.75rem', padding:'6px 12px' }}>Download</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
 
-      {/* Support Groups */}
-      {activeTab==='groups' && (
-        <section className="cg-section">
-          <div className="cg-inner">
-            <div className="cg-section-head">
-              <div className="tag">Regular Meetings</div>
-              <h2>Virtual Support Groups</h2>
-              <p>Join a facilitated support group matched to your caregiving situation. Moderated by trained counsellors.</p>
-            </div>
-            <div className="groups-list">
-              {GROUPS.map(g => (
-                <div className="group-card" key={g.name}>
-                  <div className="group-icon">{g.icon}</div>
-                  <div className="group-info">
-                    <h4>{g.name}</h4>
-                    <p>{g.desc}</p>
-                    <div className="group-meta">
-                      <span>📅 {g.meets}</span>
-                      <span>📱 {g.platform}</span>
-                      <span>👥 {g.members} members</span>
+            {/* Referral request form */}
+            <div className="counsel-referral-box">
+              <h3>Request a Counselling Referral</h3>
+              <p>Fill in this short form and our team will call you within 24 hours to discuss what support would be most helpful.</p>
+
+              {counselSent ? (
+                <div className="counsel-success">
+                  <div className="cs-icon">✅</div>
+                  <h3>Request received.</h3>
+                  <p>Our team will call you within 24 hours. You can also reach us directly at <a href="tel:+254720053455" style={{ color: 'var(--jade)' }}>+254 720 053 455</a>.</p>
+                </div>
+              ) : (
+                <form className="counsel-form" onSubmit={handleCounselSubmit}>
+                  <div>
+                    <label className="pf-label">Your Name *</label>
+                    <input className="pf-input" required value={counselForm.name}
+                      onChange={e => setCounselForm(p => ({ ...p, name: e.target.value }))}
+                      placeholder="Full name" />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    <div>
+                      <label className="pf-label">Phone *</label>
+                      <input className="pf-input" required value={counselForm.phone}
+                        onChange={e => setCounselForm(p => ({ ...p, phone: e.target.value }))}
+                        placeholder="+254 7XX XXX XXX" />
+                    </div>
+                    <div>
+                      <label className="pf-label">Email</label>
+                      <input className="pf-input" type="email" value={counselForm.email}
+                        onChange={e => setCounselForm(p => ({ ...p, email: e.target.value }))}
+                        placeholder="Optional" />
                     </div>
                   </div>
-                  <div className="group-actions">
-                    <button className="btn-p btn-sm">Join Group</button>
-                    <button className="btn-o btn-sm">Learn More</button>
+                  <div>
+                    <label className="pf-label">What support do you need? *</label>
+                    <textarea className="pf-textarea" required value={counselForm.message}
+                      onChange={e => setCounselForm(p => ({ ...p, message: e.target.value }))}
+                      placeholder="Briefly describe what you are going through and what kind of support you are looking for…"
+                      style={{ minHeight: 90 }} />
                   </div>
-                </div>
-              ))}
+                  <button type="submit" className="btn-p" style={{ alignSelf: 'flex-start' }}>
+                    Send Request →
+                  </button>
+                </form>
+              )}
             </div>
           </div>
         </section>
       )}
 
-      {/* CTA */}
+      {/* ── CTA ──────────────────────────────────────────────────────────────── */}
       <section className="cg-section">
         <div className="cg-inner">
           <div className="cg-cta">
@@ -583,42 +1226,175 @@ export default function CaregiversPage() {
         </div>
       </section>
 
-      {/* Booking modal */}
-      {bookingModal && (
-        <div className="modal-overlay" onClick={() => setBookingModal(null)}>
-          <div className="modal-box" onClick={e => e.stopPropagation()}>
-            {!bookingDone ? (
-              <>
-                <button className="modal-close" onClick={() => setBookingModal(null)}>×</button>
-                <h3>Book with {bookingModal.name}</h3>
-                <p>{bookingModal.role}</p>
-                <form onSubmit={submitBooking} style={{ display:'flex', flexDirection:'column', gap:14 }}>
-                  <div>
-                    <label style={{ fontSize:'0.8rem', color:'var(--muted)', display:'block', marginBottom:6 }}>Your Name</label>
-                    <input className="input" value={bookForm.name} onChange={e => setBookForm(p=>({...p,name:e.target.value}))} required placeholder="Full name" />
-                  </div>
-                  <div>
-                    <label style={{ fontSize:'0.8rem', color:'var(--muted)', display:'block', marginBottom:6 }}>Phone Number</label>
-                    <input className="input" value={bookForm.phone} onChange={e => setBookForm(p=>({...p,phone:e.target.value}))} required placeholder="+254 7XX XXX XXX" />
-                  </div>
-                  <div>
-                    <label style={{ fontSize:'0.8rem', color:'var(--muted)', display:'block', marginBottom:6 }}>Preferred Session</label>
-                    <select className="input" value={bookForm.slot} onChange={e => setBookForm(p=>({...p,slot:e.target.value}))} required>
-                      <option value="">Select a slot</option>
-                      {bookingModal.slots.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <button type="submit" className="btn-sky btn-full" style={{ marginTop:8 }}>Confirm Booking</button>
-                </form>
-              </>
-            ) : (
-              <div style={{ textAlign:'center', padding:'20px 0' }}>
-                <div style={{ fontSize:'3rem', marginBottom:16 }}>✅</div>
-                <h3 style={{ marginBottom:8 }}>Booking Confirmed</h3>
-                <p>Your session with {bookingModal.name} has been requested. You will receive an SMS confirmation shortly.</p>
-                <button className="btn-p" style={{ marginTop:20 }} onClick={() => setBookingModal(null)}>Done</button>
+      {/* ── LESSON VIEWER MODAL ──────────────────────────────────────────────── */}
+      {lessonViewerOpen && selectedCourse && (
+        <div className="lv-overlay" onClick={closeLessonViewer}>
+          <div className="lv-modal" onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className="lv-header">
+              <span className="lv-header-emoji">{selectedCourse.cover_emoji || '📚'}</span>
+              <div className="lv-header-info">
+                <h2>{selectedCourse.title}</h2>
+                <div className="lv-header-meta">
+                  <span className={`diff-badge ${diffClass(selectedCourse.difficulty)}`}>{selectedCourse.difficulty}</span>
+                  <span className="target-chip" style={{ fontSize: '0.72rem' }}>{targetLabel(selectedCourse.target)}</span>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>⏱ {selectedCourse.duration_mins} min total</span>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
+                    {currentLessons.length} lesson{currentLessons.length !== 1 ? 's' : ''}
+                  </span>
+                  {allDone && <span className="cert-badge" style={{ padding: '2px 10px', fontSize: '0.7rem' }}>🎓 Complete</span>}
+                </div>
               </div>
-            )}
+              <button className="lv-close" onClick={closeLessonViewer} aria-label="Close">×</button>
+            </div>
+
+            {/* Mobile progress row */}
+            <div className="lv-mobile-progress">
+              {currentLessons.map((_, idx) => (
+                <button
+                  key={idx}
+                  className={`lv-mob-step${isLessonComplete(currentEnr, idx) ? ' done' : ''}${selectedLesson === idx ? ' active-step' : ''}`}
+                  onClick={() => setSelectedLesson(idx)}
+                >
+                  {isLessonComplete(currentEnr, idx) ? '✓' : idx + 1}
+                </button>
+              ))}
+            </div>
+
+            {/* Body */}
+            <div className="lv-body">
+              {/* Sidebar */}
+              <div className="lv-sidebar">
+                <div className="lv-sidebar-title">Lessons</div>
+                {currentLessons.map((lesson, idx) => {
+                  const done = isLessonComplete(currentEnr, idx);
+                  const active = selectedLesson === idx;
+                  return (
+                    <button
+                      key={idx}
+                      className={`lv-lesson-btn${active ? ' active' : ''}`}
+                      onClick={() => setSelectedLesson(idx)}
+                    >
+                      <span className={`lv-lesson-num${done ? ' done' : active ? ' active-num' : ''}`}>
+                        {done ? '✓' : idx + 1}
+                      </span>
+                      <span>{lesson.title}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Content */}
+              <div className="lv-content">
+                {!currentLesson && (
+                  <p style={{ color: 'var(--muted)' }}>Select a lesson to begin.</p>
+                )}
+
+                {currentLesson && (
+                  <>
+                    <h3>{currentLesson.title}</h3>
+
+                    {/* Objectives */}
+                    {currentLesson.objectives?.length > 0 && (
+                      <div className="lv-objectives">
+                        <h4>Learning Objectives</h4>
+                        <ul>
+                          {currentLesson.objectives.map((obj, i) => (
+                            <li key={i}>{obj}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Summary */}
+                    {currentLesson.summary && (
+                      <p className="lv-summary">{currentLesson.summary}</p>
+                    )}
+
+                    {/* Key points */}
+                    {currentLesson.key_points?.length > 0 && (
+                      <div className="lv-keypoints">
+                        <h4>Key Points</h4>
+                        <ul>
+                          {currentLesson.key_points.map((kp, i) => (
+                            <li key={i}>{kp}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* External resource */}
+                    {currentLesson.resource_url && (
+                      <a
+                        href={currentLesson.resource_url}
+                        target="_blank" rel="noopener noreferrer"
+                        className="lv-resource-link"
+                      >
+                        📄 Open Reference Resource ↗
+                      </a>
+                    )}
+
+                    {/* Mark complete / done state */}
+                    {lessonDone ? (
+                      <div className="lv-completed-badge">✓ Lesson completed</div>
+                    ) : (
+                      <button
+                        className="lv-complete-btn"
+                        onClick={handleMarkComplete}
+                        disabled={markingComplete}
+                      >
+                        {markingComplete ? 'Saving…' : '✓ Mark as Complete'}
+                      </button>
+                    )}
+
+                    {/* Certificate section — shown when 100% */}
+                    {allDone && (
+                      <div className="lv-cert-banner">
+                        <h3>🎓 Course Complete!</h3>
+                        <p>
+                          Congratulations on completing <strong>{selectedCourse.title}</strong>.<br />
+                          Completed on {currentEnr?.completed_at ? new Date(currentEnr.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'today'}.
+                        </p>
+                        <button
+                          className="btn-p btn-sm"
+                          onClick={() => {
+                            alert(`🎓 Certificate of Completion\n\nThis certifies that ${user?.name || 'you'} successfully completed:\n\n"${selectedCourse.title}"\n\nCompleted: ${currentEnr?.completed_at ? new Date(currentEnr.completed_at).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString()}\n\nE-Vive HomeCare Kenya\nhello@e-vive.co.ke`);
+                          }}
+                        >
+                          Download Certificate
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="lv-footer">
+              <div className="lv-nav-btns">
+                <button
+                  className="btn-o btn-sm"
+                  disabled={selectedLesson <= 0}
+                  onClick={() => setSelectedLesson(p => p - 1)}
+                >
+                  ← Previous
+                </button>
+                <button
+                  className="btn-p btn-sm"
+                  disabled={selectedLesson >= currentLessons.length - 1}
+                  onClick={() => setSelectedLesson(p => p + 1)}
+                >
+                  Next →
+                </button>
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                Lesson {selectedLesson + 1} of {currentLessons.length}
+                {currentEnr && <span> · {currentEnr.progress_pct || 0}% complete</span>}
+              </div>
+              <button className="btn-o btn-sm" onClick={closeLessonViewer}>Close</button>
+            </div>
           </div>
         </div>
       )}

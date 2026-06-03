@@ -204,16 +204,22 @@ function AddPatientModal({ clientId, existing, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const upd = (f,v) => setForm(p=>({...p,[f]:v}));
 
-  function save() {
+  async function save() {
     if (!form.name || !form.gender || !form.careType) { setErr("Name, gender and care type are required."); return; }
     setSaving(true);
-    const updated = addPatientToClient(clientId, {
-      name: form.name, gender: form.gender, careType: form.careType,
-      relationship: form.relationship, age: form.age ? Number(form.age) : undefined,
-      conditions: form.conditions, notes: form.notes,
-    });
-    onSaved(updated);
-    onClose();
+    try {
+      const updated = await addPatientToClient(clientId, {
+        name: form.name, gender: form.gender, careType: form.careType,
+        relationship: form.relationship, age: form.age ? Number(form.age) : undefined,
+        conditions: form.conditions, notes: form.notes,
+      });
+      onSaved(updated);
+      onClose();
+    } catch(e) {
+      console.error("Add patient error:", e);
+      setErr("Failed to add patient. Please try again.");
+      setSaving(false);
+    }
   }
 
   return (
@@ -278,17 +284,25 @@ function EditPatientModal({ clientId, patient, onClose, onSaved }) {
     conditions: patient.conditions||"", notes: patient.notes||"",
   });
   const [err, setErr] = useState("");
+  const [saving, setSaving] = useState(false);
   const upd = (f,v) => setForm(p=>({...p,[f]:v}));
 
-  function save() {
+  async function save() {
     if (!form.name || !form.gender) { setErr("Name and gender are required."); return; }
-    const updated = updatePatient(clientId, patient.id, {
-      name: form.name, gender: form.gender, careType: form.careType,
-      relationship: form.relationship, age: form.age ? Number(form.age) : undefined,
-      conditions: form.conditions, notes: form.notes,
-    });
-    onSaved(updated);
-    onClose();
+    setSaving(true);
+    try {
+      const updated = await updatePatient(clientId, patient.id, {
+        name: form.name, gender: form.gender, careType: form.careType,
+        relationship: form.relationship, age: form.age ? Number(form.age) : undefined,
+        conditions: form.conditions, notes: form.notes,
+      });
+      onSaved(updated);
+      onClose();
+    } catch(e) {
+      console.error("Edit patient error:", e);
+      setErr("Failed to save changes. Please try again.");
+      setSaving(false);
+    }
   }
 
   return (
@@ -336,7 +350,9 @@ function EditPatientModal({ clientId, patient, onClose, onSaved }) {
         </div>
         <div className="modal-actions">
           <button className="btn-o" style={{padding:"9px 20px"}} onClick={onClose}>Cancel</button>
-          <button className="btn-p" style={{padding:"9px 20px"}} onClick={save}>Save Changes</button>
+          <button className="btn-p" style={{padding:"9px 20px"}} onClick={save} disabled={saving}>
+            {saving ? "Saving…" : "Save Changes"}
+          </button>
         </div>
       </div>
     </div>
@@ -348,12 +364,12 @@ function TcModal({ client, onClose, onAccepted }) {
   const [checked,  setChecked]  = useState(false);
   const [saving,   setSaving]   = useState(false);
 
-  function accept() {
+  async function accept() {
     if (saving) return;
     setSaving(true);
     try {
-      const updated = advanceClientJourney(client.id, "tc_accepted");
-      try { sendTcAcceptedNotification(updated); } catch(_) { /* non-critical */ }
+      const updated = await advanceClientJourney(client.id, "tc_accepted");
+      try { await sendTcAcceptedNotification(updated); } catch(_) { /* non-critical */ }
       onAccepted(updated);
       onClose();
     } catch(e) {
@@ -405,12 +421,17 @@ function HcaRequestModal({ client, hca, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
 
-  function submit() {
+  async function submit() {
     setSaving(true);
-    const updated = requestHcaMatch(client.id, hca.id, notes);
-    onSaved(updated);
-    setDone(true);
-    setSaving(false);
+    try {
+      const updated = await requestHcaMatch(client.id, hca.id, notes);
+      onSaved(updated);
+      setDone(true);
+    } catch(e) {
+      console.error("HCA request error:", e);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -510,46 +531,58 @@ export default function ClientDashboard() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletionSubmitted, setDeletionSubmitted]  = useState(false);
 
-  const reload = useCallback(() => {
+  const reload = useCallback(async () => {
     const session = getClientSession();
     if (!session) { router.replace("/client/register"); return; }
-    let full = session.id ? getClientById(session.id) : null;
-    if (!full && session.email) full = getClientByEmail(session.email);
-    if (!full) {
-      full = {
-        id: null, name: session.name, email: session.email, mobile: session.mobile,
-        location:"", address:"", patients:[], journeyStage:"account_created",
-        journeyDates:{}, visitDate:null, assignedHcaId:null, status:"active",
-        createdAt: new Date().toISOString(),
-      };
+    async function loadData() {
+      let full = session.id ? await getClientById(session.id) : null;
+      if (!full && session.email) full = await getClientByEmail(session.email);
+      if (!full) {
+        full = {
+          id: null, name: session.name, email: session.email, mobile: session.mobile,
+          location:"", address:"", patients:[], journeyStage:"account_created",
+          journeyDates:{}, visitDate:null, assignedHcaId:null, status:"active",
+          createdAt: new Date().toISOString(),
+        };
+      }
+      setClient(full);
+      setDeletionSubmitted(!!full.deletionRequested);
+      if (full.id) {
+        const [invs, shfs, notifs, count] = await Promise.all([
+          getInvoicesByClient(full.id),
+          getShiftsByClient(full.id),
+          getNotificationsForClient(full.id),
+          getUnreadCount(full.id),
+        ]);
+        setInvoices(invs);
+        setShifts(shfs);
+        setNotifications(notifs);
+        setUnreadCount(count);
+      }
+      const log = await getActivityLog();
+      setActivity(log.filter(a => !a.clientId || a.clientId === full.id).slice(0, 12));
+      const hcas = await getAllHcaProfiles();
+      setHcaProfiles(hcas.filter(h => h.status === "active"));
     }
-    setClient(full);
-    setDeletionSubmitted(!!full.deletionRequested);
-    if (full.id) {
-      setInvoices(getInvoicesByClient(full.id));
-      setShifts(getShiftsByClient(full.id));
-      const notifs = getNotificationsForClient(full.id);
-      setNotifications(notifs);
-      setUnreadCount(getUnreadCount(full.id));
-    }
-    const log = getActivityLog().filter(a => !a.clientId || a.clientId === full.id);
-    setActivity(log.slice(0, 12));
-    setHcaProfiles(getAllHcaProfiles().filter(h => h.status === "active"));
+    loadData();
   }, [router]);
 
   useEffect(() => {
-    reload();
-    // Send welcome notification once if account_created and no notifications yet
     const session = getClientSession();
-    if (session) {
-      let c = session.id ? getClientById(session.id) : getClientByEmail(session.email);
-      if (c && c.journeyStage === "account_created") {
-        const existing = getNotificationsForClient(c.id);
-        if (!existing.some(n => n.type === "welcome")) {
-          sendWelcomeNotification(c);
+    async function init() {
+      await reload();
+      // Send welcome notification once if account_created and no notifications yet
+      if (session) {
+        let c = session.id ? await getClientById(session.id) : await getClientByEmail(session.email);
+        if (c && c.journeyStage === "account_created") {
+          const existing = await getNotificationsForClient(c.id);
+          if (!existing.some(n => n.type === "welcome")) {
+            await sendWelcomeNotification(c);
+          }
         }
       }
     }
+    init();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleLogout() { clearClientSession(); router.push("/client/register"); }
@@ -588,23 +621,25 @@ export default function ClientDashboard() {
     setEditForm({ name:client.name||"", mobile:client.mobile||"", location:client.location||"", address:client.address||"" });
     setEditErr(""); setEditOk(""); setEditMode(true);
   }
-  function saveEdit() {
+  async function saveEdit() {
     if (!editForm.name || !editForm.mobile) { setEditErr("Name and mobile are required."); return; }
-    updateClient(client.id, { name:editForm.name, mobile:editForm.mobile, location:editForm.location, address:editForm.address });
+    await updateClient(client.id, { name:editForm.name, mobile:editForm.mobile, location:editForm.location, address:editForm.address });
+    const fresh = await getClientById(client.id);
+    setClient(fresh);
     setEditOk("Profile updated successfully.");
     setEditMode(false);
     reload();
   }
 
-  function openNotif(n) {
-    if (!n.read) markNotificationRead(n.id);
+  async function openNotif(n) {
+    if (!n.read) await markNotificationRead(n.id);
     setPreviewNotif(n);
     reload();
   }
 
-  function handleDeleteRequest() {
+  async function handleDeleteRequest() {
     if (!client.id) return;
-    requestAccountDeletion(client.id);
+    await requestAccountDeletion(client.id);
     setDeletionSubmitted(true);
     setShowDeleteConfirm(false);
     reload();
@@ -620,7 +655,7 @@ export default function ClientDashboard() {
 
       {/* ── Modals ── */}
       {showAddPatient && client.id && (
-        <AddPatientModal clientId={client.id} existing={patients} onClose={()=>setShowAddPatient(false)} onSaved={updated=>{reload();setPatIdx(updated.patients.length-1);setTab("patients");}} />
+        <AddPatientModal clientId={client.id} existing={patients} onClose={()=>setShowAddPatient(false)} onSaved={async (updated)=>{await reload();setPatIdx((updated.patients||[]).length-1);setTab("patients");}} />
       )}
       {editPatient && client.id && (
         <EditPatientModal clientId={client.id} patient={editPatient} onClose={()=>setEditPatient(null)} onSaved={()=>reload()} />
@@ -644,7 +679,7 @@ export default function ClientDashboard() {
               <div className="notif-header-title">📬 Notifications</div>
               <div style={{display:"flex",gap:8,alignItems:"center"}}>
                 {unreadCount > 0 && (
-                  <button style={{fontSize:12,color:"var(--jade)",background:"none",border:"none",cursor:"pointer",fontFamily:"var(--mono)",fontWeight:600}} onClick={()=>{markAllNotificationsRead(client.id);reload();}}>
+                  <button style={{fontSize:12,color:"var(--jade)",background:"none",border:"none",cursor:"pointer",fontFamily:"var(--mono)",fontWeight:600}} onClick={async ()=>{await markAllNotificationsRead(client.id);reload();}}>
                     Mark all read
                   </button>
                 )}
@@ -902,7 +937,7 @@ export default function ClientDashboard() {
                             {client.id && pat.id && (
                               <>
                                 <button className="btn-o btn-sm" onClick={()=>setEditPatient(pat)}>Edit</button>
-                                <button className="btn-o btn-sm" style={{color:"var(--coral)"}} onClick={()=>{if(confirm(`Remove ${pat.name}?`)){removePatient(client.id,pat.id);reload();setPatIdx(0);}}}>Remove</button>
+                                <button className="btn-o btn-sm" style={{color:"var(--coral)"}} onClick={async ()=>{if(confirm(`Remove ${pat.name}?`)){await removePatient(client.id,pat.id);await reload();setPatIdx(0);}}}>Remove</button>
                               </>
                             )}
                           </div>
@@ -983,7 +1018,7 @@ export default function ClientDashboard() {
                             {client.id && (
                               <button
                                 className={`btn-sm ${isShortlisted?"btn-p":"btn-o"}`}
-                                onClick={()=>{toggleHcaShortlist(client.id,h.id);reload();}}
+                                onClick={async ()=>{await toggleHcaShortlist(client.id,h.id);reload();}}
                               >
                                 {isShortlisted?"★ Shortlisted":"☆ Shortlist"}
                               </button>

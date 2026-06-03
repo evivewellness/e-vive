@@ -24,10 +24,14 @@ const PAGE_CSS = `
     mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.45) 14%, black 36%, black 100%);
   }
   .ab-hp1 {
-    position:absolute; top:0; right:0; height:100%; width:52%; object-fit:cover; display:block;
-    object-position:48% 10%;
+    position:absolute; top:0; right:0; height:100%; width:54%; object-fit:cover; display:block;
+    object-position:center 35%;
     -webkit-mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.7) 16%, black 40%, black 100%);
     mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.7) 16%, black 40%, black 100%);
+  }
+  @media(max-width:860px) {
+    .ab-hp1 { width:100%; object-position:center 30%; }
+    .ab-hp2 { display:none; }
   }
   .ab-hp-btm {
     position:absolute; bottom:0; left:0; right:0; height:200px;
@@ -265,8 +269,8 @@ const VALUES = [
 ];
 
 const TEAM = [
-  { initials: 'SM', grad: 'linear-gradient(135deg,#7c3aed,#a80040)', photo: '/images/portraits/team-salome-mburu.svg', name: 'Salome Mburu', role: 'Founder & CEO', bio: 'Founded E-Vive Wellness from lived experience - after caring for her ailing father, becoming a certified HCA and using her business skills to make trustworthy homecare easier to find in Kenya.', langs: ['English','Kikuyu','Kiswahili'] },
-  { initials: 'WM', grad: 'linear-gradient(135deg,#8b0033,#92400e)', photo: '/images/portraits/team-kamau-maina.svg', name: 'Eric René', role: 'Director of Technology', bio: 'Builds the matching engine and Cardex platform. Obsessed with reducing the friction between families and quality care.', langs: ['English','Kikuyu'] },
+  { initials: 'SM', grad: 'linear-gradient(135deg,#7c3aed,#a80040)', photo: '/images/portraits/team-salome-mburu.jpg', name: 'Salome Mburu', role: 'Founder & CEO', bio: 'Founded E-Vive Wellness from lived experience - after caring for her ailing father, becoming a certified HCA and using her business skills to make trustworthy homecare easier to find in Kenya.', langs: ['English','Kikuyu','Kiswahili'] },
+  { initials: 'WM', grad: 'linear-gradient(135deg,#8b0033,#92400e)', photo: '/images/portraits/team-kamau-maina.svg', name: 'Pablo Wyne', role: 'Director of Technology', bio: 'Builds the matching engine and Cardex platform. Obsessed with reducing the friction between families and quality care.', langs: ['English','Kikuyu'] },
 ];
 
 const TESTIMONIALS = [
@@ -292,7 +296,7 @@ export default function AboutPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className="ab-hp2" src="/images/hero-photo-2.jpg" alt="" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="ab-hp1" src="/images/hero-photo-1.jpg" alt="" />
+          <img className="ab-hp1" src="/images/hero-hca-elder.png" alt="" />
           <div className="ab-hp-btm" />
         </div>
         <div className="ab-hero-overlay" aria-hidden="true" />
@@ -313,11 +317,11 @@ export default function AboutPage() {
           <div className="ab-hero-visual">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/images/scenes/about-hero-visual.svg"
-              alt="E-Vive community coverage across Kenya's 47 sub-counties"
-              style={{ width:'100%', borderRadius:'16px', display:'block', marginBottom:'16px', boxShadow:'0 8px 32px rgba(0,53,128,0.18)' }}
+              src="/images/scenes/nursing-assistants.png"
+              alt="E-Vive HomeCare Assistants"
+              style={{ width:'100%', aspectRatio:'4/3', borderRadius:'16px', display:'block', marginBottom:'16px', boxShadow:'0 8px 32px rgba(0,53,128,0.18)', objectFit:'cover', objectPosition:'center 20%' }}
             />
-            <div className="ab-founded">Founded <strong>2021</strong> · Nairobi, Kenya · <strong>B-Corp Pending</strong></div>
+            <div className="ab-founded">Founded in <strong>2025</strong> · Nairobi, Kenya ·</div>
           </div>
         </div>
       </section>
@@ -344,9 +348,9 @@ export default function AboutPage() {
             <div className="ab-story-aside">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/images/scenes/founder-story.svg"
-                alt="Salome caring for her father - the story behind E-Vive"
-                style={{ width:'100%', borderRadius:'14px', display:'block', marginBottom:'24px', boxShadow:'0 4px 20px rgba(0,0,0,0.10)' }}
+                src="/images/scenes/founder-story.png"
+                alt="Salome caring for her father at home - the story behind E-Vive"
+                style={{ width:'100%', maxHeight:'480px', objectFit:'cover', objectPosition:'center top', borderRadius:'14px', display:'block', marginBottom:'24px', boxShadow:'0 4px 20px rgba(0,0,0,0.10)' }}
               />
               {MILESTONES.map(m => (
                 <div className="ab-milestone" key={m.year}>

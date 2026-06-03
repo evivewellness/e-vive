@@ -211,9 +211,9 @@ const FLOW_STEPS = [
 ];
 
 const TESTIMONIALS = [
-  { quote: 'The referral process is seamless. We discharge patients knowing they have a vetted, qualified HCA waiting for them at home. The Cardex reports give us exactly the continuity data we need.', name: 'Dr. Amina Hassan', role: 'Head of Oncology, Aga Khan University Hospital', initials: 'AH' },
-  { quote: 'Our palliative patients need specialised home care. E-Vive\'s matching algorithm identifies HCAs with exactly the right skills and proximity. It has transformed our discharge planning.', name: 'Dr. Patrick Mutua', role: 'Clinical Lead, MP Shah Hospital', initials: 'PM' },
-  { quote: 'We used to struggle to find reliable HCAs for post-surgery patients. With E-Vive, we have a trusted pipeline and the digital reports mean our team stays informed throughout recovery.', name: 'Sr. Consolata Waweru', role: 'Nursing Director, Nairobi Hospital', initials: 'CW' },
+  { quote: 'The referral process is seamless. We discharge patients knowing they have a vetted, qualified HCA waiting for them at home. The Cardex reports give us exactly the continuity data we need.', name: 'Dr. Amina Hassan', role: 'Head of Oncology', initials: 'AH' },
+  { quote: 'Our palliative patients need specialised home care. E-Vive\'s matching algorithm identifies HCAs with exactly the right skills and proximity. It has transformed our discharge planning.', name: 'Dr. Patrick Mutua', role: 'Clinical Lead', initials: 'PM' },
+  { quote: 'We used to struggle to find reliable HCAs for post-surgery patients. With E-Vive, we have a trusted pipeline and the digital reports mean our team stays informed throughout recovery.', name: 'Sr. Consolata Waweru', role: 'Nursing Director', initials: 'CW' },
 ];
 
 const ORG_TYPES = ['Hospital','Clinic','Hospice','NGO / CBO','Insurance Provider','Corporate Wellness','Rehabilitation Centre','Other'];
@@ -252,18 +252,6 @@ export default function PartnersPage() {
           </div>
         </div>
       </section>
-
-      {/* Partner logos */}
-      <div className="partner-strip">
-        <div className="partner-strip-inner">
-          <h4>Trusted by leading healthcare providers</h4>
-          <div className="partner-logos">
-            {['Aga Khan Hospital','MP Shah Hospital','Nairobi Hospital','Karen Hospital','Kenyatta National Hospital','Gertrude\'s Children\'s','Mater Hospital','AAR Healthcare'].map(p => (
-              <div className="partner-logo-badge" key={p}>{p}</div>
-            ))}
-          </div>
-        </div>
-      </div>
 
       {/* Value proposition */}
       <section className="pt-section">

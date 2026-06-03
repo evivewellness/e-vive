@@ -197,7 +197,7 @@ const BENEFITS = [
 
 const PLANS = [
   {
-    name: 'Basic', price: 'KES 500', period: '/month', featured: false,
+    name: 'Basic', price: 'KSh 75', period: '/month', featured: false,
     desc: 'Get listed and start receiving placement enquiries.',
     features: [
       { text: 'Verified profile listing', active: true },
@@ -211,7 +211,7 @@ const PLANS = [
     ],
   },
   {
-    name: 'Professional', price: 'KES 1,200', period: '/month', featured: true, badge: 'Most Popular',
+    name: 'Professional', price: 'KSh 100', period: '/month', featured: true, badge: 'Most Popular',
     desc: 'Everything you need to build a thriving homecare career.',
     features: [
       { text: 'Everything in Basic', active: true },
@@ -225,7 +225,7 @@ const PLANS = [
     ],
   },
   {
-    name: 'Premium', price: 'KES 2,500', period: '/month', featured: false,
+    name: 'Premium', price: 'KSh 150', period: '/month', featured: false,
     desc: 'For experienced HCAs who want maximum visibility and growth.',
     features: [
       { text: 'Everything in Professional', active: true },
@@ -269,9 +269,9 @@ export default function AssistantsPage() {
       <section className="ast-hero">
         <div className="ast-hero-photos" aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="ast-hp2" src="/images/hero-photo-2.jpg" alt="" />
+          <img className="ast-hp2" src="/images/hero-group-care.png" alt="" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="ast-hp1" src="/images/hero-photo-1.jpg" alt="" />
+          <img className="ast-hp1" src="/images/hero-group-care.png" alt="" />
           <div className="ast-hp-btm" />
         </div>
         <div className="ast-hero-overlay" aria-hidden="true" />

@@ -156,15 +156,13 @@ export default function ClientRegister() {
   const canNext2 = tcAccepted;
 
   // ── Sign in: look up by email or phone, verify password ──
-  function handleSignIn() {
+  async function handleSignIn() {
     if (!loginEmail.trim() || !password) return;
     try {
       const emailId = loginEmail.trim().toLowerCase();
-      // Try new store first
-      let client = authenticateClient(emailId, password);
-      // Fall back to mobile lookup in new store
+      let client = await authenticateClient(emailId, password);
       if (!client) {
-        const all = getAllClients();
+        const all = await getAllClients();
         const byMobile = all.find(c => c.mobile === loginEmail.trim() && c.password === password);
         if (byMobile) client = byMobile;
       }
@@ -173,7 +171,6 @@ export default function ClientRegister() {
         router.push("/client/dashboard");
         return;
       }
-      // Legacy registry fallback
       const registry = JSON.parse(localStorage.getItem("evive_client_registry") || "[]");
       const user = registry.find(u =>
         u.email?.toLowerCase() === emailId || u.mobile === loginEmail.trim()
@@ -216,16 +213,14 @@ export default function ClientRegister() {
   }
 
   // ── Reset: verify code and update password ──
-  function handleResetVerify() {
+  async function handleResetVerify() {
     if (resetInput !== resetCode) { setResetErr("Incorrect code. Please try again."); return; }
     if (newPwd.length < 6)        { setResetErr("Password must be at least 6 characters."); return; }
     if (newPwd !== confirmNewPwd) { setResetErr("Passwords do not match."); return; }
     try {
       const id = resetId.trim().toLowerCase();
-      // Update new store
-      const storeClient = getClientByEmail(id);
-      if (storeClient) updateClient(storeClient.id, { password: newPwd });
-      // Also update legacy registry
+      const storeClient = await getClientByEmail(id);
+      if (storeClient) await updateClient(storeClient.id, { password: newPwd });
       const registry = JSON.parse(localStorage.getItem("evive_client_registry") || "[]");
       const idx = registry.findIndex(u =>
         u.email?.toLowerCase() === id || u.mobile === resetId.trim()
@@ -250,13 +245,13 @@ export default function ClientRegister() {
 
   // ── Register: advance steps; save on final step ──
   const [regErr, setRegErr] = useState("");
-  function next() {
+  async function next() {
     if (step === 0 && !canNext0) return;
     if (step === 1 && !canNext1) return;
     if (step === 2 && !canNext2) return;
     if (step === 2) {
       try {
-        const client = createClient({
+        const client = await createClient({
           name:     form.name,
           email:    form.email,
           mobile:   form.mobile,
@@ -272,8 +267,7 @@ export default function ClientRegister() {
             relationship: "Patient",
           })),
         });
-        // Mark T&Cs accepted right away
-        advanceClientJourney(client.id, "tc_accepted");
+        await advanceClientJourney(client.id, "tc_accepted");
         setClientSession(client);
         setRegErr("");
       } catch (err) {

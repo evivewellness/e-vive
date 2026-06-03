@@ -25,17 +25,17 @@ const PAGE_CSS = `
   /* ── Hero photo layers ── */
   .hero-photos { position:absolute; inset:0; z-index:1; overflow:hidden; pointer-events:none; }
   .hp1,.hp2 { position:absolute; top:0; height:100%; object-fit:cover; display:block; }
-  /* Photo 2 (wheelchair scene - wider, cooler tones): deeper background layer */
+  /* Photo 2: wide soft background layer — full group visible, gentle fade */
   .hp2 {
-    right:0; width:72%; object-position:55% 12%; opacity:0.62;
-    -webkit-mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.45) 14%, black 36%, black 100%);
-    mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.45) 14%, black 36%, black 100%);
+    right:0; width:82%; object-position:76% center; opacity:0.38;
+    -webkit-mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 18%, black 42%, black 100%);
+    mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 18%, black 42%, black 100%);
   }
-  /* Photo 1 (warm smiling HCA + patient): dominant foreground layer, right side */
+  /* Photo 1: dominant foreground layer — anchored right so Salome (rightmost) is most prominent */
   .hp1 {
-    right:0; width:52%; object-position:48% 10%;
-    -webkit-mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.7) 16%, black 40%, black 100%);
-    mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.7) 16%, black 40%, black 100%);
+    right:0; width:66%; object-position:76% center;
+    -webkit-mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.5) 12%, rgba(0,0,0,0.85) 28%, black 46%, black 100%);
+    mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.5) 12%, rgba(0,0,0,0.85) 28%, black 46%, black 100%);
   }
   /* Bottom fade so photos dissolve into the next section */
   .hp-btm {
@@ -175,6 +175,25 @@ const PAGE_CSS = `
     .hca-grid      { grid-template-columns:1fr 1fr; }
     .trust-grid    { grid-template-columns:1fr 1fr; }
     .step-conn     { display:none; }
+    /* Full-width photo, shifted down so Salome's face (bottom-right) is in frame */
+    .hp1 {
+      width: 100%;
+      object-position: 76% 60%;
+      -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.35) 22%, rgba(0,0,0,0.78) 42%, black 58%, black 100%);
+      mask-image:         linear-gradient(to right, transparent 0%, rgba(0,0,0,0.35) 22%, rgba(0,0,0,0.78) 42%, black 58%, black 100%);
+    }
+    .hp2 { display: none; }
+    /* Pull back right-side fade to reveal face; keep left wall solid for text */
+    .hero-overlay {
+      background: linear-gradient(to right,
+        rgba(235,241,250,0.98) 0%,
+        rgba(235,241,250,0.95) 30%,
+        rgba(235,241,250,0.76) 48%,
+        rgba(235,241,250,0.32) 63%,
+        rgba(235,241,250,0.07) 78%,
+        transparent 90%
+      );
+    }
   }
   @media (max-width:600px) {
     .portals-grid, .hca-grid, .trust-grid { grid-template-columns:1fr; }
@@ -300,7 +319,7 @@ export default function Home() {
         <div className="si" style={{paddingTop:0,paddingBottom:0}}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/images/scenes/hero-home.svg"
+            src="/images/scenes/hero-home.png"
             alt="An E-Vive HomeCare Assistant tending to an elderly patient in a warm home setting"
             style={{
               width:'100%', borderRadius:'20px', display:'block',

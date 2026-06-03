@@ -11,6 +11,8 @@ import {
   createCardexEntry,
   getAllClients,
   requestHcaDeletion,
+  clockInHca,
+  clockOutHca,
 } from "../../lib/store";
 
 const CSS = `
@@ -96,23 +98,6 @@ const CSS = `
   }
 `;
 
-const SHIFT_HIST = [
-  { date:"Mon 5 May", pat:"Margaret Wanjiku", type:"Day Shift",   dur:"8h 12m", status:"Submitted",  cls:"badge-mint"  },
-  { date:"Tue 6 May", pat:"Margaret Wanjiku", type:"Day Shift",   dur:"8h 05m", status:"Submitted",  cls:"badge-mint"  },
-  { date:"Wed 7 May", pat:"Margaret Wanjiku", type:"Day Shift",   dur:"Active", status:"In Progress",cls:"badge-gold"  },
-  { date:"Thu 8 May", pat:"Margaret Wanjiku", type:"Day Shift",   dur:"—",      status:"Upcoming",   cls:"badge-dim"   },
-  { date:"Fri 9 May", pat:"Margaret Wanjiku", type:"Night Shift", dur:"—",      status:"Upcoming",   cls:"badge-dim"   },
-];
-
-const SPECIAL_NEEDS = [
-  "Turn patient every 2 hours to prevent pressure sores",
-  "No dairy products — lactose intolerant",
-  "Administer prescribed dementia medication at 8AM & 8PM",
-  "Ensure patient has glasses when awake",
-  "Encourage 6–8 glasses of fluid daily",
-  "Daily skin inspection for redness or sores",
-  "Gentle range-of-motion exercises twice daily",
-];
 
 const NAV_ITEMS = [
   { icon:"📊", label:"Today",       key:"today"    },
@@ -172,30 +157,57 @@ export default function HCADashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletionSubmitted, setDeletionSubmitted]  = useState(false);
+  const [currentShiftId,   setCurrentShiftId]      = useState(null);
+  const [gpsLat,  setGpsLat]   = useState(null);
+  const [gpsLng,  setGpsLng]   = useState(null);
+  const [gpsLabel,setGpsLabel] = useState("");
+  const [gpsLoading,setGpsLoading] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     // Try new store session first
     const session = getHcaSession();
     if (session?.id) {
-      const profile = getHcaProfileById(session.id);
-      if (profile) {
-        setHcaProfile(profile);
-        setHcaId(profile.employeeId);
-        setAuthed(true);
-        // Load real shifts
-        const shifts = getShiftsByHca(profile.id);
-        setLiveShifts(shifts);
-        // Load cardex log
-        setCardexLog(getCardexByHca(profile.id));
-        // Find assigned client
-        const clients = getAllClients();
-        const linked = clients.find(c => c.assignedHcaId === profile.id);
-        if (linked) setAssignedClient(linked);
-        return;
+      async function loadData() {
+        const [profile, shifts, cardex, clients] = await Promise.all([
+          getHcaProfileById(session.id),
+          getShiftsByHca(session.id),
+          getCardexByHca(session.id),
+          getAllClients(),
+        ]);
+        if (profile) {
+          setHcaProfile(profile);
+          setHcaId(profile.employeeId);
+          setAuthed(true);
+          setLiveShifts(shifts);
+          setCardexLog(cardex);
+          const linked = clients.find(c => c.assignedHcaId === profile.id);
+          if (linked) {
+            setAssignedClient(linked);
+            const pat = linked.patients?.[0];
+            const needs = [];
+            if (pat?.conditions) needs.push(...pat.conditions.split(',').map(c => c.trim()).filter(Boolean));
+            if (pat?.notes) needs.push(pat.notes);
+            if (needs.length) {
+              setSpecialNeeds(needs);
+              setChecks(needs.map(() => false));
+              setFlags(needs.map(() => false));
+            }
+          }
+          return;
+        }
+        // Profile not found — fall back to legacy
+        if (!localStorage.getItem("hca_auth")) {
+          window.location.href = "/hca/login";
+        } else {
+          setAuthed(true);
+          setHcaId(localStorage.getItem("hca_id") || "");
+        }
       }
+      loadData();
+      return;
     }
-    // Legacy fallback
+    // Legacy fallback (no session id)
     if (!localStorage.getItem("hca_auth")) {
       window.location.href = "/hca/login";
     } else {
@@ -217,25 +229,66 @@ export default function HCADashboard() {
   const [handover, setHandover] = useState("");
   const [shiftRating,setShiftRating]=useState(0);
   const [welfareNote,setWelfareNote]=useState("");
-  const [checks,   setChecks]   = useState(SPECIAL_NEEDS.map(()=>false));
-  const [flags,    setFlags]    = useState(SPECIAL_NEEDS.map(()=>false));
+  const [specialNeeds, setSpecialNeeds] = useState([]);
+  const [checks,   setChecks]   = useState([]);
+  const [flags,    setFlags]    = useState([]);
   const [savedAt,  setSavedAt]  = useState(null);
 
   const time    = useTime();
   const duration= useDuration(clockStart);
 
-  function clockIn() { setClockState("in"); setClockStart(Date.now()); setTab("cardex"); setCardexOpen(true); }
+  // Computed stats from real store data
+  const now = new Date();
+  const thisMonthShifts = liveShifts.filter(s => {
+    const d = new Date(s.date || s.clockIn || "");
+    return !isNaN(d) && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+  const completedShifts = thisMonthShifts.filter(s => s.status === "completed");
+  const hcaRate = hcaProfile?.rate || 2000;
+  const earningsMTD = completedShifts.length * hcaRate;
+  const ratingDisplay = hcaProfile?.rating ? `${Number(hcaProfile.rating).toFixed(1)} ★` : "—";
+  const patient = assignedClient?.patients?.[0] || null;
+
+  async function clockIn() {
+    setGpsLoading(true);
+    let lat = null, lng = null, label = "Location unavailable";
+    try {
+      const pos = await new Promise((res, rej) => {
+        if (!navigator?.geolocation) { rej(new Error("GPS not supported")); return; }
+        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 12000, enableHighAccuracy: true });
+      });
+      lat   = pos.coords.latitude;
+      lng   = pos.coords.longitude;
+      label = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    } catch { label = "Location unavailable"; }
+    setGpsLat(lat); setGpsLng(lng); setGpsLabel(label);
+    setGpsLoading(false);
+
+    try {
+      const pat = assignedClient?.patients?.[0];
+      const shift = await clockInHca(hcaProfile?.id || hcaId, {
+        clientId:  assignedClient?.id  || null,
+        patientId: pat?.id             || null,
+        lat, lng,
+      });
+      if (shift?.id) setCurrentShiftId(shift.id);
+      setLiveShifts(await getShiftsByHca(hcaProfile?.id || hcaId));
+    } catch(e) { console.error("Clock-in error:", e); }
+
+    setClockState("in"); setClockStart(Date.now()); setTab("cardex"); setCardexOpen(true);
+  }
+
   function saveDraft() { setSavedAt(new Date().toLocaleTimeString("en-KE",{hour:"2-digit",minute:"2-digit"})); }
-  function submitCardex() {
-    // Save cardex entry to store
+
+  async function submitCardex() {
     if (hcaProfile?.id) {
       try {
-        const patient = assignedClient?.patients?.[0];
-        createCardexEntry({
+        const pat = assignedClient?.patients?.[0];
+        await createCardexEntry({
           hcaId:     hcaProfile.id,
-          clientId:  assignedClient?.id,
-          patientId: patient?.id,
-          date:      new Date().toISOString(),
+          clientId:  assignedClient?.id || null,
+          patientId: pat?.id            || null,
+          shiftId:   currentShiftId     || null,
           vitals,
           medications: meds,
           intakes,
@@ -243,19 +296,28 @@ export default function HCADashboard() {
           hygiene,
           mobility,
           elimination,
-          mentalStatus: mentalSt,
+          mentalState: mentalSt,
           incidents,
           handover,
           shiftRating,
           welfareNote,
-          specialNeedsChecks: SPECIAL_NEEDS.map((n,i)=>({ need:n, done:checks[i], flagged:flags[i] })),
+          specialNeedsChecks: specialNeeds.map((n,i)=>({ need:n, done:checks[i]||false, flagged:flags[i]||false })),
         });
-        setCardexLog(getCardexByHca(hcaProfile.id));
+        if (currentShiftId) {
+          await clockOutHca(hcaProfile.id, currentShiftId);
+        }
+        setCurrentShiftId(null);
+        setCardexLog(await getCardexByHca(hcaProfile.id));
+        setLiveShifts(await getShiftsByHca(hcaProfile.id));
       } catch(e) { console.error("Cardex save error:", e); }
     }
     setClockState("submitted"); setTab("today");
   }
-  function clockOut() { setClockState("out"); setClockStart(null); setCardexOpen(false); }
+
+  function clockOut() {
+    setClockState("out"); setClockStart(null); setCardexOpen(false);
+    setGpsLat(null); setGpsLng(null); setGpsLabel("");
+  }
   function logout() {
     clearHcaSession();
     if (typeof window !== "undefined") {
@@ -265,9 +327,9 @@ export default function HCADashboard() {
     window.location.href = "/hca/login";
   }
 
-  function handleDeleteRequest() {
+  async function handleDeleteRequest() {
     if (hcaProfile?.id) {
-      requestHcaDeletion(hcaProfile.id);
+      await requestHcaDeletion(hcaProfile.id);
     }
     setDeletionSubmitted(true);
     setShowDeleteConfirm(false);
@@ -363,27 +425,44 @@ export default function HCADashboard() {
                   <div className="clock-top">
                     <div>
                       <div className={`clock-time${clockState==="in"?" blue":""}`}>{time}</div>
-                      <div className="clock-meta">Wednesday, 7 May 2026 · Nairobi, Kenya</div>
+                      <div className="clock-meta">{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})} · Nairobi, Kenya</div>
                     </div>
                     {clockState==="in" && (
-                      <div className="gps-badge"><div className="gps-dot" />GPS Verified · Kilimani (0.2 km from patient)</div>
+                      <div className="gps-badge">
+                        <div className="gps-dot" />
+                        {gpsLabel ? `GPS Verified · ${gpsLabel}` : "GPS Captured"}
+                      </div>
+                    )}
+                    {gpsLoading && (
+                      <div className="gps-badge" style={{borderColor:"rgba(232,213,168,0.3)",color:"var(--amber)"}}>
+                        <div className="gps-dot" style={{background:"var(--amber)"}} />Capturing GPS…
+                      </div>
                     )}
                   </div>
 
                   {/* Patient banner */}
                   <div className="patient-banner">
-                    <div className="pat-av">👩🏼</div>
+                    <div className="pat-av">{patient ? "👩🏼" : "👤"}</div>
                     <div style={{flex:1}}>
-                      <div className="pat-name">Margaret Wanjiku</div>
-                      <div className="pat-meta">PAT-001 · Dementia Care · Day Shift 07:00–15:00 · Kilimani</div>
+                      <div className="pat-name">{patient?.name || assignedClient?.name || "No patient assigned"}</div>
+                      <div className="pat-meta">
+                        {patient?.conditions ? `${patient.conditions} · ` : ""}
+                        {assignedClient?.location || "Location not set"}
+                      </div>
                     </div>
-                    <span className="badge badge-gold">Active Placement</span>
+                    <span className={`badge ${patient ? "badge-gold" : "badge-dim"}`}>
+                      {patient ? "Active Placement" : "No Active Placement"}
+                    </span>
                   </div>
 
                   {clockState==="in" && (
                     <div className="shift-timer" style={{marginBottom:16}}>
                       ⏱️ Shift Duration: <strong style={{fontSize:16}}>{duration}</strong>
-                      <span style={{marginLeft:"auto",fontSize:11,color:"rgba(56,189,248,0.5)"}}>Clocked in at 06:52 (8 min early ✓)</span>
+                      {clockStart && (
+                        <span style={{marginLeft:"auto",fontSize:11,color:"rgba(56,189,248,0.5)"}}>
+                          Clocked in at {new Date(clockStart).toLocaleTimeString("en-KE",{hour:"2-digit",minute:"2-digit"})}
+                        </span>
+                      )}
                     </div>
                   )}
 
@@ -418,10 +497,10 @@ export default function HCADashboard() {
                 {/* Stats */}
                 <div className="stat-grid">
                   {[
-                    {icon:"📋",lbl:"Shifts This Month", val:"14",       color:"mint" },
-                    {icon:"⭐",lbl:"Current Rating",    val:"4.9 ★",    color:"amber"},
-                    {icon:"⏱️",lbl:"Avg. Timeliness",  val:"98%",       color:"sky"  },
-                    {icon:"💳",lbl:"Earnings MTD",      val:"KES 44,800",color:"mint" },
+                    {icon:"📋",lbl:"Shifts This Month", val:String(thisMonthShifts.length),                                        color:"mint" },
+                    {icon:"⭐",lbl:"Current Rating",    val:ratingDisplay,                                                         color:"amber"},
+                    {icon:"⏱️",lbl:"Shifts Completed",  val:String(completedShifts.length),                                       color:"sky"  },
+                    {icon:"💳",lbl:"Earnings MTD",      val:earningsMTD>0?`KES ${earningsMTD.toLocaleString()}`:"—",               color:"mint" },
                   ].map(s=>(
                     <div className="stat-box" key={s.lbl}>
                       <div className="stat-box-icon">{s.icon}</div>
@@ -435,18 +514,26 @@ export default function HCADashboard() {
                   <>
                     {/* Shift history */}
                     <div className="panel">
-                      <div className="panel-head"><div className="panel-title">Shift Schedule — This Week</div></div>
+                      <div className="panel-head"><div className="panel-title">Recent Shifts</div></div>
                       <div className="panel-body">
-                        {SHIFT_HIST.map((s,i)=>(
-                          <div key={i} className="shift-hist-row">
-                            <div className="shr-date">{s.date}</div>
-                            <div className="shr-pat">{s.pat}</div>
-                            <div className="shr-type">{s.type}</div>
-                            <div className="shr-dur">{s.dur}</div>
-                            <span className={`badge ${s.cls}`}>{s.status}</span>
-                            {s.status==="Submitted"&&<button className="btn-o btn-sm">View Cardex</button>}
-                          </div>
-                        ))}
+                        {liveShifts.length === 0 ? (
+                          <div style={{textAlign:"center",padding:"24px 0",color:"var(--muted)",fontSize:13}}>No shifts on record yet. Your schedule will appear here once a placement is confirmed.</div>
+                        ) : liveShifts.slice().sort((a,b)=>new Date(b.date||b.clockIn||0)-new Date(a.date||a.clockIn||0)).slice(0,7).map(s=>{
+                          const typeLabel = s.type==="day"?"Day Shift":s.type==="night"?"Night Shift":"Live-In";
+                          const [stLabel,stCls] = s.status==="completed"?["Completed","badge-mint"]:s.status==="in-progress"?["In Progress","badge-gold"]:s.status==="missed"?["Missed","badge-coral"]:["Scheduled","badge-dim"];
+                          const dur = s.clockIn&&s.clockOut?`${Math.round((new Date(s.clockOut)-new Date(s.clockIn))/3600000)}h`:s.status==="in-progress"?"Active":"—";
+                          const dateDisplay = s.date?new Date(s.date).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"}):"—";
+                          return (
+                            <div key={s.id} className="shift-hist-row">
+                              <div className="shr-date">{dateDisplay}</div>
+                              <div className="shr-pat">{patient?.name||"—"}</div>
+                              <div className="shr-type">{typeLabel}</div>
+                              <div className="shr-dur">{dur}</div>
+                              <span className={`badge ${stCls}`}>{stLabel}</span>
+                              {s.status==="completed"&&<button className="btn-o btn-sm">View Cardex</button>}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </>
@@ -459,8 +546,8 @@ export default function HCADashboard() {
               <div className="cardex-wrap">
                 <div className="cardex-header">
                   <div>
-                    <div className="cardex-title">Shift Cardex — Margaret Wanjiku</div>
-                    <div className="cardex-meta">PAT-001 · Wed 7 May 2026 · Day Shift 07:00–15:00 · HCA: Amina Njeri</div>
+                    <div className="cardex-title">Shift Cardex — {patient?.name || "Patient"}</div>
+                    <div className="cardex-meta">{patient?.id?.slice(0,8).toUpperCase() || "—"} · {new Date().toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric"})} · HCA: {hcaProfile?.name || hcaId}</div>
                   </div>
                   <div style={{display:"flex",gap:10,alignItems:"center"}}>
                     {savedAt && <div style={{fontSize:11,color:"var(--mint)",fontFamily:"var(--mono)"}}>💾 Saved {savedAt}</div>}
@@ -472,7 +559,7 @@ export default function HCADashboard() {
                   {/* Patient Notes */}
                   <div style={{background:"rgba(232,213,168,0.07)",border:"1px solid rgba(232,213,168,0.2)",borderRadius:12,padding:"12px 16px",marginBottom:24,fontSize:13}}>
                     <strong style={{color:"var(--amber)"}}>⚠️ Patient Special Needs:</strong>
-                    <span style={{color:"var(--muted)",marginLeft:8}}>Dementia Stage 2 · No dairy · Donepezil 5mg AM+PM · Fluid encouragement · Turn every 2hrs</span>
+                    <span style={{color:"var(--muted)",marginLeft:8}}>{patient?.conditions||"No conditions recorded"}{patient?.notes?` · ${patient.notes}`:""}</span>
                   </div>
 
                   {/* 1. VITALS */}
@@ -606,7 +693,8 @@ export default function HCADashboard() {
                   {/* 8. SPECIAL NEEDS CHECKLIST */}
                   <div className="cardex-section">
                     <div className="cs-title">✅ Special Needs Compliance Checklist</div>
-                    {SPECIAL_NEEDS.map((need,i)=>(
+                    {specialNeeds.length === 0 && <div style={{fontSize:13,color:"var(--muted)",padding:"8px 0"}}>No special needs on record for this patient.</div>}
+                    {specialNeeds.map((need,i)=>(
                       <div key={i} className={`checklist-item${checks[i]?" checked":""}${flags[i]?" flagged":""}`} onClick={()=>toggleCheck(i)}>
                         <div className={`cl-check${checks[i]?" checked":flags[i]?" flagged":""}`}>{checks[i]?"✓":flags[i]?"!":""}</div>
                         <div className="cl-text">{need}</div>
@@ -833,24 +921,31 @@ export default function HCADashboard() {
             {tab==="earnings" && (
               <div>
                 <div className="stat-grid">
-                  {[{icon:"💰",lbl:"Total Earned MTD",val:"KES 44,800",color:"mint"},{icon:"📅",lbl:"Next Payment",val:"15 May",color:"amber"},{icon:"📋",lbl:"Shifts Completed",val:"14",color:"sky"},{icon:"⭐",lbl:"Placement Bonus",val:"KES 2,000",color:"mint"}].map(s=>(
+                  {[
+                    {icon:"💰",lbl:"Total Earned MTD",  val:earningsMTD>0?`KES ${earningsMTD.toLocaleString()}`:"—",              color:"mint" },
+                    {icon:"📅",lbl:"Next Payment",       val:"15th of month",                                                      color:"amber"},
+                    {icon:"📋",lbl:"Shifts Completed",   val:String(completedShifts.length),                                      color:"sky"  },
+                    {icon:"💵",lbl:"Rate per Shift",     val:hcaRate?`KES ${hcaRate.toLocaleString()}`:"—",                        color:"mint" },
+                  ].map(s=>(
                     <div className="stat-box" key={s.lbl}><div className="stat-box-icon">{s.icon}</div><div className={`stat-box-val ${s.color}`}>{s.val}</div><div className="stat-box-label">{s.lbl}</div></div>
                   ))}
                 </div>
                 <div className="panel">
-                  <div className="panel-head"><div className="panel-title">Payment History</div></div>
+                  <div className="panel-head"><div className="panel-title">Shift Payment Record</div></div>
                   <div className="panel-body">
                     <div className="dash-table-wrap">
                       <table className="dash-table">
-                        <thead><tr><th>Period</th><th>Shifts</th><th>Rate/hr</th><th>Total</th><th>Status</th></tr></thead>
+                        <thead><tr><th>Date</th><th>Type</th><th>Rate/Shift</th><th>Total</th><th>Status</th></tr></thead>
                         <tbody>
-                          {[["1–15 Apr 2026","10","KES 800","KES 32,000","Paid"],["16–30 Apr 2026","10","KES 800","KES 32,000","Paid"],["1–7 May 2026","4","KES 800","KES 12,800","Pending"]].map(([p,s,r,t,st],i)=>(
-                            <tr key={i}>
-                              <td style={{fontFamily:"var(--mono)",fontSize:12}}>{p}</td>
-                              <td>{s}</td>
-                              <td style={{color:"var(--amber)"}}>{r}</td>
-                              <td style={{fontFamily:"var(--serif)",fontSize:16,fontWeight:700,color:"var(--mint)"}}>{t}</td>
-                              <td><span className={`badge ${st==="Paid"?"badge-mint":"badge-gold"}`}>{st}</span></td>
+                          {liveShifts.filter(s=>s.status==="completed").length===0 ? (
+                            <tr><td colSpan={5} style={{textAlign:"center",padding:"24px",color:"var(--muted)"}}>No completed shifts on record yet.</td></tr>
+                          ) : liveShifts.filter(s=>s.status==="completed").slice().reverse().map(s=>(
+                            <tr key={s.id}>
+                              <td style={{fontFamily:"var(--mono)",fontSize:12}}>{s.date?new Date(s.date).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):"—"}</td>
+                              <td>{s.type==="day"?"Day (8h)":s.type==="night"?"Night (12h)":"Live-In"}</td>
+                              <td style={{color:"var(--amber)"}}>KES {hcaRate.toLocaleString()}</td>
+                              <td style={{fontFamily:"var(--serif)",fontSize:16,fontWeight:700,color:"var(--mint)"}}>KES {hcaRate.toLocaleString()}</td>
+                              <td><span className="badge badge-mint">Completed</span></td>
                             </tr>
                           ))}
                         </tbody>

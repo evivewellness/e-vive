@@ -89,7 +89,7 @@ export default function Footer() {
           </div>
         </div>
         <div className="footer-bottom">
-          <div className="footer-copy">© 2025–2026 E-Vive Wellness · by Star Delight Enterprises · Nairobi, Kenya</div>
+          <div className="footer-copy">© 2025–2026 E-Vive Homecare · by E-Vive Wellness Initiative · Nairobi, Kenya</div>
           <div className="footer-legal">
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>

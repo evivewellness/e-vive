@@ -1,6 +1,6 @@
 # E-Vive Platform — Technical Documentation
 
-> **Version:** Current as of June 2026  
+> **Version:** Current as of May 2026  
 > **Live URL:** https://e-vive.vercel.app  
 > **Repository:** https://github.com/mafichoni/e-vive  
 > **Branch:** `main`
@@ -68,7 +68,7 @@ E-Vive is Kenya's location-based homecare assistant matching platform, operated 
 - **Digital Cardex** — structured daily shift reports with vitals, medications, incidents
 - **GPS-verified clock-in/out** for shift attendance
 - **Journey tracking** — 10-stage client onboarding pipeline
-- **Family Caregiver Hub** — LMS training courses, counselling referrals, professional resource library (community/support groups coming soon)
+- **Family Caregiver Hub** — training modules, counselling, peer community, resource library
 - **Super Admin controls** — announcements, newsletters, pricing, discount codes, RBAC, map management
 
 ---
@@ -149,7 +149,7 @@ E-Vive is Kenya's location-based homecare assistant matching platform, operated 
 | `/` | `pages/index.jsx` | None | Landing page |
 | `/about` | `pages/about.jsx` | None | Company story, team, mission |
 | `/contact` | `pages/contact.jsx` | None | Contact form & department listing |
-| `/caregivers` | `pages/caregivers.jsx` | Content-gated (client/HCA/admin session or approved partner) | Family caregiver hub |
+| `/caregivers` | `pages/caregivers.jsx` | None | Family caregiver hub |
 | `/assistants` | `pages/assistants.jsx` | None | HCA recruitment information |
 | `/products` | `pages/products.jsx` | None | Homecare product marketplace (coming soon) |
 | `/match` | `pages/match.jsx` | None | HCA search & filtering |
@@ -275,135 +275,60 @@ Email: hello@e-vive.co.ke
 ### 4.4 Family Caregiver Hub `/caregivers`
 
 **File:** `pages/caregivers.jsx`  
-**Target audience:** Family clients, HomeCare Assistants, approved partner organisations
+**Target audience:** Family members providing informal care to patients at home
 
-#### Access Gate
+#### Tab Navigation (5 tabs, sticky on scroll)
 
-The page content is gated. Non-authenticated visitors see a hero section with a lock overlay and three gate cards:
+**Tab 1 — Training Modules**  
+6 training cards with progress bars:
+- Basic Nursing Skills (Beginner, 12 lessons)
+- Dementia Care Essentials (Intermediate, 8 lessons)
+- Palliative Care & Comfort (Advanced, 10 lessons)
+- Medication Management (Intermediate, 6 lessons)
+- Caregiver Self-Care & Burnout (Beginner, 5 lessons)
+- Mobility & Positioning (Intermediate, 7 lessons)
 
-| Card | CTA | Action |
-|---|---|---|
-| I'm a Family Client | "Create Account" / "Already a member? Sign In" | Links to `/client/register` |
-| I'm an HCA | "HCA Sign In" | Links to `/hca/login` |
-| Apply for Partner Access | Partner access form (inline) | `createHubAccessRequest({ name, email, organisation, message })` |
+**Tab 2 — Community Forum**  
+4 sample discussion threads with topic, author, reply count, last activity. Popular topics sidebar. "Start a Discussion" button (visual only, not functional yet).
 
-Auth check order: `getAdminSession()` → `getHcaSession()` → `getClientSession()`. If any session is found, full hub content is rendered.
+**Tab 3 — Counselling**  
+4 counsellors with portrait SVGs:
+- James Otieno — Grief & Loss Counsellor
+- Sarah Kamau — Family Therapist
+- Peter Mwangi — Palliative Care Specialist
+- Rose Mutua — Caregiver Wellness Coach
 
-A **user badge** bar appears at the top when logged in, showing the user's name, type (Family Client / HomeCare Assistant / E-Vive Staff), and a link to their dashboard.
+Each counsellor card shows: name, role, bio, available time slots, "Book Session" button.
 
-#### Hero Section
+**Booking Modal** — triggered by any counsellor's Book button:
+- Fields: Name, Phone, Preferred Slot (dropdown), Notes
+- On submit: shows confirmation message
 
-Background: `/images/hero-group-care.png` (5-person care scene). Three live stats:
-- `{clientCount}+` Families supported (live count from Supabase `clients` table)
-- `{courses.length}` Training courses (live count from Supabase `lms_courses` table)
-- `Free` Core resources free
+**Tab 4 — Resource Library**  
+8 downloadable resources (visual cards with emoji icon, title, format badge):
+- Caregiver Daily Planner (PDF)
+- Dementia Communication Guide (PDF)
+- Medication Tracker Template (PDF)
+- Understanding Palliative Care (Video, 18 min)
+- Caregiver Rights in Kenya (PDF)
+- Emergency Response Checklist (PDF)
+- Patient Nutrition Guide (PDF)
+- Signs of Caregiver Burnout (Article)
 
-#### Tab Navigation (3 active tabs, 1 coming soon)
-
-| Tab ID | Label | Content |
-|---|---|---|
-| `training` | Training | Full LMS — courses from Supabase, enrollment, lesson viewer |
-| `resources` | Resource Library | 12 real free resources from global health organisations |
-| `counselling` | Counselling | E-Vive contact details + counselling referral form |
-| *(commented out)* | Community & Support Groups | Pending moderation system — not yet active |
-
----
-
-**Tab: Training**
-
-Courses are loaded from Supabase `lms_courses` table (status = 'active'). Enrollments loaded per user from `lms_enrollments`.
-
-**LMS filter chips:** All Users · Family Caregivers · All HCAs
-
-**Course card shows:** emoji, title, target audience badge, difficulty, lesson count, duration, description, progress bar (if enrolled), enrollment CTA.
-
-**Lesson viewer modal** (full-screen overlay):
-- Left sidebar: lesson list (tick = complete, current = highlighted)
-- Right content area: lesson title, objectives list, summary, key points, external resource link button
-- "Mark as Complete" button → `updateCourseProgress(userId, courseId, lessonIdx, totalLessons)`
-- Certificate message shown when `progress_pct === 100`
-
-**Partner content submission panel** (collapsible, shown to all authenticated users):
-| Field | Type |
-|---|---|
-| Organisation Name | text (required) |
-| Contact Email | email (required) |
-| Course Title | text (required) |
-| Description | textarea (required) |
-| Content URL | url |
-| Target Audience | select (All Users / Family Caregivers / HCAs) |
-
-On submit: `submitPartnerCourse(data)` → inserts into `lms_submissions` table with status `'pending'`.
-
----
-
-**Tab: Resource Library**
-
-12 real free resources from global health organisations. All links open in a new tab to the original source. No fake or placeholder content.
-
-**Filter chips:** All · Guides · Mental Health · End-of-Life · Online Hubs
-
-| # | Source | Title | Type |
-|---|---|---|---|
-| 1 | WHO | Home Care for Patients — WHO Primary Health Care Manual | WHO Manual |
-| 2 | FCA | Family Caregiver Alliance — Online Factsheet Library | Online Hub |
-| 3 | Alzheimer's Association | Caregiver Resource Centre | Online Hub |
-| 4 | FCA | Caregiver's Guide to Understanding Dementia Behaviours | Guide |
-| 5 | WHO | Healthy Ageing: A Life Course Perspective | WHO Guide |
-| 6 | AARP | Family Caregiving Resource Centre | Online Hub |
-| 7 | HPCA Africa | Palliative Care for Families Guide | Guide |
-| 8 | FCA | Caregiver's Guide to Medications and Ageing | Guide |
-| 9 | NIA | Caring for a Person with Alzheimer's | NIA Guide |
-| 10 | MHFA International | Mental Health First Aid — Carer Resources | Mental Health |
-| 11 | WHO | mhGAP Intervention Guide v2.0 | WHO mhGAP |
-| 12 | WHO | Palliative Care — WHO Factsheet | End-of-Life |
-
----
-
-**Tab: Counselling**
-
-No therapist profiles are shown. Content is:
-
-**E-Vive Contact Card:**
-- Email: `hello@e-vive.co.ke`
-- Phone: `+254 720 053 455`
-- WhatsApp: same number
-- Address: Mararo Avenue off Riara Road, Nairobi
-- Hours: Mon–Sat, 7am–8pm
-
-**Counselling Referral Form** (wired to Supabase `hub_referrals` table):
-| Field | Type | Required |
-|---|---|---|
-| Your Name | text | Yes |
-| Phone Number | tel | No |
-| Email | email | No |
-| Message | textarea | No |
-
-On submit: `createHubReferral({ name, phone, email, message })` → inserts into `hub_referrals` with `status: 'new'`. Success state shown on submit.
-
----
+**Tab 5 — Support Groups**  
+4 active support groups:
+- Dementia Caregivers Circle — Tuesdays 6pm, 34 members
+- Palliative Care Support — Thursdays 5pm, 21 members
+- Mobility & Disability Carers — Wednesdays 7pm, 18 members
+- Childhood Illness Families — Fridays 5:30pm, 12 members
 
 #### Key State
 ```jsx
-const [user, setUser] = useState(null);             // { id, name, type: 'client'|'hca'|'admin' }
-const [authed, setAuthed] = useState(false);
-const [loading, setLoading] = useState(true);
-const [courses, setCourses] = useState([]);          // LMS courses from Supabase
-const [enrollments, setEnrollments] = useState([]);  // user's enrollments
-const [clientCount, setClientCount] = useState(0);   // for hero stat
-const [activeTab, setActiveTab] = useState('training');
-const [lmsFilter, setLmsFilter] = useState('all');   // 'all'|'clients'|'hcas'
-const [selectedCourse, setSelectedCourse] = useState(null);  // lesson viewer
-const [selectedLesson, setSelectedLesson] = useState(-1);
-const [partnerFormOpen, setPartnerFormOpen] = useState(false);
-const [partnerForm, setPartnerForm] = useState({ orgName, contactEmail, courseTitle, description, contentUrl, target });
-const [partnerSubmitted, setPartnerSubmitted] = useState(false);
-const [partnerSubmitting, setPartnerSubmitting] = useState(false);
-const [markingComplete, setMarkingComplete] = useState(false);
-const [resourceFilter, setResourceFilter] = useState('All');
-const [counselForm, setCounselForm] = useState({ name, phone, email, message });
-const [counselSent, setCounselSent] = useState(false);
-const [enrolling, setEnrolling] = useState(null);    // courseId being enrolled
+const [activeTab, setActiveTab] = useState("training");
+const [bookingModal, setBookingModal] = useState(null); // counsellor object | null
+const [bookForm, setBookForm] = useState({ name, phone, slot, notes });
+const [bookingDone, setBookingDone] = useState(false);
+const [openFaq, setOpenFaq] = useState(null);
 ```
 
 ---
@@ -1014,36 +939,17 @@ Monthly calendar grid showing scheduled shifts. Navigation between months.
 const [hcaProfile, setHcaProfile] = useState(null);
 const [authed, setAuthed] = useState(false);
 const [tab, setTab] = useState("today");
-const [clockState, setClockState] = useState("out");   // "out" | "in"
-const [clockStart, setClockStart] = useState(null);    // Date.now() at clock-in
-const [currentShiftId, setCurrentShiftId] = useState(null); // shift UUID from Supabase
+const [clockedIn, setClockedIn] = useState(false);
+const [currentShiftId, setCurrentShiftId] = useState(null);
 const [liveShifts, setLiveShifts] = useState([]);
 const [cardexLog, setCardexLog] = useState([]);
-const [cardexOpen, setCardexOpen] = useState(false);
 const [assignedClient, setAssignedClient] = useState(null);
 const [menuOpen, setMenuOpen] = useState(false);
-const [gpsLat, setGpsLat] = useState(null);
-const [gpsLng, setGpsLng] = useState(null);
-const [gpsLabel, setGpsLabel] = useState("Location unavailable");
-const [gpsLoading, setGpsLoading] = useState(false);
 const [vitals, setVitals] = useState({ bp:"", pulse:"", temp:"", spo2:"", rr:"", weight:"", pain:"" });
 const [meds, setMeds] = useState([{ name:"", dose:"", time:"", given:false }]);
-const [mentalSt, setMentalSt] = useState("");          // mentalState field on cardex
 const [observations, setObservations] = useState({ mood:"", mobility:"", appetite:"", hydration:"", bowels:"", sleep:"" });
 const [incidents, setIncidents] = useState("");
 const [generalObs, setGeneralObs] = useState("");
-```
-
-**Clock-in flow (GPS + Supabase):**
-```javascript
-// 1. Request GPS via navigator.geolocation.getCurrentPosition()
-// 2. clockInHca(hcaId, { clientId, patientId, lat, lng }) → returns shift with id
-// 3. setCurrentShiftId(shift.id)
-// 4. Auto-navigate to Cardex tab
-// On submitCardex():
-// 5. createCardexEntry({ ..., shiftId: currentShiftId, mentalState: mentalSt })
-// 6. clockOutHca(hcaId, currentShiftId)
-// 7. setCurrentShiftId(null); setClockState("out")
 ```
 
 ---
@@ -1121,23 +1027,24 @@ The admin dashboard has a fully functional mobile hamburger sidebar:
 - **Overlay:** `<div className="dash-side-overlay{sideOpen ? ' open' : ''}">` — semi-transparent backdrop, closes sidebar on tap
 - **Aside:** `<aside className="dash-side{sideOpen ? ' open' : ''}">` — slides in from left when open
 
-#### Sidebar Navigation (13 tabs/links)
+#### Sidebar Navigation (15 tabs/links)
 
 | Icon | Label | Key | Notes |
 |---|---|---|---|
 | 📊 | Overview | `overview` | Platform stats |
-| 🩺 | HCA Management | `hcas` | HCA management + approval queue |
-| 👥 | Client Management | `clients` | Family management |
-| 📋 | Care Quality | `quality` | Cardex QA review |
+| 👨‍👩‍👧 | Clients | `clients` | Family management |
+| 👩‍⚕️ | HCAs | `hcas` | HCA management + approval queue |
+| 🤝 | Placements | `placements` | Active/pending placements |
+| 💳 | Invoices | `invoices` | Billing management |
+| 📅 | Calendar | `calendar` | Shared ops calendar |
+| 🩺 | Quality | `quality` | Cardex QA review |
 | 🎓 | Training | `training` | HCA training management |
-| 📅 | Calendar / HR | `calendar` | Shared ops calendar |
-| 💰 | Finance | `finance` | Link → `/admin/finance` |
 | 📣 | Announcements | `announcements` | Broadcast messages |
 | 📧 | Newsletter | `newsletter` | Email campaigns |
 | 🏷️ | Pricing & Offers | `pricing` | Rate config + discount codes |
-| 🏠 | Family Hub | `hub` | LMS courses, partner submissions, counselling referrals, partner access requests |
-| ⚙️ | Settings / RBAC | `settings` | Access control |
 | 🗺️ | Map View | `map` | Link → `/admin/map` |
+| 💰 | Finance | `finance` | Link → `/admin/finance` |
+| 🔧 | Settings / RBAC | `settings` | Access control |
 
 #### Overview Tab
 - 4 stat boxes: Total Families, Total HCAs, Active Placements, Outstanding Revenue (KES)
@@ -1260,47 +1167,6 @@ Displays current RBAC assignments and a form to grant new roles:
 Calls `setRbacRule(userId, role, permissions)`. Existing assignments shown with revoke button.
 
 **Role Reference Table:** Shows all 5 roles with their default permissions.
-
-#### Family Hub Tab
-
-4 sub-tabs for managing the `/caregivers` page content and access:
-
-**Sub-tab: Courses (📚)**  
-Table: Title, Target Audience, Difficulty, Lessons, Enrollments, Status, Actions (Edit / Archive|Activate)
-
-"+ New Course" button opens the **Course Editor Modal**:
-| Field | Type |
-|---|---|
-| Course Title | text |
-| Description | textarea |
-| Category | text |
-| Difficulty | select (Beginner / Intermediate / Advanced) |
-| Estimated Duration | text (e.g. "4 hrs") |
-| Emoji | text (single emoji) |
-| Target Audience | select (All Users / Family Caregivers / HCAs only) |
-| Lessons (repeatable) | inline lesson builder |
-
-**Per lesson:**
-- Title, Summary (textarea), Objectives (newline-separated), Key Points (newline-separated), Resource URL, Duration (minutes)
-
-On save: `createLmsCourse(data)` (new) or `updateLmsCourse(id, patch)` (edit). Lessons are stored as JSONB `lessons[]` on the course row.
-
-**Sub-tab: Partner Submissions (📬)**  
-Shows all rows from `lms_submissions` with status badges. Pending count shown in badge.  
-Per submission: org name, contact email, course title, description, content URL, target, submitted date.  
-Actions: **Approve** → `updateLmsSubmission(id, { status: 'approved' })`, **Reject** → `updateLmsSubmission(id, { status: 'rejected' })`.
-
-**Sub-tab: Referrals (💬)**  
-Shows all rows from `hub_referrals`. New count shown in badge.  
-Per referral: name, phone, email, message, status (new/contacted), created date.  
-Action: **Mark Contacted** → `updateHubReferral(id, { status: 'contacted', contacted_at: ISO })`.
-
-**Sub-tab: Access Requests (🔑)**  
-Shows all rows from `hub_access_requests`. Pending count shown in badge.  
-Per request: name, email, organisation, message, submitted date.  
-Actions: **Approve** (with designation select) → `updateHubAccessRequest(id, { status: 'approved', designation, reviewed_by: 'admin', reviewed_at: ISO })`, **Reject** → `updateHubAccessRequest(id, { status: 'rejected', ... })`.
-
-Designation options: Partner Organisation, Healthcare Provider, Training Provider, Researcher.
 
 ---
 
@@ -1595,11 +1461,6 @@ All application data is persisted to a Supabase PostgreSQL database. The `lib/st
 | `discount_codes` | Discount/promo codes |
 | `map_markers` | Standalone map markers (supplementary to client/HCA coords) |
 | `payroll_payments` | HCA payroll payment records |
-| `lms_courses` | Family Hub LMS course catalogue (lessons stored as JSONB) |
-| `lms_enrollments` | Per-user course enrollment and progress tracking |
-| `lms_submissions` | Partner-submitted course content awaiting admin review |
-| `hub_referrals` | Counselling referral requests from caregivers page |
-| `hub_access_requests` | Partner organisation access requests for the Family Hub |
 
 **localStorage keys (session tokens only):**
 
@@ -1969,99 +1830,6 @@ All application data is persisted to a Supabase PostgreSQL database. The `lib/st
 }
 ```
 
-#### LMS Course (`lms_courses` table)
-```typescript
-{
-  id: string;               // UUID
-  title: string;
-  description: string;
-  category: string;
-  difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
-  duration: string;         // e.g. "4 hrs"
-  emoji: string;            // single emoji for visual identity
-  target: 'all' | 'clients' | 'hcas';
-  lessons: LmsLesson[];     // JSONB array — embedded lesson content
-  tags: string[];           // JSONB array
-  status: 'active' | 'archived';
-  created_at: string;       // ISO timestamp
-}
-```
-
-**Per lesson (`LmsLesson`):**
-```typescript
-{
-  idx: number;              // 0-based position
-  title: string;
-  objectives: string[];     // learning objectives
-  summary: string;          // lesson body text
-  key_points: string[];     // bullet-point takeaways
-  resource_url?: string;    // external link to source material
-  duration_mins: number;
-}
-```
-
-#### LMS Enrollment (`lms_enrollments` table)
-```typescript
-{
-  id: string;               // UUID
-  user_id: string;          // client id, hca id, or "admin"
-  user_type: 'client' | 'hca' | 'admin';
-  course_id: string;
-  progress_pct: number;     // 0–100
-  completed_lessons: number[]; // array of completed lesson idx values
-  enrolled_at: string;      // ISO timestamp
-  completed_at?: string;    // ISO timestamp | null
-}
-```
-
-#### LMS Submission (`lms_submissions` table)
-```typescript
-{
-  id: string;               // UUID
-  org_name: string;
-  contact_email: string;
-  course_title: string;
-  description: string;
-  content_url?: string;
-  target: 'all' | 'clients' | 'hcas';
-  status: 'pending' | 'approved' | 'rejected';
-  submitted_at: string;     // ISO timestamp
-  reviewed_at?: string;     // ISO timestamp | null
-}
-```
-
-#### Hub Referral (`hub_referrals` table)
-```typescript
-{
-  id: string;               // UUID
-  name: string;
-  phone?: string;
-  email?: string;
-  message?: string;
-  status: 'new' | 'contacted';
-  admin_notes?: string;
-  contacted_at?: string;    // ISO timestamp | null
-  created_at: string;       // ISO timestamp
-}
-```
-
-#### Hub Access Request (`hub_access_requests` table)
-```typescript
-{
-  id: string;               // UUID
-  name: string;
-  email: string;
-  organisation?: string;
-  message?: string;
-  designation?: string;     // assigned on approval
-  status: 'pending' | 'approved' | 'rejected';
-  admin_notes?: string;
-  reviewed_by?: string;     // "admin"
-  reviewed_at?: string;     // ISO timestamp | null
-  created_at: string;       // ISO timestamp
-}
-```
-
 ---
 
 ### 9.3 Store Functions Reference
@@ -2288,34 +2056,6 @@ Each function creates a Supabase notification record AND calls `dispatchEmail()`
 | `createMapMarker` | `async ({label, type?, lat, lng, refId?, notes?}) → MapMarker` | New marker |
 | `updateMapMarker` | `async (id, patch) → void` | — |
 | `deleteMapMarker` | `async (id) → void` | — |
-
-#### LMS
-
-| Function | Signature | Returns | Notes |
-|---|---|---|---|
-| `getLmsCourses` | `async (target?) → LmsCourse[]` | Array | Filters by target audience if provided ('clients'\|'hcas'); returns all active courses if null |
-| `getLmsCourse` | `async (id) → LmsCourse \| null` | Course | Single course by ID |
-| `getEnrollmentsForUser` | `async (userId, userType) → LmsEnrollment[]` | Array | All enrollments for a user |
-| `enrollInCourse` | `async (userId, userType, courseId) → LmsEnrollment` | New enrollment | No-op if already enrolled (returns existing) |
-| `updateCourseProgress` | `async (userId, courseId, lessonIdx, totalLessons) → LmsEnrollment` | Updated enrollment | Adds lessonIdx to completed_lessons; recalculates progress_pct; sets completed_at if 100% |
-| `submitPartnerCourse` | `async ({orgName, contactEmail, courseTitle, description, contentUrl, target}) → LmsSubmission` | New submission | Status defaults to 'pending' |
-| `getLmsSubmissions` | `async () → LmsSubmission[]` | Array | All submissions (newest first) |
-| `updateLmsSubmission` | `async (id, patch) → LmsSubmission` | Updated | Used for approve/reject |
-| `createLmsCourse` | `async (data) → LmsCourse` | New course | Admin-only; sets status='active' |
-| `updateLmsCourse` | `async (id, patch) → LmsCourse` | Updated | |
-| `deleteLmsCourse` | `async (id) → void` | — | Hard delete |
-| `getAllLmsEnrollments` | `async () → LmsEnrollment[]` | Array | All enrollments (admin overview) |
-
-#### Family Hub
-
-| Function | Signature | Returns | Notes |
-|---|---|---|---|
-| `getHubReferrals` | `async () → HubReferral[]` | Array | All counselling referrals (newest first) |
-| `createHubReferral` | `async ({name, phone?, email?, message?}) → HubReferral` | New referral | Status defaults to 'new' |
-| `updateHubReferral` | `async (id, patch) → HubReferral` | Updated | Used to mark as contacted |
-| `getHubAccessRequests` | `async () → HubAccessRequest[]` | Array | All partner access requests (newest first) |
-| `createHubAccessRequest` | `async ({name, email, organisation?, message?}) → HubAccessRequest` | New request | Status defaults to 'pending' |
-| `updateHubAccessRequest` | `async (id, patch) → HubAccessRequest` | Updated | Used for approve/reject with designation |
 
 #### Demo Seed Data
 
@@ -2690,6 +2430,16 @@ All assets are served from the `/public` directory.
 | `hca-samuel-kamau.svg` | Samuel Kamau |
 | `hca-sylvia-achieng.svg` | Sylvia Achieng |
 
+#### Counsellor Portraits (`/images/portraits/`)
+4 counsellors used in `/caregivers` page:
+
+| File | Character |
+|---|---|
+| `counsellor-james-otieno.svg` | James Otieno — Grief & Loss Counsellor |
+| `counsellor-peter-mwangi.svg` | Peter Mwangi — Palliative Care Specialist |
+| `counsellor-rose-mutua.svg` | Rose Mutua — Caregiver Wellness Coach |
+| `counsellor-sarah-kamau.svg` | Sarah Kamau — Family Therapist |
+
 #### Team Portraits (`/images/portraits/`)
 2 active team members used in `/about` page:
 
@@ -2860,4 +2610,4 @@ Production URL: **https://e-vive.vercel.app**
 
 ---
 
-*Documentation updated June 2026 — E-Vive Homecare · by E-Vive Wellness Initiative · Nairobi, Kenya*
+*Documentation generated May 2026 — E-Vive Homecare · by E-Vive Wellness Initiative · Nairobi, Kenya*

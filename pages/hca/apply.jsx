@@ -1,8 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { BASE_CSS } from "../../components/SharedStyles";
-import { createHcaApplication } from "../../lib/store";
+import { createHcaApplication, getPricingConfig } from "../../lib/store";
 
 /* ─── Light-theme CSS ─────────────────────────────────────────────────────── */
 const CSS = `
@@ -197,10 +197,15 @@ const PERIOD_OPTS= ["Short Term (1–2 weeks)","Long Term (2 weeks+)","Both"];
 const TRAVEL_OPTS= ["Local Travel Only","International (with travel docs)"];
 const LOCATIONS  = ["Nairobi CBD","Westlands","Karen","Kilimani","Kileleshwa","Lavington","Langata","Eastlands","Kasarani","Thika Road","Mombasa","Kisumu","Nakuru","Eldoret","Nyeri","Other"];
 const RADIUS_OPTS= ["5 km","10 km","15 km","20 km","25 km","30 km","40 km+"];
-const PLANS = [
-  { name:"Basic",        badge:"Starter",    badgeCls:"background:rgba(0,74,153,0.1);color:var(--jade)", price:"KES 500",  per:"/month", feats:["Search listing","1 active placement","Basic profile","Email support"] },
-  { name:"Professional", badge:"Popular ★",  badgeCls:"background:rgba(132,189,96,0.15);color:#3a7d1c",  price:"KES 1,200",per:"/month", feats:["Priority listing","3 placements","Certificate badges","WhatsApp support","Training access"] },
-  { name:"Premium",      badge:"Top Tier",   badgeCls:"background:rgba(232,132,90,0.15);color:#b84c1f",  price:"KES 2,500",per:"/month", feats:["Top-of-search placement","Unlimited placements","Verified badge","Dedicated HCA manager","International eligible"] },
+const PLAN_BADGE_STYLES = {
+  Basic:        "background:rgba(0,74,153,0.1);color:var(--jade)",
+  Professional: "background:rgba(132,189,96,0.15);color:#3a7d1c",
+  Premium:      "background:rgba(232,132,90,0.15);color:#b84c1f",
+};
+const DEFAULT_PLANS = [
+  { name:"Basic",        badge:"Starter",   price:75,  per:"/month", feats:["Search listing","1 active placement","Basic profile","Email support"] },
+  { name:"Professional", badge:"Popular ★", price:100, per:"/month", feats:["Priority listing","3 placements","Certificate badges","WhatsApp support","Training access"] },
+  { name:"Premium",      badge:"Top Tier",  price:150, per:"/month", feats:["Top-of-search placement","Unlimited placements","Verified badge","Dedicated HCA manager","International eligible"] },
 ];
 const STEP_LABELS = ["Personal","Professional","Skills","Subscription","Done"];
 
@@ -283,6 +288,7 @@ function CertUploadZone({ cert, certIdx, onChange }) {
 export default function HCAApply() {
   const [step,   setStep]   = useState(0);
   const [plan,   setPlan]   = useState(1);
+  const [plans,  setPlans]  = useState(DEFAULT_PLANS);
   const [care,   setCare]   = useState([]);
   const [langs,  setLangs]  = useState([]);
   const [shifts, setShifts] = useState([]);
@@ -294,6 +300,15 @@ export default function HCAApply() {
     fname:"", lname:"", dob:"", gender:"", mobile:"", email:"",
     location:"", address:"", idNo:"", education:"", yearsExp:"", radius:"", bio:"", culturalExp:"",
   });
+
+  useEffect(() => {
+    getPricingConfig().then(cfg => {
+      if (cfg.plans) {
+        const loaded = Object.values(cfg.plans);
+        if (loaded.length > 0) setPlans(loaded);
+      }
+    }).catch(() => {});
+  }, []);
 
   const upd = (f,v) => setForm(p=>({...p,[f]:v}));
 
@@ -311,11 +326,11 @@ export default function HCAApply() {
 
   const canCurrent = [can0,can1,can2,can3,true][step];
 
-  function next() {
+  async function next() {
     if (!canCurrent) return;
     if (step===3) {
       try {
-        createHcaApplication({
+        await createHcaApplication({
           fullName:       `${form.fname} ${form.lname}`,
           email:          form.email,
           mobile:         form.mobile,
@@ -334,7 +349,6 @@ export default function HCAApply() {
             year:        c.year,
             fileName:    c.fileName || null,
             fileType:    c.fileType || null,
-            // Store truncated dataUrl for very large files; store full for <1MB
             fileDataUrl: (c.fileSize||0) < 1_000_000 ? (c.fileDataUrl||null) : null,
           })),
           specialisations: care,
@@ -345,7 +359,7 @@ export default function HCAApply() {
           radius:         form.radius,
           bio:            form.bio,
           culturalExp:    form.culturalExp,
-          plan:           PLANS[plan]?.name || "Professional",
+          plan:           plans[plan]?.name || "Professional",
         });
         setApplyErr("");
       } catch(e) {
@@ -547,12 +561,12 @@ export default function HCAApply() {
               <div className="step-sub">Select a subscription to list your profile and receive placement notifications. Upgrade at any time from your dashboard.</div>
 
               <div className="plans-grid">
-                {PLANS.map((p,i)=>(
+                {plans.map((p,i)=>(
                   <div key={p.name} className={`plan-card${plan===i?" selected":""}`} onClick={()=>setPlan(i)}>
-                    <span className="plan-badge" style={{cssText:`${p.badgeCls}`}}>{p.badge}</span>
+                    <span className="plan-badge" style={{cssText:PLAN_BADGE_STYLES[p.name]||PLAN_BADGE_STYLES.Basic}}>{p.badge}</span>
                     <div className="plan-name">{p.name}</div>
-                    <div className="plan-price">{p.price}<span>{p.per}</span></div>
-                    <ul className="plan-feat">{p.feats.map(f=><li key={f}>{f}</li>)}</ul>
+                    <div className="plan-price">KSh {typeof p.price==='number'?p.price.toLocaleString():p.price}<span>{p.per}</span></div>
+                    <ul className="plan-feat">{(p.feats||[]).map(f=><li key={f}>{f}</li>)}</ul>
                   </div>
                 ))}
               </div>

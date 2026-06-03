@@ -130,9 +130,10 @@ export default function AdminMap() {
     } catch { router.replace("/admin/login"); }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const refreshData = useCallback(() => {
-    setMarkers(getAllMapMarkers());
-    setEntities(getAllMapEntities());
+  const refreshData = useCallback(async () => {
+    const [m, e] = await Promise.all([getAllMapMarkers(), getAllMapEntities()]);
+    setMarkers(m);
+    setEntities(e);
   }, []);
 
   // Load Leaflet from CDN
@@ -269,7 +270,7 @@ export default function AdminMap() {
     setSaveMsg("");
   }
 
-  function saveLocation() {
+  async function saveLocation() {
     if (!editPanel?.entity || !editLat || !editLng) return;
     const entity = editPanel.entity;
     const lat = Number(editLat);
@@ -277,17 +278,14 @@ export default function AdminMap() {
     try {
       if (entity.type === "client" || entity.type === "patient") {
         const clientId = entity.type === "client" ? entity.id : entity.parentClientId;
-        updateClientCoords(clientId, lat, lng);
+        await updateClientCoords(clientId, lat, lng);
       } else if (entity.type === "hca") {
-        updateHcaCoords(entity.id, lat, lng);
+        await updateHcaCoords(entity.id, lat, lng);
       }
       setSaveMsg("✓ Location saved.");
-      refreshData();
+      await refreshData();
       setPlaceMode(false);
-      setTimeout(() => {
-        setSaveMsg("");
-        setEditPanel(null);
-      }, 1500);
+      setTimeout(() => { setSaveMsg(""); setEditPanel(null); }, 1500);
     } catch (e) {
       setSaveMsg("⚠ " + e.message);
     }
