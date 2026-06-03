@@ -653,9 +653,10 @@ export default function ClientRegister() {
                     <p><strong>3. Placement Process.</strong> Following account creation, E-Vive will acknowledge the application, call the client, conduct a home visit, confirm the HCA match, and proceed with placement upon receipt of payment.</p>
                     <p><strong>4. Payment.</strong> Placement commences only after payment is received and confirmed by E-Vive admin. Invoices will be issued following the home visit and HCA matching confirmation. Payment reminders will be sent 5 days before due dates.</p>
                     <p><strong>5. Confidentiality.</strong> HCA contact details are managed exclusively through the E-Vive platform. Direct solicitation of HCAs outside the platform is prohibited and may result in account termination and a placement fee penalty.</p>
-                    <p><strong>6. Care Quality.</strong> E-Vive monitors care quality through shift Cardex records, timeliness data, and client feedback.</p>
-                    <p><strong>7. Account Closure.</strong> To close an account, the client must give 14 days written notice. Outstanding payments must be cleared before closure is processed.</p>
-                    <p><strong>8. Data Protection.</strong> Client and patient data is handled in accordance with Kenya&apos;s Data Protection Act 2019. Personal information is not shared with third parties without consent.</p>
+                    <p><strong>6. Non-Solicitation (24 months).</strong> You agree not to directly hire, contract, or arrange private care with any E-Vive HCA introduced to you through this platform for a period of <strong>24 months</strong> after you cease to be an active E-Vive client or after the conclusion of any E-Vive-managed placement. Violation attracts a penalty of <strong>3 months&apos; worth of monthly care fees</strong>.</p>
+                    <p><strong>7. Care Quality.</strong> E-Vive monitors care quality through shift Cardex records, timeliness data, and client feedback.</p>
+                    <p><strong>8. Account Closure.</strong> To close an account, the client must give 14 days written notice. Outstanding payments must be cleared before closure is processed.</p>
+                    <p><strong>9. Data Protection.</strong> Client and patient data is handled in accordance with Kenya&apos;s Data Protection Act 2019. Personal information is not shared with third parties without consent.</p>
                   </div>
                   <label className="tc-accept">
                     <input type="checkbox" checked={tcAccepted} onChange={e => setTcAccepted(e.target.checked)} />

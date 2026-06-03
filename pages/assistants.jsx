@@ -281,7 +281,7 @@ export default function AssistantsPage() {
             <h1>Build a Career <span>You Are Proud Of</span></h1>
             <p>Join Kenya&apos;s leading homecare platform. Get matched with clients near you, manage your shifts digitally, and grow your career.</p>
             <div className="ast-hero-btns">
-              <Link href="/hca/apply" className="btn-p">Apply Now - It&apos;s Free →</Link>
+              <Link href="/hca/apply" className="btn-p">Apply Now!</Link>
             </div>
           </div>
           <div className="ast-hero-card">

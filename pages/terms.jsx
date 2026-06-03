@@ -70,7 +70,7 @@ export default function TermsPage() {
           <div className="stag gold" style={{ marginBottom: 16 }}>Legal</div>
           <h1>Terms of Use</h1>
           <p>The rules and conditions that govern your use of the E-Vive platform, website, and services.</p>
-          <div className="legal-updated">Last updated: 1 January 2025</div>
+          <div className="legal-updated">Last updated: June 2026</div>
         </div>
       </section>
 
@@ -88,8 +88,9 @@ export default function TermsPage() {
             <li><a href="#ip">8. Intellectual Property</a></li>
             <li><a href="#liability">9. Limitation of Liability</a></li>
             <li><a href="#termination">10. Termination</a></li>
-            <li><a href="#governing">11. Governing Law</a></li>
-            <li><a href="#contact">12. Contact</a></li>
+            <li><a href="#noncompete">11. Non-Compete &amp; Non-Solicitation</a></li>
+            <li><a href="#governing">12. Governing Law</a></li>
+            <li><a href="#contact">13. Contact</a></li>
           </ol>
         </div>
 
@@ -134,6 +135,7 @@ export default function TermsPage() {
             <li>Ensure the care environment is safe for the HCA to work in.</li>
             <li>Pay invoices by the agreed due date. Late payment may result in suspension of the placement.</li>
             <li>Give reasonable notice (minimum 48 hours) for cancellation of a placement, except in genuine emergency situations.</li>
+            <li><strong>Non-solicitation obligation:</strong> You agree not to directly hire, contract, or engage in any private care arrangement with any HCA introduced to you through the E-Vive platform for a period of <strong>24 months</strong> after you cease to be an active E-Vive client or after the conclusion of any E-Vive-managed placement — whichever is later. This obligation applies regardless of how or where the engagement takes place.</li>
           </ul>
         </div>
 
@@ -147,6 +149,7 @@ export default function TermsPage() {
             <li>Clock in and out using the GPS-verified system for every shift.</li>
             <li>Maintain patient confidentiality at all times. You must not disclose any information about a patient or their family outside the E-Vive platform without explicit consent.</li>
             <li>Report any incident, concern, or safeguarding issue immediately to E-Vive&apos;s Clinical Quality team.</li>
+            <li><strong>Non-compete obligation:</strong> You agree not to directly provide care services to, or accept private employment from, any client or patient introduced to you through the E-Vive platform for a period of <strong>24 months</strong> after you leave the E-Vive network or after the conclusion of any E-Vive-managed placement with that client — whichever is later. This restriction applies regardless of how the private arrangement is initiated.</li>
           </ul>
         </div>
 
@@ -190,13 +193,39 @@ export default function TermsPage() {
           <p>Upon termination, your access to the platform will be suspended. Data will be retained in line with our <Link href="/privacy">Privacy Policy</Link>.</p>
         </div>
 
+        <div className="legal-sec" id="noncompete">
+          <h2>11. Non-Compete &amp; Non-Solicitation</h2>
+          <p>This section sets out the obligations of both Clients and HCAs to protect E-Vive&apos;s business relationships and proprietary matching services.</p>
+
+          <div className="legal-highlight">
+            <strong>HCA Restriction (24 months):</strong> An HCA who leaves the E-Vive network — whether voluntarily, through suspension, or by non-renewal — may not directly provide care services to, or accept private employment from, any Client or patient they were introduced to through the E-Vive platform for a period of <strong>24 months</strong> from the date of departure or the conclusion of their last E-Vive-managed placement, whichever is later.
+          </div>
+
+          <div className="legal-highlight">
+            <strong>Client Restriction (24 months):</strong> A Client who ceases to use E-Vive services may not directly hire, contract, or engage in any private care arrangement with any HCA introduced to them through the E-Vive platform for a period of <strong>24 months</strong> from the date they cease to be an active E-Vive client or from the conclusion of their last E-Vive-managed placement, whichever is later.
+          </div>
+
+          <p>These restrictions apply:</p>
+          <ul>
+            <li>Regardless of whether the private arrangement is initiated by the Client, the HCA, or a third party.</li>
+            <li>To direct employment, informal care arrangements, sub-contracting, and any other form of private engagement.</li>
+            <li>Even if the HCA or Client claims the relationship arose independently of E-Vive — the burden of proof lies with the party seeking to demonstrate independence.</li>
+          </ul>
+
+          <div className="legal-highlight" style={{borderColor:"rgba(244,63,94,0.3)",background:"rgba(244,63,94,0.05)"}}>
+            <strong style={{color:"#b91c1c"}}>Penalty for Non-Compliance:</strong> Any Client or HCA found to have violated this non-compete or non-solicitation clause shall be liable to pay E-Vive a penalty equivalent to <strong>three (3) months&apos; worth of the applicable monthly care fee</strong> for the placement or care arrangement in question. This penalty is in addition to — and does not replace — E-Vive&apos;s right to seek injunctive relief or damages under Kenyan law. The applicable monthly care fee shall be calculated at E-Vive&apos;s standard live-in care rate in effect at the time of the breach, unless a higher agreed rate was in place.
+          </div>
+
+          <p>E-Vive reserves the right to pursue recovery of this penalty through the courts of Kenya and to blacklist the offending party from the platform indefinitely.</p>
+        </div>
+
         <div className="legal-sec" id="governing">
-          <h2>11. Governing Law</h2>
+          <h2>12. Governing Law</h2>
           <p>These Terms are governed by the laws of Kenya. Any dispute arising from these Terms shall be referred first to mediation under the Nairobi Centre for International Arbitration rules. If mediation fails, disputes shall be resolved in the courts of Kenya.</p>
         </div>
 
         <div className="legal-sec" id="contact">
-          <h2>12. Contact</h2>
+          <h2>13. Contact</h2>
           <p>For questions about these Terms of Use:</p>
           <ul>
             <li><strong>Email:</strong> <a href="mailto:hello@e-vive.co.ke">hello@e-vive.co.ke</a></li>

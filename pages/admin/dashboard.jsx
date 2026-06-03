@@ -64,6 +64,8 @@ import {
   updateHubReferral,
   getHubAccessRequests,
   updateHubAccessRequest,
+  setClientSession,
+  setHcaSession,
 } from "../../lib/store";
 
 const CSS = `
@@ -86,14 +88,14 @@ const CSS = `
 
   /* Modal overlay */
   .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:200; display:flex; align-items:center; justify-content:center; padding:20px; }
-  .modal-box { background:#14182a; border:1px solid rgba(168,0,64,0.2); border-radius:22px; padding:32px; max-width:580px; width:100%; max-height:90vh; overflow-y:auto; box-shadow:0 24px 80px rgba(0,0,0,0.5); }
-  .modal-title { font-family:var(--serif); font-size:20px; font-weight:700; margin-bottom:20px; }
+  .modal-box { background:#fff; border:1px solid rgba(0,74,153,0.14); border-radius:22px; padding:32px; max-width:580px; width:100%; max-height:90vh; overflow-y:auto; box-shadow:0 24px 80px rgba(0,0,0,0.18); color:#0F2035; }
+  .modal-title { font-family:var(--serif); font-size:20px; font-weight:700; margin-bottom:20px; color:#0F2035; }
   .modal-field { margin-bottom:16px; }
-  .modal-label { font-size:11px; color:var(--muted); font-family:var(--mono); letter-spacing:0.5px; text-transform:uppercase; margin-bottom:7px; display:block; }
-  .modal-input { width:100%; background:rgba(255,255,255,0.05); border:1px solid rgba(168,0,64,0.18); border-radius:10px; padding:11px 14px; color:var(--text); font-family:var(--sans); font-size:14px; outline:none; box-sizing:border-box; }
-  .modal-input:focus { border-color:var(--mint); }
-  .modal-sel { width:100%; background:#14182a; border:1px solid rgba(168,0,64,0.18); border-radius:10px; padding:11px 14px; color:var(--text); font-family:var(--sans); font-size:14px; outline:none; box-sizing:border-box; }
-  .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:24px; }
+  .modal-label { font-size:11px; color:#5A7080; font-family:var(--mono); letter-spacing:0.5px; text-transform:uppercase; margin-bottom:7px; display:block; }
+  .modal-input { width:100%; background:#f4f7fb; border:1.5px solid rgba(0,74,153,0.18); border-radius:10px; padding:11px 14px; color:#0F2035; font-family:var(--sans); font-size:14px; outline:none; box-sizing:border-box; }
+  .modal-input:focus { border-color:var(--jade); box-shadow:0 0 0 3px rgba(0,74,153,0.08); }
+  .modal-sel { width:100%; background:#f4f7fb; border:1.5px solid rgba(0,74,153,0.18); border-radius:10px; padding:11px 14px; color:#0F2035; font-family:var(--sans); font-size:14px; outline:none; box-sizing:border-box; }
+  .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:24px; border-top:1px solid rgba(0,74,153,0.08); padding-top:20px; }
 
   /* Calendar */
   .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
@@ -265,7 +267,7 @@ function ClientModal({ client, hcaProfiles, onClose, onRefresh }) {
       <div className="modal-box">
         <div className="modal-title">Manage Client: {client.name}</div>
 
-        <div style={{background:"rgba(0,74,153,0.07)",border:"1px solid rgba(0,74,153,0.18)",borderRadius:12,padding:"12px 16px",marginBottom:20,fontSize:13,color:"var(--muted)"}}>
+        <div style={{background:"#f4f7fb",border:"1px solid rgba(0,74,153,0.14)",borderRadius:12,padding:"12px 16px",marginBottom:20,fontSize:13,color:"#0F2035"}}>
           <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
             <span>📍 {client.location || "—"}</span>
             <span>👥 {(client.patients||[]).length} patient{(client.patients||[]).length!==1?"s":""}</span>
@@ -344,7 +346,7 @@ function ClientModal({ client, hcaProfiles, onClose, onRefresh }) {
         )}
 
         {msg && (
-          <div style={{background:"rgba(0,74,153,0.1)",border:"1px solid rgba(0,74,153,0.2)",borderRadius:10,padding:"10px 14px",fontSize:13,color:"var(--mint)",marginBottom:12}}>
+          <div style={{background: msg.startsWith("⚠") ? "rgba(244,63,94,0.07)" : "rgba(132,189,96,0.1)", border:`1px solid ${msg.startsWith("⚠") ? "rgba(244,63,94,0.3)" : "rgba(132,189,96,0.35)"}`, borderRadius:10,padding:"10px 14px",fontSize:13,color:msg.startsWith("⚠") ? "#c0392b" : "#2d7a1f",marginBottom:12,fontWeight:500}}>
             {msg}
           </div>
         )}
@@ -384,7 +386,7 @@ function HcaApproveModal({ app, onClose, onRefresh }) {
         rate:          Number(rate),
         rateSetAt:     new Date().toISOString(),
       });
-      await updateHcaApplication(app.id, { status: "approved", approvedAt: new Date().toISOString(), profileId: profile.id });
+      await updateHcaApplication(app.id, { status: "approved" });
       setMsg(`✓ ${profile.name} approved as ${profile.employeeId}.`);
       setTimeout(() => { onRefresh(); onClose(); }, 900);
     } catch (e) {
@@ -405,9 +407,9 @@ function HcaApproveModal({ app, onClose, onRefresh }) {
         <div className="modal-title">Review Application: {app.fullName || app.name}</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
           {[["Email",app.email||"—"],["Mobile",app.mobile||"—"],["Cert Level",app.certLevel||"—"],["Years Exp",app.yearsExp||"—"],["County",app.county||"—"],["Applied",fmtShort(app.appliedAt)]].map(([l,v])=>(
-            <div key={l} style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:10,padding:"10px 14px"}}>
-              <div style={{fontSize:10,color:"var(--muted)",fontFamily:"var(--mono)",marginBottom:3}}>{l}</div>
-              <div style={{fontSize:13,fontWeight:600}}>{v}</div>
+            <div key={l} style={{background:"#f4f7fb",border:"1px solid rgba(0,74,153,0.12)",borderRadius:10,padding:"10px 14px"}}>
+              <div style={{fontSize:10,color:"#5A7080",fontFamily:"var(--mono)",marginBottom:3,textTransform:"uppercase",letterSpacing:"0.5px"}}>{l}</div>
+              <div style={{fontSize:13,fontWeight:600,color:"#0F2035"}}>{v}</div>
             </div>
           ))}
         </div>
@@ -415,9 +417,9 @@ function HcaApproveModal({ app, onClose, onRefresh }) {
           <label className="modal-label">Set HCA Rate (KES/shift)</label>
           <input type="number" className="modal-input" value={rate} onChange={e=>setRate(e.target.value)} min={500} />
         </div>
-        {msg && <div style={{background:"rgba(0,74,153,0.1)",border:"1px solid rgba(0,74,153,0.2)",borderRadius:10,padding:"10px 14px",fontSize:13,color:"var(--mint)",marginBottom:12}}>{msg}</div>}
+        {msg && <div style={{background: msg.startsWith("⚠") ? "rgba(244,63,94,0.07)" : "rgba(132,189,96,0.1)", border:`1px solid ${msg.startsWith("⚠") ? "rgba(244,63,94,0.3)" : "rgba(132,189,96,0.35)"}`, borderRadius:10,padding:"10px 14px",fontSize:13,color:msg.startsWith("⚠") ? "#c0392b" : "#2d7a1f",marginBottom:12,fontWeight:500}}>{msg}</div>}
         <div className="modal-actions">
-          <button onClick={reject} style={{padding:"8px 16px",borderRadius:10,border:"1px solid rgba(249,112,102,0.3)",background:"transparent",color:"var(--coral)",fontSize:13,cursor:"pointer",fontFamily:"var(--sans)"}}>Reject</button>
+          <button onClick={reject} style={{padding:"8px 16px",borderRadius:10,border:"1px solid rgba(244,63,94,0.35)",background:"rgba(244,63,94,0.05)",color:"#c0392b",fontSize:13,cursor:"pointer",fontFamily:"var(--sans)",fontWeight:600}}>Reject</button>
           <button className="btn-o btn-sm" onClick={onClose}>Cancel</button>
           <button className="btn-p btn-sm" onClick={approve} disabled={saving}>{saving?"Saving…":"Approve & Set Rate"}</button>
         </div>
@@ -1355,7 +1357,7 @@ export default function AdminDashboard() {
                             <td style={{fontFamily:"var(--mono)",fontSize:12,color:"var(--amber)"}}>{h.rate ? h.rate.toLocaleString() : "—"}</td>
                             <td><span className={`badge ${h.status==="active"?"badge-mint":"badge-dim"}`}>{h.status}</span></td>
                             <td>
-                              <div style={{display:"flex",gap:6}}>
+                              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                                 <button className="btn-p btn-sm" onClick={()=>setEditHcaModal(h)}>Edit</button>
                                 <button className="btn-o btn-sm" onClick={async ()=>{
                                   const newStatus = h.status === "active" ? "inactive" : "active";
@@ -1364,6 +1366,10 @@ export default function AdminDashboard() {
                                 }}>
                                   {h.status === "active" ? "Deactivate" : "Activate"}
                                 </button>
+                                <button className="btn-sky btn-sm" title="Log in as this HCA" onClick={()=>{
+                                  setHcaSession({ id:h.id, name:h.name, email:h.email, employeeId:h.employeeId });
+                                  window.open("/hca/dashboard","_blank");
+                                }}>🔐 Login as</button>
                               </div>
                             </td>
                           </tr>
@@ -1431,6 +1437,10 @@ export default function AdminDashboard() {
                                   <button className="btn-p btn-sm" onClick={()=>setClientModal(c)}>Manage</button>
                                   <button className="btn-o btn-sm" onClick={()=>setEditClientModal(c)}>Edit</button>
                                   <button className="btn-o btn-sm" onClick={()=>setEditClientLoc(c)} title="Edit map location">📍</button>
+                                  <button className="btn-sky btn-sm" title="Log in as this client" onClick={()=>{
+                                    setClientSession({ id:c.id, name:c.name, email:c.email, mobile:c.mobile });
+                                    window.open("/client/dashboard","_blank");
+                                  }}>🔐 Login as</button>
                                 </div>
                               </td>
                             </tr>

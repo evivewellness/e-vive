@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { BASE_CSS } from "../../components/SharedStyles";
-import { createHcaApplication, getPricingConfig } from "../../lib/store";
+import { createHcaApplication } from "../../lib/store";
 
 /* ─── Light-theme CSS ─────────────────────────────────────────────────────── */
 const CSS = `
@@ -152,21 +152,24 @@ const CSS = `
   }
   .info-box.amber { background:rgba(240,169,139,0.08); border-color:rgba(232,132,90,0.2); }
 
-  /* Plans */
-  .plans-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:22px; }
-  .plan-card  {
-    border-radius:18px; padding:22px; cursor:pointer; transition:all 0.28s;
-    border:2px solid rgba(0,74,153,0.12); background:#fff;
+  /* Plan */
+  .plan-single {
+    border-radius:18px; padding:28px 24px; border:2px solid var(--jade);
+    background:rgba(0,74,153,0.04); margin-bottom:22px;
+    box-shadow:0 0 0 3px rgba(0,74,153,0.08);
   }
-  .plan-card:hover   { border-color:rgba(0,74,153,0.3); transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,74,153,0.1); }
-  .plan-card.selected { border-color:var(--jade); background:rgba(0,74,153,0.04); box-shadow:0 0 0 3px rgba(0,74,153,0.1); }
-  .plan-badge { display:inline-block; font-size:10px; font-weight:700; font-family:var(--mono); padding:2px 8px; border-radius:100px; margin-bottom:8px; }
-  .plan-name  { font-family:var(--serif); font-size:17px; font-weight:700; margin-bottom:4px; }
-  .plan-price { font-family:var(--serif); font-size:24px; font-weight:700; color:var(--jade); margin-bottom:10px; }
-  .plan-price span { font-family:var(--sans); font-size:12px; color:var(--muted); font-weight:400; }
-  .plan-feat  { font-size:12px; color:var(--muted); line-height:2; }
+  .plan-badge { display:inline-block; font-size:10px; font-weight:700; font-family:var(--mono); padding:2px 8px; border-radius:100px; margin-bottom:8px; background:rgba(132,189,96,0.15); color:#3a7d1c; }
+  .plan-name  { font-family:var(--serif); font-size:20px; font-weight:700; margin-bottom:4px; }
+  .plan-price { font-family:var(--serif); font-size:28px; font-weight:700; color:var(--jade); margin-bottom:14px; }
+  .plan-price span { font-family:var(--sans); font-size:13px; color:var(--muted); font-weight:400; }
+  .plan-feat  { font-size:13px; color:var(--muted); line-height:2.1; }
   .plan-feat li { list-style:none; display:flex; gap:6px; }
   .plan-feat li::before { content:"✓"; color:var(--mint); font-weight:700; }
+  .pay-later-note {
+    background:rgba(240,169,139,0.1); border:1.5px solid rgba(232,132,90,0.25);
+    border-radius:12px; padding:14px 16px; font-size:13px; color:var(--muted);
+    line-height:1.7; margin-bottom:16px;
+  }
 
   /* Success */
   .success-box { text-align:center; padding:12px 0; }
@@ -197,17 +200,9 @@ const PERIOD_OPTS= ["Short Term (1–2 weeks)","Long Term (2 weeks+)","Both"];
 const TRAVEL_OPTS= ["Local Travel Only","International (with travel docs)"];
 const LOCATIONS  = ["Nairobi CBD","Westlands","Karen","Kilimani","Kileleshwa","Lavington","Langata","Eastlands","Kasarani","Thika Road","Mombasa","Kisumu","Nakuru","Eldoret","Nyeri","Other"];
 const RADIUS_OPTS= ["5 km","10 km","15 km","20 km","25 km","30 km","40 km+"];
-const PLAN_BADGE_STYLES = {
-  Basic:        "background:rgba(0,74,153,0.1);color:var(--jade)",
-  Professional: "background:rgba(132,189,96,0.15);color:#3a7d1c",
-  Premium:      "background:rgba(232,132,90,0.15);color:#b84c1f",
-};
-const DEFAULT_PLANS = [
-  { name:"Basic",        badge:"Starter",   price:75,  per:"/month", feats:["Search listing","1 active placement","Basic profile","Email support"] },
-  { name:"Professional", badge:"Popular ★", price:100, per:"/month", feats:["Priority listing","3 placements","Certificate badges","WhatsApp support","Training access"] },
-  { name:"Premium",      badge:"Top Tier",  price:150, per:"/month", feats:["Top-of-search placement","Unlimited placements","Verified badge","Dedicated HCA manager","International eligible"] },
-];
-const STEP_LABELS = ["Personal","Professional","Skills","Subscription","Done"];
+const LISTING_FEE = { price: 100, per: "/month", feats: ["Profile listed on E-Vive platform","Placement match notifications","Training Hub access","WhatsApp & email support","Certificate badge on profile"] };
+const STEP_LABELS = ["Personal","Professional","Skills","Review & Submit","Done"];
+const MAX_DOB = new Date().toISOString().split("T")[0];
 
 function toggle(arr, v) { return arr.includes(v) ? arr.filter(x=>x!==v) : [...arr,v]; }
 function fmtBytes(n) { if(n<1024)return `${n}B`; if(n<1048576)return `${(n/1024).toFixed(1)}KB`; return `${(n/1048576).toFixed(1)}MB`; }
@@ -287,8 +282,6 @@ function CertUploadZone({ cert, certIdx, onChange }) {
 /* ─── Main component ─────────────────────────────────────────────────────────  */
 export default function HCAApply() {
   const [step,   setStep]   = useState(0);
-  const [plan,   setPlan]   = useState(1);
-  const [plans,  setPlans]  = useState(DEFAULT_PLANS);
   const [care,   setCare]   = useState([]);
   const [langs,  setLangs]  = useState([]);
   const [shifts, setShifts] = useState([]);
@@ -301,15 +294,6 @@ export default function HCAApply() {
     location:"", address:"", idNo:"", education:"", yearsExp:"", radius:"", bio:"", culturalExp:"",
   });
 
-  useEffect(() => {
-    getPricingConfig().then(cfg => {
-      if (cfg.plans) {
-        const loaded = Object.values(cfg.plans);
-        if (loaded.length > 0) setPlans(loaded);
-      }
-    }).catch(() => {});
-  }, []);
-
   const upd = (f,v) => setForm(p=>({...p,[f]:v}));
 
   function updateCert(idx, newCert) {
@@ -320,7 +304,7 @@ export default function HCAApply() {
   }
 
   const can0 = !!(form.fname&&form.lname&&form.dob&&form.gender&&form.mobile&&form.email&&form.location&&form.idNo);
-  const can1 = !!(form.education&&form.yearsExp&&certs[0]?.name);
+  const can1 = !!(form.education&&form.yearsExp&&certs[0]?.name&&certs[0]?.fileName);
   const can2 = !!(care.length>0&&langs.length>0&&shifts.length>0&&form.radius);
   const can3 = true;
 
@@ -344,12 +328,12 @@ export default function HCAApply() {
           yearsExp:       Number(form.yearsExp) || 0,
           certLevel:      certs[0]?.name || "HCA",
           certifications: certs.map(c => ({
-            name:        c.name,
-            issuer:      c.issuer,
-            year:        c.year,
-            fileName:    c.fileName || null,
-            fileType:    c.fileType || null,
-            fileDataUrl: (c.fileSize||0) < 1_000_000 ? (c.fileDataUrl||null) : null,
+            name:     c.name,
+            issuer:   c.issuer,
+            year:     c.year,
+            fileName: c.fileName || null,
+            fileType: c.fileType || null,
+            fileSize: c.fileSize || 0,
           })),
           specialisations: care,
           languages:      langs,
@@ -359,11 +343,11 @@ export default function HCAApply() {
           radius:         form.radius,
           bio:            form.bio,
           culturalExp:    form.culturalExp,
-          plan:           plans[plan]?.name || "Professional",
+          plan:           "Review and Listing Fee",
         });
         setApplyErr("");
       } catch(e) {
-        setApplyErr(e.message || "Application failed. Please try again.");
+        setApplyErr(e?.message || "Application submission failed. Please try again.");
         return;
       }
     }
@@ -418,8 +402,8 @@ export default function HCAApply() {
                 <div className="frg"><label className="fl">First Name <span className="req">*</span></label><input className="fi" placeholder="Jane" value={form.fname} onChange={e=>upd("fname",e.target.value)} /></div>
                 <div className="frg"><label className="fl">Last Name <span className="req">*</span></label><input className="fi" placeholder="Wanjiku" value={form.lname} onChange={e=>upd("lname",e.target.value)} /></div>
               </div>
-              <div className="fr3">
-                <div className="frg"><label className="fl">Date of Birth <span className="req">*</span></label><input className="fi" type="date" value={form.dob} onChange={e=>upd("dob",e.target.value)} /></div>
+              <div className="frg"><label className="fl">Date of Birth <span className="req">*</span></label><input className="fi" type="date" max={MAX_DOB} value={form.dob} onChange={e=>upd("dob",e.target.value)} style={{display:"block",width:"100%"}} /></div>
+              <div className="fr2">
                 <div className="frg">
                   <label className="fl">Gender <span className="req">*</span></label>
                   <select className="fsel" value={form.gender} onChange={e=>upd("gender",e.target.value)}>
@@ -503,7 +487,7 @@ export default function HCAApply() {
               </button>
 
               <div className="info-box" style={{marginTop:14}}>
-                📋 Certifications must be updated every <strong style={{color:"var(--jade)"}}>6 months</strong>. Expired or unverified certificates trigger a profile hold until renewed.
+                📎 <strong style={{color:"var(--jade)"}}>Upload required:</strong> You must upload a certificate file (PDF or image) for at least your first certification to proceed. Certifications must be renewed every <strong style={{color:"var(--jade)"}}>6 months</strong>.
               </div>
             </>
           )}
@@ -554,37 +538,39 @@ export default function HCAApply() {
             </>
           )}
 
-          {/* ── STEP 3: Subscription ── */}
+          {/* ── STEP 3: Review & Submit ── */}
           {step===3 && (
             <>
-              <div className="step-title">Choose Your Plan</div>
-              <div className="step-sub">Select a subscription to list your profile and receive placement notifications. Upgrade at any time from your dashboard.</div>
+              <div className="step-title">Review &amp; Submit Application</div>
+              <div className="step-sub">Submit your application now. Our admin team will review it and contact you with payment instructions before your profile goes live.</div>
 
-              <div className="plans-grid">
-                {plans.map((p,i)=>(
-                  <div key={p.name} className={`plan-card${plan===i?" selected":""}`} onClick={()=>setPlan(i)}>
-                    <span className="plan-badge" style={{cssText:PLAN_BADGE_STYLES[p.name]||PLAN_BADGE_STYLES.Basic}}>{p.badge}</span>
-                    <div className="plan-name">{p.name}</div>
-                    <div className="plan-price">KSh {typeof p.price==='number'?p.price.toLocaleString():p.price}<span>{p.per}</span></div>
-                    <ul className="plan-feat">{(p.feats||[]).map(f=><li key={f}>{f}</li>)}</ul>
-                  </div>
-                ))}
+              <div className="plan-single">
+                <span className="plan-badge">Review &amp; Listing</span>
+                <div className="plan-name">Review and Listing Fee</div>
+                <div className="plan-price">KSh {LISTING_FEE.price.toLocaleString()}<span>{LISTING_FEE.per}</span></div>
+                <ul className="plan-feat">
+                  {LISTING_FEE.feats.map(f=><li key={f}>{f}</li>)}
+                </ul>
+              </div>
+
+              <div className="pay-later-note">
+                💡 <strong style={{color:"var(--gold)"}}>Pay after review —</strong> you do <strong>not</strong> need to pay now. Submit your application first. Once E-Vive admin completes the review and interview, you will receive a payment link via email and WhatsApp. Your profile goes live after payment is confirmed.
               </div>
 
               <div style={{background:"rgba(0,74,153,0.04)",border:"1.5px solid rgba(0,74,153,0.12)",borderRadius:16,padding:"18px 20px",marginBottom:16}}>
-                <div style={{fontWeight:700,fontSize:14,marginBottom:12}}>💳 Payment Options</div>
+                <div style={{fontWeight:700,fontSize:14,marginBottom:12}}>💳 Payment Options (after review)</div>
                 <div className="fr2">
-                  <div style={{padding:"14px 16px",background:"#fff",border:"1.5px solid rgba(0,74,153,0.15)",borderRadius:12,cursor:"pointer",transition:"all 0.2s"}}>
+                  <div style={{padding:"14px 16px",background:"#fff",border:"1.5px solid rgba(0,74,153,0.15)",borderRadius:12}}>
                     <div style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>📱 M-Pesa STK Push</div>
                     <div style={{fontSize:12,color:"var(--muted)",marginTop:3}}>Enter number → receive push → confirm</div>
                   </div>
-                  <div style={{padding:"14px 16px",background:"#fff",border:"1.5px solid rgba(0,74,153,0.15)",borderRadius:12,cursor:"pointer",transition:"all 0.2s"}}>
+                  <div style={{padding:"14px 16px",background:"#fff",border:"1.5px solid rgba(0,74,153,0.15)",borderRadius:12}}>
                     <div style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>💳 Card Payment</div>
                     <div style={{fontSize:12,color:"var(--muted)",marginTop:3}}>Visa / Mastercard accepted</div>
                   </div>
                 </div>
               </div>
-              <div className="info-box">🔒 Your application is reviewed within <strong style={{color:"var(--jade)"}}>2 business days</strong>. You&apos;ll receive an interview invitation by email once approved.</div>
+              <div className="info-box">🔒 Your application is reviewed within <strong style={{color:"var(--jade)"}}>2 business days</strong>. You&apos;ll receive an interview invitation and payment instructions by email.</div>
             </>
           )}
 
@@ -603,8 +589,8 @@ export default function HCAApply() {
                   "Application acknowledged by E-Vive Admin",
                   "Interview scheduled (video or in-person)",
                   "Certificate & ID verification completed",
-                  "Contract issued for digital signing",
-                  "Profile goes live — receive placement notifications",
+                  "Payment link sent — Review & Listing Fee (KSh 100/month)",
+                  "Profile goes live once payment is confirmed — receive placement notifications",
                 ].map((s,i)=>(
                   <div key={i} style={{display:"flex",gap:12,padding:"9px 0",borderBottom:i<4?"1px solid rgba(0,74,153,0.07)":"none",fontSize:13,color:"var(--muted)",alignItems:"flex-start"}}>
                     <span style={{width:22,height:22,borderRadius:50,background:"var(--jade)",color:"#fff",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>{i+1}</span>
