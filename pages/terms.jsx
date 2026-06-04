@@ -149,6 +149,7 @@ export default function TermsPage() {
             <li>Clock in and out using the GPS-verified system for every shift.</li>
             <li>Maintain patient confidentiality at all times. You must not disclose any information about a patient or their family outside the E-Vive platform without explicit consent.</li>
             <li>Report any incident, concern, or safeguarding issue immediately to E-Vive&apos;s Clinical Quality team.</li>
+            <li><strong>Smartphone &amp; internet access:</strong> You must maintain a working smartphone and reliable mobile internet access for the duration of your engagement on the E-Vive platform. These are required to clock in and out via GPS, submit Cardex reports in real time, receive placement notifications, and communicate with E-Vive coordinators and clients. Failure to maintain adequate device or connectivity standards may result in suspension from the platform.</li>
             <li><strong>Non-compete obligation:</strong> You agree not to directly provide care services to, or accept private employment from, any client or patient introduced to you through the E-Vive platform for a period of <strong>24 months</strong> after you leave the E-Vive network or after the conclusion of any E-Vive-managed placement with that client — whichever is later. This restriction applies regardless of how the private arrangement is initiated.</li>
           </ul>
         </div>

@@ -66,6 +66,7 @@ import {
   updateHubAccessRequest,
   setClientSession,
   setHcaSession,
+  generateInitialPassword,
 } from "../../lib/store";
 
 const CSS = `
@@ -366,29 +367,44 @@ function ClientModal({ client, hcaProfiles, onClose, onRefresh }) {
 
 // ─── HCA approve modal ─────────────────────────────────────────────────────────
 function HcaApproveModal({ app, onClose, onRefresh }) {
-  const [rate,   setRate]   = useState(2000);
-  const [saving, setSaving] = useState(false);
-  const [msg,    setMsg]    = useState("");
+  const [rate,      setRate]      = useState(1000);
+  const [saving,    setSaving]    = useState(false);
+  const [msg,       setMsg]       = useState("");
+  const [approved,  setApproved]  = useState(false);
+  const [initPwd,   setInitPwd]   = useState("");
+  const [empId,     setEmpId]     = useState("");
+  const [certIdx,   setCertIdx]   = useState(0);
+
+  const fd    = app.formData || {};
+  const certs = fd.certifications || [];
+  const photo = fd.profilePhoto || null;
 
   async function approve() {
     setSaving(true);
+    const pwd = generateInitialPassword();
     try {
       const profile = await createHcaProfile({
-        applicationId: app.id,
-        name:          app.fullName || app.name,
-        email:         app.email,
-        password:      app.password || "",  // HCA must set password via first-login flow
-        mobile:        app.mobile,
-        certLevel:     app.certLevel || "HCA",
-        yearsExp:      app.yearsExp || 0,
-        specialisations: app.specialisations || [],
-        county:        app.county || "",
-        rate:          Number(rate),
-        rateSetAt:     new Date().toISOString(),
+        applicationId:   app.id,
+        name:            app.fullName || app.name,
+        email:           app.email,
+        password:        pwd,
+        mobile:          app.mobile,
+        certLevel:       app.certLevel || certs[0]?.name || "HCA",
+        yearsExp:        app.yearsExp || 0,
+        specialisations: app.specialisations || fd.specialisations || [],
+        county:          app.county || "",
+        rate:            Number(rate),
+        rateSetAt:       new Date().toISOString(),
+        gender:          fd.gender || "Not specified",
+        languages:       fd.languages || ["English","Kiswahili"],
+        shiftPreferences: fd.shiftTypes || ["Day Shift"],
+        bio:             app.bio || fd.bio || "",
       });
       await updateHcaApplication(app.id, { status: "approved" });
-      setMsg(`✓ ${profile.name} approved as ${profile.employeeId}.`);
-      setTimeout(() => { onRefresh(); onClose(); }, 900);
+      setInitPwd(pwd);
+      setEmpId(profile.employeeId);
+      setApproved(true);
+      onRefresh();
     } catch (e) {
       setMsg("⚠ " + (e.message||"Error"));
       setSaving(false);
@@ -401,28 +417,140 @@ function HcaApproveModal({ app, onClose, onRefresh }) {
     onClose();
   }
 
+  const mailtoLink = () => {
+    const subject = encodeURIComponent("Welcome to E-Vive — Your Application Has Been Approved");
+    const body = encodeURIComponent(
+`Dear ${app.fullName || app.name},
+
+Congratulations! Your HomeCare Assistant application to E-Vive has been approved.
+
+Your Employee ID: ${empId}
+Your Initial Password: ${initPwd}
+
+Please log in at https://e-vive.vercel.app/hca/login using your registered email address and the password above.
+
+You will be prompted to change your password upon first login.
+
+Next step: Pay the Review & Listing Fee (KSh 100/month) to activate your public profile. You will receive a payment link separately.
+
+Welcome to the E-Vive family!
+
+The E-Vive Team
++254 720 053 455 | hello@e-vive.co.ke`
+    );
+    return `mailto:${app.email}?subject=${subject}&body=${body}`;
+  };
+
   return (
     <div className="modal-bg" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal-box">
+      <div className="modal-box" style={{maxWidth:660}}>
         <div className="modal-title">Review Application: {app.fullName || app.name}</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
-          {[["Email",app.email||"—"],["Mobile",app.mobile||"—"],["Cert Level",app.certLevel||"—"],["Years Exp",app.yearsExp||"—"],["County",app.county||"—"],["Applied",fmtShort(app.appliedAt)]].map(([l,v])=>(
-            <div key={l} style={{background:"#f4f7fb",border:"1px solid rgba(0,74,153,0.12)",borderRadius:10,padding:"10px 14px"}}>
-              <div style={{fontSize:10,color:"#5A7080",fontFamily:"var(--mono)",marginBottom:3,textTransform:"uppercase",letterSpacing:"0.5px"}}>{l}</div>
-              <div style={{fontSize:13,fontWeight:600,color:"#0F2035"}}>{v}</div>
+
+        {/* Profile photo + summary row */}
+        <div style={{display:"flex",gap:16,marginBottom:20,alignItems:"flex-start",flexWrap:"wrap"}}>
+          {photo?.fileDataUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={photo.fileDataUrl} alt="Profile" style={{width:80,height:80,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(0,74,153,0.2)",flexShrink:0}} />
+          ) : (
+            <div style={{width:80,height:80,borderRadius:"50%",background:"#f4f7fb",border:"2px solid rgba(0,74,153,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32,flexShrink:0}}>👤</div>
+          )}
+          <div style={{flex:1,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            {[["Email",app.email||"—"],["Mobile",app.mobile||"—"],["Cert Level",app.certLevel||"—"],["Years Exp",app.yearsExp||"—"],["County",app.county||"—"],["Applied",fmtShort(app.appliedAt)],["Smartphone",fd.smartphone||"—"],["Education",fd.education||"—"]].map(([l,v])=>(
+              <div key={l} style={{background:"#f4f7fb",border:"1px solid rgba(0,74,153,0.12)",borderRadius:10,padding:"8px 12px"}}>
+                <div style={{fontSize:10,color:"#5A7080",fontFamily:"var(--mono)",marginBottom:2,textTransform:"uppercase",letterSpacing:"0.5px"}}>{l}</div>
+                <div style={{fontSize:13,fontWeight:600,color:"#0F2035"}}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Bio */}
+        {(app.bio||fd.bio) && (
+          <div style={{background:"#f4f7fb",border:"1px solid rgba(0,74,153,0.12)",borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:13,color:"#0F2035",lineHeight:1.6}}>
+            <div style={{fontSize:10,color:"#5A7080",fontFamily:"var(--mono)",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.5px"}}>Bio</div>
+            {app.bio||fd.bio}
+          </div>
+        )}
+
+        {/* Certificates section */}
+        {certs.length > 0 && (
+          <div style={{marginBottom:20}}>
+            <div style={{fontSize:11,color:"#5A7080",fontFamily:"var(--mono)",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:10}}>Certificates ({certs.length})</div>
+            <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+              {certs.map((c,i)=>(
+                <button key={i} onClick={()=>setCertIdx(i)} style={{padding:"5px 12px",borderRadius:8,fontSize:12,fontFamily:"var(--mono)",border:`1.5px solid ${certIdx===i?"rgba(0,74,153,0.5)":"rgba(0,74,153,0.15)"}`,background:certIdx===i?"rgba(0,74,153,0.08)":"#fff",color:certIdx===i?"#004A99":"#5A7080",cursor:"pointer",fontWeight:certIdx===i?700:400}}>
+                  {c.name||`Cert ${i+1}`}
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
-        <div className="modal-field">
-          <label className="modal-label">Set HCA Rate (KES/shift)</label>
-          <input type="number" className="modal-input" value={rate} onChange={e=>setRate(e.target.value)} min={500} />
-        </div>
-        {msg && <div style={{background: msg.startsWith("⚠") ? "rgba(244,63,94,0.07)" : "rgba(132,189,96,0.1)", border:`1px solid ${msg.startsWith("⚠") ? "rgba(244,63,94,0.3)" : "rgba(132,189,96,0.35)"}`, borderRadius:10,padding:"10px 14px",fontSize:13,color:msg.startsWith("⚠") ? "#c0392b" : "#2d7a1f",marginBottom:12,fontWeight:500}}>{msg}</div>}
-        <div className="modal-actions">
-          <button onClick={reject} style={{padding:"8px 16px",borderRadius:10,border:"1px solid rgba(244,63,94,0.35)",background:"rgba(244,63,94,0.05)",color:"#c0392b",fontSize:13,cursor:"pointer",fontFamily:"var(--sans)",fontWeight:600}}>Reject</button>
-          <button className="btn-o btn-sm" onClick={onClose}>Cancel</button>
-          <button className="btn-p btn-sm" onClick={approve} disabled={saving}>{saving?"Saving…":"Approve & Set Rate"}</button>
-        </div>
+            {certs[certIdx] && (
+              <div style={{background:"#f4f7fb",border:"1px solid rgba(0,74,153,0.12)",borderRadius:12,padding:"14px 16px"}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
+                  {[["Certificate",certs[certIdx].name||"—"],["Issuer",certs[certIdx].issuer||"—"],["Year",certs[certIdx].year||"—"]].map(([l,v])=>(
+                    <div key={l}>
+                      <div style={{fontSize:10,color:"#5A7080",fontFamily:"var(--mono)",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:3}}>{l}</div>
+                      <div style={{fontSize:13,fontWeight:600,color:"#0F2035"}}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+                {certs[certIdx].fileDataUrl ? (
+                  certs[certIdx].fileType?.startsWith("image/") ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={certs[certIdx].fileDataUrl} alt={certs[certIdx].name} style={{maxWidth:"100%",maxHeight:300,borderRadius:8,border:"1px solid rgba(0,74,153,0.15)",display:"block"}} />
+                  ) : (
+                    <a href={certs[certIdx].fileDataUrl} download={certs[certIdx].fileName} style={{display:"inline-flex",alignItems:"center",gap:8,padding:"8px 14px",borderRadius:8,background:"rgba(0,74,153,0.07)",border:"1px solid rgba(0,74,153,0.18)",color:"#004A99",fontSize:13,fontWeight:600,textDecoration:"none"}}>
+                      📄 Download {certs[certIdx].fileName}
+                    </a>
+                  )
+                ) : (
+                  <div style={{fontSize:12,color:"#5A7080",fontStyle:"italic"}}>
+                    📎 {certs[certIdx].fileName ? `${certs[certIdx].fileName} (${(certs[certIdx].fileSize/1024).toFixed(0)} KB — file not stored)` : "No file uploaded"}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Skills summary */}
+        {(fd.languages?.length||fd.shiftTypes?.length||fd.specialisations?.length) ? (
+          <div style={{background:"#f4f7fb",border:"1px solid rgba(0,74,153,0.12)",borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:12,color:"#0F2035",lineHeight:1.8}}>
+            {fd.specialisations?.length ? <div><span style={{fontWeight:700}}>Specialisations:</span> {fd.specialisations.join(", ")}</div> : null}
+            {fd.languages?.length ? <div><span style={{fontWeight:700}}>Languages:</span> {fd.languages.join(", ")}</div> : null}
+            {fd.shiftTypes?.length ? <div><span style={{fontWeight:700}}>Shifts:</span> {fd.shiftTypes.join(", ")}</div> : null}
+          </div>
+        ) : null}
+
+        {!approved ? (
+          <>
+            <div className="modal-field">
+              <label className="modal-label">Set HCA Rate (KES/shift)</label>
+              <input type="number" className="modal-input" value={rate} onChange={e=>setRate(e.target.value)} min={500} placeholder="1000" />
+            </div>
+            {msg && <div style={{background:"rgba(244,63,94,0.07)",border:"1px solid rgba(244,63,94,0.3)",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#c0392b",marginBottom:12,fontWeight:500}}>{msg}</div>}
+            <div className="modal-actions">
+              <button onClick={reject} style={{padding:"8px 16px",borderRadius:10,border:"1px solid rgba(244,63,94,0.35)",background:"rgba(244,63,94,0.05)",color:"#c0392b",fontSize:13,cursor:"pointer",fontFamily:"var(--sans)",fontWeight:600}}>Reject</button>
+              <button className="btn-o btn-sm" onClick={onClose}>Cancel</button>
+              <button className="btn-p btn-sm" onClick={approve} disabled={saving}>{saving?"Saving…":"Approve & Set Rate"}</button>
+            </div>
+          </>
+        ) : (
+          <div style={{background:"rgba(132,189,96,0.08)",border:"1px solid rgba(132,189,96,0.3)",borderRadius:12,padding:"18px 20px"}}>
+            <div style={{fontWeight:700,fontSize:15,color:"#2d7a1f",marginBottom:12}}>✅ {app.fullName||app.name} approved as {empId}</div>
+            <div style={{background:"#fff",border:"1px solid rgba(0,74,153,0.15)",borderRadius:10,padding:"12px 16px",marginBottom:14,fontFamily:"var(--mono)",fontSize:13}}>
+              <div style={{color:"#5A7080",marginBottom:4}}>INITIAL PASSWORD</div>
+              <div style={{fontWeight:700,fontSize:16,color:"#0F2035",letterSpacing:"1px"}}>{initPwd}</div>
+              <div style={{fontSize:11,color:"#5A7080",marginTop:4}}>Copy and include in the email to the HCA. They must change this on first login.</div>
+            </div>
+            <a href={mailtoLink()} style={{display:"inline-flex",alignItems:"center",gap:10,padding:"10px 20px",borderRadius:10,background:"rgba(0,74,153,0.08)",border:"1px solid rgba(0,74,153,0.25)",color:"#004A99",fontSize:13,fontWeight:700,textDecoration:"none",marginBottom:12}}>
+              📧 Open Email to HCA ({app.email})
+            </a>
+            <div style={{fontSize:11,color:"#5A7080",lineHeight:1.6}}>Click the link above to open your email client with the approval email pre-filled. Send it to complete the notification.</div>
+            <div className="modal-actions" style={{marginTop:16}}>
+              <button className="btn-p btn-sm" onClick={onClose}>Done</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

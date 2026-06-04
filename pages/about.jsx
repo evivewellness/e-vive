@@ -321,7 +321,7 @@ export default function AboutPage() {
               alt="E-Vive HomeCare Assistants"
               style={{ width:'100%', aspectRatio:'4/3', borderRadius:'16px', display:'block', marginBottom:'16px', boxShadow:'0 8px 32px rgba(0,53,128,0.18)', objectFit:'cover', objectPosition:'center 20%' }}
             />
-            <div className="ab-founded">Founded in <strong>2025</strong> · Nairobi, Kenya ·</div>
+            <div className="ab-founded">Founded in <strong>2021</strong> · Nairobi, Kenya ·</div>
           </div>
         </div>
       </section>

@@ -7,24 +7,43 @@ import { BASE_CSS } from '../components/SharedStyles';
 const PAGE_CSS = `
   body { padding-top: 72px; }
 
-  /* Hero */
+  /* Hero — light theme matching homepage */
   .ct-hero {
-    background: linear-gradient(150deg, var(--deep) 0%, #0c1228 55%, var(--forest) 100%);
-    padding: 72px 5vw 56px; text-align: center; position: relative; overflow: hidden;
+    background: linear-gradient(155deg, #EBF1FA 0%, #F4F7F6 55%, #EEF5EE 100%);
+    padding: 64px 5vw 56px; position: relative; overflow: hidden; min-height: 340px;
   }
-  .ct-hero::before {
-    content: ''; position: absolute; inset: 0;
-    background:
-      radial-gradient(ellipse at 25% 50%, rgba(168,0,64,0.07) 0%, transparent 55%),
-      radial-gradient(ellipse at 75% 30%, rgba(56,189,248,0.05) 0%, transparent 55%);
+  .ct-hero-inner {
+    position: relative; max-width: 1100px; margin: 0 auto;
+    display: grid; grid-template-columns: 1fr 340px; gap: 48px; align-items: center;
   }
-  .ct-hero-inner { position: relative; max-width: 640px; margin: 0 auto; }
+  @media(max-width: 860px) { .ct-hero-inner { grid-template-columns: 1fr; } }
+  .ct-hero-text { }
+  .ct-hero-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px; background: rgba(0,74,153,0.07);
+    border: 1px solid rgba(0,74,153,0.16); border-radius: 100px;
+    padding: 5px 14px; font-size: 11px; font-family: var(--mono); letter-spacing: 1px;
+    text-transform: uppercase; color: var(--jade); font-weight: 700; margin-bottom: 18px;
+  }
   .ct-hero h1 {
-    font-family: var(--serif); font-size: clamp(2rem, 4.5vw, 3rem);
-    line-height: 1.18; margin-bottom: 16px; font-weight: 700;
+    font-family: var(--serif); font-size: clamp(1.9rem, 4vw, 2.9rem);
+    line-height: 1.18; margin-bottom: 16px; font-weight: 700; color: var(--text);
   }
-  .ct-hero h1 em { font-style: italic; color: var(--mint); }
-  .ct-hero p { font-size: 1.05rem; color: var(--muted); line-height: 1.7; }
+  .ct-hero h1 em { font-style: italic; color: var(--jade); }
+  .ct-hero p { font-size: 1.05rem; color: rgba(15,32,53,0.68); line-height: 1.7; max-width: 480px; }
+  .ct-hero-photo-wrap {
+    position: relative; display: flex; justify-content: center; align-items: center;
+  }
+  @media(max-width: 860px) { .ct-hero-photo-wrap { display: none; } }
+  .ct-hero-photo {
+    width: 100%; max-width: 300px; aspect-ratio: 3/4; object-fit: cover; object-position: top center;
+    border-radius: 24px; box-shadow: 0 16px 56px rgba(0,74,153,0.16); display: block;
+  }
+  .ct-hero-photo-badge {
+    position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%);
+    background: #fff; border: 1px solid rgba(0,74,153,0.12); border-radius: 100px;
+    padding: 6px 16px; font-size: 11px; font-family: var(--mono); font-weight: 700;
+    color: var(--jade); white-space: nowrap; box-shadow: 0 4px 16px rgba(0,74,153,0.1);
+  }
 
   /* Layout */
   .ct-section { padding: 64px 5vw; }
@@ -187,7 +206,7 @@ const DEPTS = [
 
 const FAQS = [
   { q: 'How quickly can I get an HCA placed?', a: 'Urgent placements can be arranged within 24 hours. Standard placements follow the 8-step journey which typically takes 3–5 business days from account creation to first shift.' },
-  { q: 'How do I pay for home care services?', a: 'We accept M-Pesa (Paybill 522600, Account: your invoice number) and bank transfer. Invoices are issued after the home visit and HCA matching confirmation.' },
+  { q: 'How do I pay for home care services?', a: 'We accept M-Pesa (Paybill 4165689, Account: your invoice number) and bank transfer. Invoices are issued after the home visit and HCA matching confirmation.' },
   { q: 'What if I am unhappy with my assigned HCA?', a: 'Contact our Client Team immediately on +254 720 053 455. We will arrange a replacement HCA as quickly as possible and investigate any quality concerns.' },
   { q: 'I applied as an HCA - how long does verification take?', a: 'Verification of your ID, certificates, and references takes 2–3 business days. You will receive an SMS and email once your profile is approved.' },
   { q: 'Can a hospital refer a patient directly to E-Vive?', a: 'Yes. Partner hospitals submit referrals through our Partner Portal. If your hospital is not yet a partner, contact hello@e-vive.co.ke to start the onboarding process.' },
@@ -211,9 +230,15 @@ export default function ContactPage() {
       {/* Hero */}
       <section className="ct-hero">
         <div className="ct-hero-inner">
-          <div className="stag" style={{ marginBottom: 20 }}>We&apos;re Here to Help</div>
-          <h1>Get in Touch with <em>E-Vive</em></h1>
-          <p>Whether you have a question, need a placement, want to join as an HCA, or are a healthcare partner - our team typically responds within 2 hours during business hours.</p>
+          <div className="ct-hero-text">
+            <div className="ct-hero-eyebrow">We&apos;re Here to Help</div>
+            <h1>Get in Touch with <em>E-Vive</em></h1>
+            <p>Whether you have a question, need a placement, want to join as an HCA, or are a healthcare partner — our team typically responds within 2 hours during business hours.</p>
+          </div>
+          <div className="ct-hero-photo-wrap">
+            <img src="/images/hero-hca-client-care.png" alt="E-Vive HomeCare Assistant with client" className="ct-hero-photo" />
+            <div className="ct-hero-photo-badge">Compassionate Care · Kenya</div>
+          </div>
         </div>
       </section>
 

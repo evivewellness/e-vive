@@ -4,7 +4,7 @@ import Link from "next/link";
 import Nav from "../components/Nav";
 import Footer from "../components/Footer";
 import { BASE_CSS } from "../components/SharedStyles";
-import { getAllHcaProfiles } from "../lib/store";
+import { getAllHcaProfiles, getAllCalendarEvents } from "../lib/store";
 
 const PAGE_CSS = `
   body { padding-top:72px; }
@@ -399,6 +399,52 @@ function tog(arr, val) {
   return arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val];
 }
 
+// Returns { Mon: 'day'|'night'|'full'|'off', Tue: ..., ... } for each HCA in the current week.
+function buildWeekRota(events) {
+  const now  = new Date();
+  // ISO week: Mon = 0 offset
+  const dow  = (now.getDay() + 6) % 7; // 0=Mon … 6=Sun
+  const mon  = new Date(now); mon.setDate(now.getDate() - dow); mon.setHours(0,0,0,0);
+  const dayNames = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  const weekDates = dayNames.map((_, i) => {
+    const d = new Date(mon); d.setDate(mon.getDate() + i);
+    return d.toISOString().slice(0,10);
+  });
+
+  const rotaMap = {}; // { hcaId: { Mon: 'day', ... } }
+
+  for (const ev of events) {
+    if (!ev.hcaId) continue;
+    const di = weekDates.indexOf(ev.date);
+    if (di === -1) continue; // outside current week
+
+    const hcaId = ev.hcaId;
+    if (!rotaMap[hcaId]) rotaMap[hcaId] = {};
+    const dayName = dayNames[di];
+
+    let dotType = "off";
+    if (ev.type === "offday") {
+      dotType = "off";
+    } else if (ev.type === "shift" || ev.type === "visit") {
+      const titleLower = (ev.title || "").toLowerCase();
+      if (titleLower.includes("24") || titleLower.includes("full")) {
+        dotType = "full";
+      } else {
+        const hour = ev.time ? parseInt(ev.time.slice(0, 2), 10) : 7;
+        dotType = (hour >= 17 || hour < 6) ? "night" : "day";
+      }
+    } else {
+      continue; // training/meeting/other don't block shift availability
+    }
+
+    // Only write if not already set, or if upgrading from off to an active shift
+    const existing = rotaMap[hcaId][dayName];
+    if (!existing || existing === "off") rotaMap[hcaId][dayName] = dotType;
+  }
+
+  return rotaMap;
+}
+
 function RotaDots({ rota, compact = false }) {
   if (compact) {
     return (
@@ -448,10 +494,15 @@ export default function MatchPage() {
   const [loading,      setLoading]      = useState(true);
 
   useEffect(() => {
-    getAllHcaProfiles()
-      .then(profiles => {
-        const active = profiles.filter(p => p.status === 'active');
-        setHcas(active.map(profileToHca));
+    Promise.all([getAllHcaProfiles(), getAllCalendarEvents()])
+      .then(([profiles, events]) => {
+        const rotaMap = buildWeekRota(events || []);
+        const active  = profiles.filter(p => p.status === 'active');
+        setHcas(active.map(p => {
+          const h = profileToHca(p);
+          h.rota = rotaMap[p.id] || {};
+          return h;
+        }));
       })
       .catch(() => {})
       .finally(() => setLoading(false));

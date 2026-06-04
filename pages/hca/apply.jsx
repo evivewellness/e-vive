@@ -171,6 +171,17 @@ const CSS = `
     line-height:1.7; margin-bottom:16px;
   }
 
+  /* Profile photo upload */
+  .photo-zone {
+    border:2px dashed rgba(0,74,153,0.25); border-radius:14px; padding:20px;
+    text-align:center; cursor:pointer; transition:all 0.22s;
+    background:rgba(0,74,153,0.02); display:flex; align-items:center; gap:18px;
+  }
+  .photo-zone:hover { border-color:var(--jade); background:rgba(0,74,153,0.05); }
+  .photo-zone.has-photo { border-color:var(--mint); background:rgba(132,189,96,0.05); border-style:solid; }
+  .photo-preview { width:80px; height:80px; border-radius:50%; object-fit:cover; border:2px solid rgba(0,74,153,0.2); flex-shrink:0; }
+  .photo-placeholder { width:80px; height:80px; border-radius:50%; background:rgba(0,74,153,0.07); display:flex; align-items:center; justify-content:center; font-size:32px; flex-shrink:0; }
+
   /* Success */
   .success-box { text-align:center; padding:12px 0; }
 
@@ -289,9 +300,12 @@ export default function HCAApply() {
   const [travel, setTravel] = useState([]);
   const [applyErr, setApplyErr] = useState("");
   const [certs,  setCerts]  = useState([{ name:"", issuer:"", year:"", fileName:"", fileType:"", fileSize:0, fileDataUrl:"" }]);
+  const [profilePhoto, setProfilePhoto] = useState({ fileName:"", fileType:"", fileSize:0, fileDataUrl:"" });
+  const profilePhotoRef = useRef(null);
   const [form,   setForm]   = useState({
     fname:"", lname:"", dob:"", gender:"", mobile:"", email:"",
     location:"", address:"", idNo:"", education:"", yearsExp:"", radius:"", bio:"", culturalExp:"",
+    smartphone:"",
   });
 
   const upd = (f,v) => setForm(p=>({...p,[f]:v}));
@@ -304,7 +318,7 @@ export default function HCAApply() {
   }
 
   const can0 = !!(form.fname&&form.lname&&form.dob&&form.gender&&form.mobile&&form.email&&form.location&&form.idNo);
-  const can1 = !!(form.education&&form.yearsExp&&certs[0]?.name&&certs[0]?.fileName);
+  const can1 = !!(form.education&&form.yearsExp&&form.smartphone&&certs[0]?.name&&certs[0]?.fileName&&profilePhoto.fileName);
   const can2 = !!(care.length>0&&langs.length>0&&shifts.length>0&&form.radius);
   const can3 = true;
 
@@ -328,13 +342,15 @@ export default function HCAApply() {
           yearsExp:       Number(form.yearsExp) || 0,
           certLevel:      certs[0]?.name || "HCA",
           certifications: certs.map(c => ({
-            name:     c.name,
-            issuer:   c.issuer,
-            year:     c.year,
-            fileName: c.fileName || null,
-            fileType: c.fileType || null,
-            fileSize: c.fileSize || 0,
+            name:        c.name,
+            issuer:      c.issuer,
+            year:        c.year,
+            fileName:    c.fileName || null,
+            fileType:    c.fileType || null,
+            fileSize:    c.fileSize || 0,
+            fileDataUrl: c.fileDataUrl || null,
           })),
+          profilePhoto: profilePhoto.fileName ? profilePhoto : null,
           specialisations: care,
           languages:      langs,
           shiftTypes:     shifts,
@@ -343,6 +359,7 @@ export default function HCAApply() {
           radius:         form.radius,
           bio:            form.bio,
           culturalExp:    form.culturalExp,
+          smartphone:     form.smartphone,
           plan:           "Review and Listing Fee",
         });
         setApplyErr("");
@@ -447,6 +464,11 @@ export default function HCAApply() {
                 </div>
                 <div className="frg"><label className="fl">Years of Experience <span className="req">*</span></label><input className="fi" type="number" min="0" max="40" placeholder="e.g. 5" value={form.yearsExp} onChange={e=>upd("yearsExp",e.target.value)} /></div>
               </div>
+              <div className="frg">
+                <label className="fl">Smartphone Make &amp; Model <span className="req">*</span></label>
+                <input className="fi" placeholder="e.g. Samsung Galaxy A15, iPhone 13, Tecno Spark 20" value={form.smartphone} onChange={e=>upd("smartphone",e.target.value)} />
+                <div style={{fontSize:11,color:"var(--muted)",marginTop:5,lineHeight:1.5}}>📱 E-Vive requires HCAs to maintain a working smartphone with mobile internet for GPS clock-in, Cardex submission, and platform communication.</div>
+              </div>
               <div className="frg"><label className="fl">Professional Bio</label><textarea className="fta" placeholder="Describe your background, approach to care, and what makes you a great HCA…" value={form.bio} onChange={e=>upd("bio",e.target.value)} /></div>
 
               <div className="sec-head">🎓 Certifications &amp; Qualifications <span style={{color:"var(--coral)"}}>*</span></div>
@@ -489,6 +511,52 @@ export default function HCAApply() {
               <div className="info-box" style={{marginTop:14}}>
                 📎 <strong style={{color:"var(--jade)"}}>Upload required:</strong> You must upload a certificate file (PDF or image) for at least your first certification to proceed. Certifications must be renewed every <strong style={{color:"var(--jade)"}}>6 months</strong>.
               </div>
+
+              <div className="sec-head" style={{marginTop:22}}>📸 Profile Photo <span style={{color:"var(--coral)"}}>*</span></div>
+              <div style={{fontSize:13,color:"var(--muted)",marginBottom:12}}>Upload a clear, professional headshot. This photo will appear on your public E-Vive profile once approved. JPG or PNG, max 5 MB.</div>
+
+              <input
+                ref={profilePhotoRef}
+                type="file"
+                accept=".jpg,.jpeg,.png"
+                style={{display:"none"}}
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (file.size > 5 * 1024 * 1024) { alert("Photo too large. Max 5 MB."); e.target.value = ""; return; }
+                  if (!["image/jpeg","image/png"].includes(file.type)) { alert("Please upload a JPG or PNG photo."); e.target.value = ""; return; }
+                  const reader = new FileReader();
+                  reader.onload = ev => setProfilePhoto({ fileName: file.name, fileType: file.type, fileSize: file.size, fileDataUrl: ev.target.result });
+                  reader.readAsDataURL(file);
+                }}
+              />
+              <div
+                className={`photo-zone${profilePhoto.fileName?" has-photo":""}`}
+                onClick={() => profilePhotoRef.current?.click()}
+              >
+                {profilePhoto.fileDataUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={profilePhoto.fileDataUrl} alt="Profile" className="photo-preview" />
+                ) : (
+                  <div className="photo-placeholder">👤</div>
+                )}
+                <div style={{flex:1,textAlign:"left"}}>
+                  {profilePhoto.fileName ? (
+                    <>
+                      <div style={{fontSize:13,fontWeight:700,color:"var(--jade)"}}>{profilePhoto.fileName}</div>
+                      <div style={{fontSize:12,color:"var(--muted)",marginTop:3}}>{fmtBytes(profilePhoto.fileSize)} · Click to replace</div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{fontSize:14,fontWeight:600,color:"var(--text)"}}><strong>Click to upload</strong> your profile photo</div>
+                      <div style={{fontSize:12,color:"var(--muted)",marginTop:4}}>JPG or PNG · max 5 MB · must be a clear headshot</div>
+                    </>
+                  )}
+                </div>
+              </div>
+              {!profilePhoto.fileName && (
+                <div style={{fontSize:12,color:"var(--coral)",marginTop:8,fontWeight:600}}>⚠ Profile photo is required to proceed to the next step.</div>
+              )}
             </>
           )}
 

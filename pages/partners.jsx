@@ -245,7 +245,7 @@ export default function PartnersPage() {
         <div className="pt-hero-inner">
           <div className="pt-hero-tag">Healthcare Partner Portal</div>
           <h1>Extend Your Care <span>Beyond the Ward</span></h1>
-          <p>Partner with E-Vive to provide your patients with seamless, vetted home care after discharge. Structured referrals, digital reporting, and a network of 850+ qualified HCAs across 47 sub-counties.</p>
+          <p>Partner with E-Vive to provide your patients with seamless, vetted home care after discharge. Structured referrals, digital reporting, and a growing network of qualified HCAs across 47 counties.</p>
           <div className="pt-hero-btns">
             <button className="btn-a" onClick={() => document.getElementById('onboard').scrollIntoView({ behavior:'smooth' })}>Become a Partner →</button>
             <button className="btn-o" onClick={() => document.getElementById('how-it-works').scrollIntoView({ behavior:'smooth' })}>How It Works</button>

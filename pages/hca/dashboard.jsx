@@ -158,10 +158,11 @@ export default function HCADashboard() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletionSubmitted, setDeletionSubmitted]  = useState(false);
   const [currentShiftId,   setCurrentShiftId]      = useState(null);
-  const [gpsLat,  setGpsLat]   = useState(null);
-  const [gpsLng,  setGpsLng]   = useState(null);
-  const [gpsLabel,setGpsLabel] = useState("");
-  const [gpsLoading,setGpsLoading] = useState(false);
+  const [gpsLat,     setGpsLat]     = useState(null);
+  const [gpsLng,     setGpsLng]     = useState(null);
+  const [gpsLabel,   setGpsLabel]   = useState("");
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsErr,     setGpsErr]     = useState("");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -249,20 +250,52 @@ export default function HCADashboard() {
   const ratingDisplay = hcaProfile?.rating ? `${Number(hcaProfile.rating).toFixed(1)} ★` : "—";
   const patient = assignedClient?.patients?.[0] || null;
 
+  // Haversine distance in metres between two GPS points
+  function haversineM(lat1, lng1, lat2, lng2) {
+    const R = 6371000;
+    const dLat = (lat2-lat1)*Math.PI/180;
+    const dLng = (lng2-lng1)*Math.PI/180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
   async function clockIn() {
+    setGpsErr("");
+
+    // Must have an active placement
+    if (!assignedClient) {
+      setGpsErr("You cannot clock in without an active placement. Contact your E-Vive coordinator.");
+      return;
+    }
+
     setGpsLoading(true);
     let lat = null, lng = null, label = "Location unavailable";
     try {
       const pos = await new Promise((res, rej) => {
         if (!navigator?.geolocation) { rej(new Error("GPS not supported")); return; }
-        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 12000, enableHighAccuracy: true });
+        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 14000, enableHighAccuracy: true });
       });
       lat   = pos.coords.latitude;
       lng   = pos.coords.longitude;
       label = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-    } catch { label = "Location unavailable"; }
+    } catch (e) {
+      setGpsLoading(false);
+      setGpsErr("GPS access denied or unavailable. Enable location permissions and try again.");
+      return;
+    }
     setGpsLat(lat); setGpsLng(lng); setGpsLabel(label);
     setGpsLoading(false);
+
+    // Enforce proximity to client premises (≤ 10 m)
+    const clientLat = assignedClient?.lat;
+    const clientLng = assignedClient?.lng;
+    if (clientLat && clientLng) {
+      const dist = haversineM(lat, lng, clientLat, clientLng);
+      if (dist > 10) {
+        setGpsErr(`You are ${Math.round(dist)} m from the client's premises. You must be within 10 m to clock in.`);
+        return;
+      }
+    }
 
     try {
       const pat = assignedClient?.patients?.[0];
@@ -280,7 +313,18 @@ export default function HCADashboard() {
 
   function saveDraft() { setSavedAt(new Date().toLocaleTimeString("en-KE",{hour:"2-digit",minute:"2-digit"})); }
 
+  const SHIFT_HOURS = 12;
+  const shiftElapsedMs   = clockStart ? Date.now() - clockStart : 0;
+  const shiftComplete    = shiftElapsedMs >= SHIFT_HOURS * 3600 * 1000;
+  const shiftRemainingMs = Math.max(0, SHIFT_HOURS * 3600 * 1000 - shiftElapsedMs);
+  const shiftRemainingH  = Math.floor(shiftRemainingMs / 3600000);
+  const shiftRemainingM  = Math.floor((shiftRemainingMs % 3600000) / 60000);
+
   async function submitCardex() {
+    if (!shiftComplete && clockStart) {
+      alert(`⏱ Shift not yet complete. ${shiftRemainingH}h ${shiftRemainingM}m remaining before you can submit.`);
+      return;
+    }
     if (hcaProfile?.id) {
       try {
         const pat = assignedClient?.patients?.[0];
@@ -314,7 +358,36 @@ export default function HCADashboard() {
     setClockState("submitted"); setTab("today");
   }
 
-  function clockOut() {
+  async function clockOut() {
+    if (!shiftComplete && clockStart) {
+      alert(`⏱ Shift not yet complete. ${shiftRemainingH}h ${shiftRemainingM}m remaining. Please complete the full 12-hour shift before clocking out.`);
+      return;
+    }
+    // Enforce GPS proximity on clock-out (≤ 10 m)
+    const clientLat = assignedClient?.lat;
+    const clientLng = assignedClient?.lng;
+    if (clientLat && clientLng) {
+      setGpsLoading(true);
+      setGpsErr("");
+      try {
+        const pos = await new Promise((res, rej) => {
+          if (!navigator?.geolocation) { rej(new Error("GPS not supported")); return; }
+          navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 12000 });
+        });
+        const { latitude: lat, longitude: lng } = pos.coords;
+        const dist = haversineM(lat, lng, clientLat, clientLng);
+        if (dist > 10) {
+          setGpsErr(`You are ${Math.round(dist)} m from the client's premises. You must be within 10 m to clock out.`);
+          setGpsLoading(false);
+          return;
+        }
+      } catch {
+        setGpsErr("GPS access denied or unavailable. Enable location permissions and try again.");
+        setGpsLoading(false);
+        return;
+      }
+      setGpsLoading(false);
+    }
     setClockState("out"); setClockStart(null); setCardexOpen(false);
     setGpsLat(null); setGpsLng(null); setGpsLabel("");
   }
@@ -466,17 +539,31 @@ export default function HCADashboard() {
                     </div>
                   )}
 
+                  {gpsErr && (
+                    <div style={{background:"rgba(244,63,94,0.08)",border:"1px solid rgba(244,63,94,0.25)",borderRadius:10,padding:"10px 14px",fontSize:13,color:"var(--coral)",marginBottom:12,lineHeight:1.55}}>
+                      ⚠ {gpsErr}
+                    </div>
+                  )}
+
                   <div className="clockin-btns">
                     {clockState==="out" && (
-                      <button className="btn-sky" style={{fontSize:15,padding:"12px 28px"}} onClick={clockIn}>
-                        📍 Clock In — GPS Location Confirm
+                      <button className="btn-sky" style={{fontSize:15,padding:"12px 28px"}} onClick={clockIn} disabled={gpsLoading}>
+                        📍 {gpsLoading ? "Capturing GPS…" : "Clock In — GPS Location Confirm"}
                       </button>
                     )}
                     {clockState==="in" && (
                       <>
                         <button className="btn-sky" onClick={()=>setTab("cardex")}>📋 Open Cardex →</button>
                         <button className="btn-o" onClick={saveDraft}>💾 Save Draft</button>
-                        <button className="btn-p" onClick={submitCardex} style={{background:"linear-gradient(135deg,var(--jade),var(--emerald))"}}>✅ Submit Cardex & Clock Out</button>
+                        <button
+                          className="btn-p"
+                          onClick={submitCardex}
+                          disabled={!shiftComplete}
+                          title={!shiftComplete ? `${shiftRemainingH}h ${shiftRemainingM}m remaining` : ""}
+                          style={{background:shiftComplete?"linear-gradient(135deg,var(--jade),var(--emerald))":"rgba(0,74,153,0.3)",opacity:shiftComplete?1:0.6,cursor:shiftComplete?"pointer":"not-allowed"}}
+                        >
+                          ✅ Submit Cardex &amp; Clock Out
+                        </button>
                       </>
                     )}
                     {clockState==="submitted" && (
@@ -487,9 +574,15 @@ export default function HCADashboard() {
                     )}
                   </div>
 
+                  {clockState==="in" && !shiftComplete && clockStart && (
+                    <div style={{marginTop:12,fontSize:12,color:"var(--amber)",lineHeight:1.6,background:"rgba(240,169,139,0.07)",border:"1px solid rgba(240,169,139,0.2)",borderRadius:8,padding:"8px 12px"}}>
+                      ⏱ <strong>{shiftRemainingH}h {shiftRemainingM}m</strong> remaining before you can submit. Full 12-hour shift must be completed.
+                    </div>
+                  )}
+
                   {clockState==="out" && (
                     <div style={{marginTop:14,fontSize:12,color:"var(--muted)",lineHeight:1.6}}>
-                      ⏰ Shift starts <strong style={{color:"var(--text)"}}>07:00</strong>. Please clock in <strong style={{color:"var(--amber)"}}>15 minutes early</strong> for handover from the departing HCA. GPS location will be auto-captured.
+                      📍 You must be <strong style={{color:"var(--amber)"}}>within 10 m</strong> of the client&apos;s address to clock in and clock out. GPS location is verified automatically. Shift starts <strong style={{color:"var(--text)"}}>07:00</strong>.
                     </div>
                   )}
                 </div>

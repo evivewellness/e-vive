@@ -497,6 +497,105 @@ function NotifEmailModal({ notif, onClose }) {
   );
 }
 
+// ─── M-Pesa STK Push Modal ────────────────────────────────────────────────────
+function MpesaPayModal({ invoice, defaultPhone, onClose }) {
+  const [phone,  setPhone]  = useState(defaultPhone || "");
+  const [status, setStatus] = useState("idle"); // idle | sending | success | error
+  const [msg,    setMsg]    = useState("");
+
+  async function initiatePush() {
+    if (!phone.trim()) { setMsg("Enter your M-Pesa registered phone number."); return; }
+    setStatus("sending");
+    setMsg("");
+    try {
+      const res  = await fetch("/api/mpesa/stkpush", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          phone:      phone.trim(),
+          amount:     invoice.total,
+          accountRef: invoice.invoiceNum,
+          description: "E-Vive Invoice",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setStatus("error");
+        setMsg(data.error || "STK Push failed. Please try again.");
+      } else {
+        setStatus("success");
+        setMsg(data.customerMessage || "M-Pesa prompt sent! Check your phone and enter your PIN to complete payment.");
+      }
+    } catch (err) {
+      setStatus("error");
+      setMsg("Network error. Please check your connection and try again.");
+    }
+  }
+
+  return (
+    <div className="modal-bg" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal-box" style={{maxWidth:420}}>
+        <div className="modal-title">📱 Pay with M-Pesa</div>
+
+        <div style={{background:"rgba(0,74,153,0.04)",border:"1px solid rgba(0,74,153,0.1)",borderRadius:12,padding:"14px 18px",marginBottom:20}}>
+          <div style={{fontSize:11,color:"var(--muted)",fontFamily:"var(--mono)",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:4}}>Invoice</div>
+          <div style={{fontWeight:700,fontSize:15}}>{invoice.invoiceNum}</div>
+          {invoice.description && <div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>{invoice.description}</div>}
+          <div style={{fontFamily:"var(--serif)",fontSize:22,fontWeight:700,color:"var(--gold)",marginTop:8}}>KES {(invoice.total||0).toLocaleString()}</div>
+        </div>
+
+        {status !== "success" && (
+          <>
+            <div className="modal-field">
+              <label className="modal-label">M-Pesa Phone Number</label>
+              <input
+                className="modal-input"
+                placeholder="e.g. 0712 345 678"
+                value={phone}
+                onChange={e=>{ setPhone(e.target.value); setMsg(""); }}
+                type="tel"
+                autoFocus
+              />
+              <div style={{fontSize:11,color:"var(--muted)",marginTop:5}}>Safaricom number registered on M-Pesa</div>
+            </div>
+
+            <div style={{fontSize:12,color:"var(--muted)",padding:"10px 14px",background:"rgba(14,165,233,0.05)",border:"1px solid rgba(14,165,233,0.12)",borderRadius:10,marginBottom:16,lineHeight:1.6}}>
+              Paybill <strong style={{fontFamily:"var(--mono)"}}>4165689</strong> · Account: <strong style={{fontFamily:"var(--mono)"}}>{invoice.invoiceNum}</strong>
+            </div>
+          </>
+        )}
+
+        {msg && (
+          <div style={{
+            padding:"12px 14px",borderRadius:10,marginBottom:16,fontSize:13,lineHeight:1.5,
+            background: status==="error" ? "rgba(249,112,102,0.08)" : "rgba(0,180,100,0.08)",
+            border:     status==="error" ? "1px solid rgba(249,112,102,0.22)" : "1px solid rgba(0,180,100,0.22)",
+            color:      status==="error" ? "#c0392b" : "#0a6640",
+          }}>
+            {status==="success" ? "✅ " : "⚠️ "}{msg}
+          </div>
+        )}
+
+        <div className="modal-actions">
+          <button className="btn-o" style={{padding:"9px 20px"}} onClick={onClose}>
+            {status==="success" ? "Close" : "Cancel"}
+          </button>
+          {status !== "success" && (
+            <button
+              className="btn-p"
+              style={{padding:"9px 20px",background:status==="sending"?"#888":undefined,cursor:status==="sending"?"not-allowed":undefined}}
+              onClick={initiatePush}
+              disabled={status==="sending"}
+            >
+              {status==="sending" ? "Sending…" : "Send M-Pesa Prompt"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function ClientDashboard() {
   const router = useRouter();
@@ -517,6 +616,7 @@ export default function ClientDashboard() {
   const [requestHca,      setRequestHca]      = useState(null);  // hca profile object
   const [previewNotif,    setPreviewNotif]    = useState(null);  // notification object
   const [showNotifPanel,  setShowNotifPanel]  = useState(false);
+  const [mpesaInvoice,    setMpesaInvoice]    = useState(null);  // invoice being paid
 
   // Mobile menu
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -668,6 +768,9 @@ export default function ClientDashboard() {
       )}
       {previewNotif && (
         <NotifEmailModal notif={previewNotif} onClose={()=>setPreviewNotif(null)} />
+      )}
+      {mpesaInvoice && (
+        <MpesaPayModal invoice={mpesaInvoice} defaultPhone={client?.mobile||""} onClose={()=>setMpesaInvoice(null)} />
       )}
 
       {/* ── Notification Panel ── */}
@@ -1082,6 +1185,14 @@ export default function ClientDashboard() {
                             {inv.status==="paid"?"Paid":inv.status==="overdue"?"Overdue":"Pending"}
                           </span>
                         </div>
+                        {inv.status !== "paid" && (
+                          <button
+                            onClick={()=>setMpesaInvoice(inv)}
+                            style={{marginLeft:"auto",padding:"6px 14px",borderRadius:20,border:"1px solid #0e9a52",background:"rgba(14,154,82,0.08)",color:"#0e9a52",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"var(--mono)",whiteSpace:"nowrap"}}
+                          >
+                            📱 Pay
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1090,7 +1201,7 @@ export default function ClientDashboard() {
                   <div className="panel-head"><div className="panel-title">Payment Methods</div></div>
                   <div className="panel-body">
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-                      {[{icon:"📱",title:"M-Pesa Paybill",val:"Paybill: 522100 · Your Account No."},{icon:"🏦",title:"Bank Transfer",val:"Equity Bank · E-Vive Kenya"}].map(m=>(
+                      {[{icon:"📱",title:"M-Pesa Paybill",val:"Paybill: 4165689 · Your Account No."},{icon:"🏦",title:"Bank Transfer",val:"Equity Bank · E-Vive Kenya"}].map(m=>(
                         <div key={m.title} style={{background:"rgba(0,74,153,0.03)",border:"1px solid rgba(0,74,153,0.1)",borderRadius:14,padding:"16px 18px"}}>
                           <div style={{fontSize:24,marginBottom:8}}>{m.icon}</div>
                           <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>{m.title}</div>

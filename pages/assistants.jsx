@@ -190,8 +190,8 @@ const BENEFITS = [
   { icon: '📍', title: 'Location-Based Matching', desc: 'Our algorithm matches you with clients within your defined service radius, minimising commute time and transport costs.' },
   { icon: '💰', title: 'Competitive, Transparent Pay', desc: 'Rates are set by E-Vive administration based on your certification, experience, and care specialisation - clearly communicated before your first placement.' },
   { icon: '🛡️', title: 'Verified & Protected', desc: 'Your identity is verified, your certifications are showcased, and your profile is backed by the E-Vive quality assurance badge.' },
-  { icon: '📱', title: 'Digital Cardex System', desc: 'GPS clock-in, digital shift reports, and automated payroll. No more paper records - everything is tracked and timestamped.' },
-  { icon: '📚', title: 'Free Ongoing Training', desc: 'Access CPD training modules, certification courses, and skill upgrades at no extra cost on Professional and Premium plans.' },
+  { icon: '📱', title: 'Digital Cardex System', desc: 'GPS clock-in, digital shift reports, and automated payroll. No more paper records - everything is tracked and timestamped. *HCAs must maintain a good smartphone and internet access to clock in and send reports.' },
+  { icon: '📚', title: 'Free Ongoing Training', desc: 'Access CPD training modules at no extra cost. Other certification courses and skill upgrades available on Professional and Premium plans.' },
   { icon: '💬', title: 'HCA Community & Welfare', desc: 'Peer support, confidential counselling, off-day request system, and a welfare line - we care for our carers.' },
 ];
 
@@ -251,7 +251,7 @@ const JOIN_STEPS = [
 const FAQS = [
   { q: 'Do I need to be a registered nurse to apply?', a: 'Not necessarily. We accept Certificate-level HCAs, Diploma nurses, and specialists. What matters is your certification, experience, and commitment to quality care. Each profile shows your exact qualifications so clients can make informed choices.' },
   { q: 'How does the location matching work?', a: 'You set a service radius (e.g. 5 km, 10 km) from your home location. Clients searching within that radius will see your profile. The closer you are to a client, the higher your match ranking for that search.' },
-  { q: 'When and how do I get paid?', a: 'Payments are processed weekly via M-Pesa or bank transfer. Your earnings are calculated from your GPS-verified clock-in/clock-out records in the digital Cardex system.' },
+  { q: 'When and how do I get paid?', a: 'Payments are processed monthly via M-Pesa or bank transfer. Your earnings are calculated from your GPS-verified clock-in/clock-out records in the digital Cardex system.' },
   { q: 'Can I take time off or reject placements?', a: 'Yes. You control your calendar. Submit off-day requests with 48 hours notice through your dashboard. You can also decline placements that don\'t fit your skills or availability.' },
   { q: 'What happens if there is a problem with a client?', a: 'Contact our HCA support line immediately. We have a welfare officer and a conflict resolution process. Your safety and wellbeing are our priority.' },
   { q: 'Is my home location shared with clients?', a: 'No. Clients only see your approximate service area (e.g. "Westlands area"). Your exact home address is never shared.' },
@@ -377,7 +377,7 @@ export default function AssistantsPage() {
         <div className="ast-inner">
           <div className="ast-cta">
             <h2>Ready to Start Your Journey?</h2>
-            <p>Join 850+ HomeCare Assistants already building their careers on E-Vive. Applications take under 15 minutes.</p>
+            <p>Join a growing number of HomeCare Assistants already building their careers on E-Vive. Applications take under 15 minutes.</p>
             <div className="ast-cta-btns">
               <Link href="/hca/apply" className="btn-sky">Apply Now →</Link>
               <Link href="/match" className="btn-o">See Sample Profiles</Link>

@@ -14,8 +14,37 @@ import {
 } from "../../lib/store";
 
 const CSS = `
-  body { display:flex; min-height:100vh; align-items:center; justify-content:center; padding:40px 16px; background:var(--deep); }
-  .reg-wrap { width:100%; max-width:640px; }
+  body { margin:0; background:var(--deep); }
+  .reg-outer {
+    display:grid; grid-template-columns:420px 1fr; min-height:100vh;
+  }
+  @media(max-width:860px) { .reg-outer { grid-template-columns:1fr; } }
+
+  /* Left image panel */
+  .reg-panel {
+    position:sticky; top:0; height:100vh; overflow:hidden;
+    background:linear-gradient(175deg,#0a1628 0%,#0e2244 100%);
+  }
+  @media(max-width:860px) { .reg-panel { display:none; } }
+  .reg-panel-img {
+    width:100%; height:100%; object-fit:cover; object-position:top center; opacity:0.85;
+    display:block;
+  }
+  .reg-panel-overlay {
+    position:absolute; inset:0;
+    background:linear-gradient(to bottom, rgba(0,12,36,0.15) 0%, rgba(0,12,36,0.65) 100%);
+    display:flex; flex-direction:column; justify-content:flex-end; padding:36px;
+  }
+  .reg-panel-logo { font-family:var(--serif); font-size:28px; font-weight:700; color:#fff; margin-bottom:6px; }
+  .reg-panel-logo span { color:var(--jade); }
+  .reg-panel-tagline { font-size:13px; color:rgba(255,255,255,0.65); font-family:var(--mono); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:22px; }
+  .reg-panel-quote { font-size:15px; color:rgba(255,255,255,0.88); line-height:1.65; font-style:italic; border-left:3px solid var(--jade); padding-left:14px; }
+
+  /* Form side */
+  .reg-form-side {
+    display:flex; align-items:center; justify-content:center; padding:40px 24px; min-height:100vh;
+  }
+  .reg-wrap { width:100%; max-width:580px; }
   .reg-logo { text-align:center; margin-bottom:32px; }
   .reg-logo-text { font-family:var(--serif); font-size:26px; font-weight:700; color:var(--text); }
   .reg-logo-text span { color:var(--jade); }
@@ -288,7 +317,20 @@ export default function ClientRegister() {
       </Head>
       <style>{DASH_BASE + CSS}</style>
 
-      <div className="reg-wrap">
+      <div className="reg-outer">
+        {/* Left image panel (desktop only) */}
+        <div className="reg-panel">
+          <img src="/images/hero-hca-client-care.png" alt="E-Vive HomeCare Assistant" className="reg-panel-img" />
+          <div className="reg-panel-overlay">
+            <div className="reg-panel-logo">e<span>-</span>vive</div>
+            <div className="reg-panel-tagline">HomeCare · Kenya</div>
+            <div className="reg-panel-quote">&ldquo;Connecting families with certified, compassionate home care — close to home.&rdquo;</div>
+          </div>
+        </div>
+
+        {/* Form side */}
+        <div className="reg-form-side">
+        <div className="reg-wrap">
         {/* Logo */}
         <div className="reg-logo">
           <Link href="/" style={{textDecoration:"none"}}>
@@ -741,6 +783,8 @@ export default function ClientRegister() {
             </>
           ) : null /* reset flows — no footer prompt */}
         </div>
+      </div>
+      </div>
       </div>
     </>
   );

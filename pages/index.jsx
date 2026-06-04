@@ -278,7 +278,7 @@ export default function Home() {
         <div className="orb orb1" /><div className="orb orb2" /><div className="orb orb3" />
         <div className="hero-inner">
           <div>
-            <div className="hero-eyebrow"><div className="eyebrow-line" /><span className="eyebrow-txt">Nairobi · Kenya · Pan-East Africa · Est. 2025</span></div>
+            <div className="hero-eyebrow"><div className="eyebrow-line" /><span className="eyebrow-txt">Nairobi · Kenya · Pan-East Africa · Est. 2021</span></div>
             <h1>Certified Care,<br/><em>Matched to</em><br/>Your <span className="gold">Location</span></h1>
             <p className="hero-sub">E-Vive connects families with pre-vetted Home Care Assistants closest to them - with live Cardex reporting, quality monitoring and family support all in one platform.</p>
             <div className="hero-btns">
