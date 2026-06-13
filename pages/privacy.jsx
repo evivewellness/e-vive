@@ -94,7 +94,7 @@ export default function PrivacyPage() {
 
         <div className="legal-sec" id="who">
           <h2>1. Who We Are</h2>
-          <p>E-Vive is operated by <strong>Star Delight Enterprises Ltd</strong>, a company registered in Kenya (the <strong>&ldquo;Company&rdquo;</strong>, <strong>&ldquo;we&rdquo;</strong>, <strong>&ldquo;us&rdquo;</strong>, or <strong>&ldquo;our&rdquo;</strong>). Our registered office is at Mararo Avenue, off Riara Road, Nairobi, Kenya.</p>
+          <p>E-Vive is operated by <strong>Star Delight Enterprises Ltd</strong>, a company registered in Kenya (the <strong>&ldquo;Company&rdquo;</strong>, <strong>&ldquo;we&rdquo;</strong>, <strong>&ldquo;us&rdquo;</strong>, or <strong>&ldquo;our&rdquo;</strong>). Our registered office is at Mugoya Phase 4, Nairobi, Kenya.</p>
           <p>E-Vive is a location-based homecare matching platform that connects families and individuals (&ldquo;Clients&rdquo;) with verified HomeCare Assistants (&ldquo;HCAs&rdquo;). We are the data controller for personal data processed through our platform and website at <strong>e-vive.co.ke</strong>.</p>
         </div>
 
@@ -194,8 +194,8 @@ export default function PrivacyPage() {
           <p>For privacy-related enquiries, data subject requests, or to report a concern:</p>
           <ul>
             <li><strong>Email:</strong> <a href="mailto:hello@e-vive.co.ke">hello@e-vive.co.ke</a></li>
-            <li><strong>Post:</strong> Data Protection Officer, Star Delight Enterprises Ltd, Mararo Avenue, off Riara Road, Nairobi, Kenya</li>
-            <li><strong>Phone:</strong> <a href="tel:+254720053455">+254 720 053 455</a></li>
+            <li><strong>Post:</strong> Data Protection Officer, Star Delight Enterprises Ltd, Mugoya Phase 4, Nairobi, Kenya</li>
+            <li><strong>Phone:</strong> <a href="tel:+254141888340">+254 141 888 340</a></li>
           </ul>
           <p>You also have the right to lodge a complaint with the <strong>Office of the Data Protection Commissioner of Kenya</strong> (odpc.go.ke) if you believe your rights have been infringed.</p>
         </div>

@@ -1354,7 +1354,7 @@ export default function ClientDashboard() {
                     <div className="panel-head"><div className="panel-title">Support</div></div>
                     <div className="panel-body">
                       <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                        {[["📧 Email","hello@e-vive.co.ke","mailto:hello@e-vive.co.ke"],["📞 Phone","+254 720 053 455","tel:+254720053455"]].map(([lbl,val,href])=>(
+                        {[["📧 Email","hello@e-vive.co.ke","mailto:hello@e-vive.co.ke"],["📞 Phone","+254 141 888 340","tel:+254141888340"]].map(([lbl,val,href])=>(
                           <div key={lbl} style={{background:"rgba(0,74,153,0.03)",border:"1px solid rgba(0,74,153,0.1)",borderRadius:10,padding:"12px 14px"}}>
                             <div style={{fontSize:11,color:"var(--muted)",fontFamily:"var(--mono)",marginBottom:3}}>{lbl}</div>
                             <a href={href} style={{fontSize:13,fontWeight:600,color:"var(--jade)",textDecoration:"none"}}>{val}</a>

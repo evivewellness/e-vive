@@ -1140,17 +1140,17 @@ export default function CaregiversPage() {
                 </li>
                 <li>
                   <span className="ci-icon">📞</span>
-                  <span className="ci-text">Phone: <a href="tel:+254720053455">+254 720 053 455</a></span>
+                  <span className="ci-text">Phone: <a href="tel:+254141888340">+254 141 888 340</a></span>
                 </li>
                 <li>
                   <span className="ci-icon">💬</span>
                   <span className="ci-text">
-                    WhatsApp: <a href="https://wa.me/254720053455" target="_blank" rel="noopener noreferrer">+254 720 053 455</a>
+                    WhatsApp: <a href="https://wa.me/254141888340" target="_blank" rel="noopener noreferrer">+254 141 888 340</a>
                   </span>
                 </li>
                 <li>
                   <span className="ci-icon">📍</span>
-                  <span className="ci-text">Mararo Avenue, off Riara Road, Nairobi</span>
+                  <span className="ci-text">Mugoya Phase 4, Nairobi</span>
                 </li>
                 <li>
                   <span className="ci-icon">🕐</span>
@@ -1171,7 +1171,7 @@ export default function CaregiversPage() {
                 <div className="counsel-success">
                   <div className="cs-icon">✅</div>
                   <h3>Request received.</h3>
-                  <p>Our team will call you within 24 hours. You can also reach us directly at <a href="tel:+254720053455" style={{ color: 'var(--jade)' }}>+254 720 053 455</a>.</p>
+                  <p>Our team will call you within 24 hours. You can also reach us directly at <a href="tel:+254141888340" style={{ color: 'var(--jade)' }}>+254 141 888 340</a>.</p>
                 </div>
               ) : (
                 <form className="counsel-form" onSubmit={handleCounselSubmit}>

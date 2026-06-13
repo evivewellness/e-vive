@@ -265,9 +265,9 @@ const [openFaq, setOpenFaq] = useState(null); // FAQ accordion index
 ```
 
 #### Address
-**Mararo Avenue, off Riara Road, Nairobi, Kenya**  
+**Mugoya Phase 4, Nairobi, Kenya**  
 P.O. Box 12345 – 00100, Nairobi  
-Phone: +254 720 053 455  
+Phone: +254 141 888 340  
 Email: hello@e-vive.co.ke
 
 ---
@@ -510,7 +510,7 @@ const [sort,         setSort]         = useState("nearest");
 - Last updated: 1 January 2025
 - Covers: Data collection, health data handling, third-party processors (Supabase, Vercel, M-Pesa), user rights under Kenya Data Protection Act 2019
 - Data Protection Officer contact: hello@e-vive.co.ke
-- Registered office: Mararo Avenue, off Riara Road, Nairobi, Kenya
+- Registered office: Mugoya Phase 4, Nairobi, Kenya
 
 ---
 
@@ -522,7 +522,7 @@ const [sort,         setSort]         = useState("nearest");
 - Last updated: 1 January 2025
 - Covers: Platform usage, HCA subscription terms, client obligations, payment terms, IP rights, limitation of liability
 - Governing law: Republic of Kenya
-- Company: **Star Delight Enterprises**, Mararo Avenue, off Riara Road, Nairobi, Kenya
+- Company: **Star Delight Enterprises**, Mugoya Phase 4, Nairobi, Kenya
 
 ---
 

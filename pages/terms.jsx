@@ -97,7 +97,7 @@ export default function TermsPage() {
         <div className="legal-sec" id="agreement">
           <h2>1. Agreement to Terms</h2>
           <p>By accessing or using the E-Vive platform, website, or any associated services (collectively, the <strong>&ldquo;Service&rdquo;</strong>), you agree to be bound by these Terms of Use (<strong>&ldquo;Terms&rdquo;</strong>). If you do not agree, you must not use the Service.</p>
-          <p>These Terms constitute a legally binding agreement between you and <strong>Star Delight Enterprises</strong> (<strong>&ldquo;E-Vive&rdquo;</strong>, <strong>&ldquo;we&rdquo;</strong>, <strong>&ldquo;us&rdquo;</strong>), a company registered in Kenya with its principal office at Mararo Avenue, off Riara Road, Nairobi, Kenya.</p>
+          <p>These Terms constitute a legally binding agreement between you and <strong>Star Delight Enterprises</strong> (<strong>&ldquo;E-Vive&rdquo;</strong>, <strong>&ldquo;we&rdquo;</strong>, <strong>&ldquo;us&rdquo;</strong>), a company registered in Kenya with its principal office at Mugoya Phase 4, Nairobi, Kenya.</p>
         </div>
 
         <div className="legal-sec" id="platform">
@@ -231,7 +231,7 @@ export default function TermsPage() {
           <ul>
             <li><strong>Email:</strong> <a href="mailto:hello@e-vive.co.ke">hello@e-vive.co.ke</a></li>
             <li><strong>Post:</strong> Legal Team, Star Delight Enterprises, off Riara Road, Nairobi, Kenya</li>
-            <li><strong>Phone:</strong> <a href="tel:+254720053455">+254 720 053 455</a></li>
+            <li><strong>Phone:</strong> <a href="tel:+254141888340">+254 141 888 340</a></li>
           </ul>
         </div>
       </div>

@@ -31,7 +31,7 @@ export default async function handler(req, res) {
   <div class="card">
     <div class="logo">e<span>-</span>vive</div>
     <pre>${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
-    <div class="footer">E-Vive Kenya · hello@e-vive.co.ke · +254 720 053 455</div>
+    <div class="footer">E-Vive Kenya · hello@e-vive.co.ke · +254 141 888 340</div>
   </div>
 </body>
 </html>`;

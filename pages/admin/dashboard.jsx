@@ -436,7 +436,7 @@ Next step: Pay the Review & Listing Fee (KSh 100/month) to activate your public 
 Welcome to the E-Vive family!
 
 The E-Vive Team
-+254 720 053 455 | hello@e-vive.co.ke`
++254 141 888 340 | hello@e-vive.co.ke`
     );
     return `mailto:${app.email}?subject=${subject}&body=${body}`;
   };
