@@ -53,6 +53,7 @@ import {
   sendVisitScheduledNotification,
   sendInvoiceNotification,
   sendHcaMatchedNotification,
+  sendHcaOnboardingNotification,
   getLmsCourses,
   createLmsCourse,
   updateLmsCourse,
@@ -401,6 +402,9 @@ function HcaApproveModal({ app, onClose, onRefresh }) {
         bio:             app.bio || fd.bio || "",
       });
       await updateHcaApplication(app.id, { status: "approved" });
+      
+      try { await sendHcaOnboardingNotification(profile.id, app.email, app.fullName || app.name, profile.employeeId, pwd); } catch(_) { /* non-critical */ }
+      
       setInitPwd(pwd);
       setEmpId(profile.employeeId);
       setApproved(true);
@@ -540,12 +544,12 @@ The E-Vive Team
             <div style={{background:"#fff",border:"1px solid rgba(0,74,153,0.15)",borderRadius:10,padding:"12px 16px",marginBottom:14,fontFamily:"var(--mono)",fontSize:13}}>
               <div style={{color:"#5A7080",marginBottom:4}}>INITIAL PASSWORD</div>
               <div style={{fontWeight:700,fontSize:16,color:"#0F2035",letterSpacing:"1px"}}>{initPwd}</div>
-              <div style={{fontSize:11,color:"#5A7080",marginTop:4}}>Copy and include in the email to the HCA. They must change this on first login.</div>
+              <div style={{fontSize:11,color:"#5A7080",marginTop:4}}>This has been securely sent to the applicant's email. They must change it on first login.</div>
             </div>
-            <a href={mailtoLink()} style={{display:"inline-flex",alignItems:"center",gap:10,padding:"10px 20px",borderRadius:10,background:"rgba(0,74,153,0.08)",border:"1px solid rgba(0,74,153,0.25)",color:"#004A99",fontSize:13,fontWeight:700,textDecoration:"none",marginBottom:12}}>
-              📧 Open Email to HCA ({app.email})
-            </a>
-            <div style={{fontSize:11,color:"#5A7080",lineHeight:1.6}}>Click the link above to open your email client with the approval email pre-filled. Send it to complete the notification.</div>
+            <div style={{display:"inline-flex",alignItems:"center",gap:10,padding:"10px 20px",borderRadius:10,background:"rgba(132,189,96,0.1)",border:"1px solid rgba(132,189,96,0.3)",color:"#2d7a1f",fontSize:13,fontWeight:700,marginBottom:12}}>
+              📧 Onboarding email sent automatically
+            </div>
+            <div style={{fontSize:11,color:"#5A7080",lineHeight:1.6}}>The applicant has received their employee ID, initial password, and login instructions.</div>
             <div className="modal-actions" style={{marginTop:16}}>
               <button className="btn-p btn-sm" onClick={onClose}>Done</button>
             </div>
