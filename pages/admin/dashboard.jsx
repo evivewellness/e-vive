@@ -544,7 +544,7 @@ The E-Vive Team
             <div style={{background:"#fff",border:"1px solid rgba(0,74,153,0.15)",borderRadius:10,padding:"12px 16px",marginBottom:14,fontFamily:"var(--mono)",fontSize:13}}>
               <div style={{color:"#5A7080",marginBottom:4}}>INITIAL PASSWORD</div>
               <div style={{fontWeight:700,fontSize:16,color:"#0F2035",letterSpacing:"1px"}}>{initPwd}</div>
-              <div style={{fontSize:11,color:"#5A7080",marginTop:4}}>This has been securely sent to the applicant's email. They must change it on first login.</div>
+              <div style={{fontSize:11,color:"#5A7080",marginTop:4}}>This has been securely sent to the applicant&apos;s email. They must change it on first login.</div>
             </div>
             <div style={{display:"inline-flex",alignItems:"center",gap:10,padding:"10px 20px",borderRadius:10,background:"rgba(132,189,96,0.1)",border:"1px solid rgba(132,189,96,0.3)",color:"#2d7a1f",fontSize:13,fontWeight:700,marginBottom:12}}>
               📧 Onboarding email sent automatically
