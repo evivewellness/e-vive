@@ -12,6 +12,7 @@ export default async function handler(req, res) {
   }
 
   if (!process.env.RESEND_API_KEY) {
+    console.warn('[send-email] RESEND_API_KEY is not set — email skipped.');
     // Silently skip — env var not configured yet
     return res.status(200).json({ ok: true, skipped: true });
   }
@@ -37,11 +38,16 @@ export default async function handler(req, res) {
 </html>`;
 
   try {
-    await resend.emails.send({ from: FROM, to, subject, text, html });
-    return res.status(200).json({ ok: true });
+    const { data, error } = await resend.emails.send({ from: FROM, to, subject, text, html });
+
+    if (error) {
+      console.error('[send-email] Resend API error:', error);
+      return res.status(500).json({ ok: false, error: error.message || 'Failed to send email' });
+    }
+
+    return res.status(200).json({ ok: true, id: data?.id });
   } catch (err) {
-    console.error('[send-email]', err.message);
-    // Non-fatal — return 200 so the caller doesn't crash
-    return res.status(200).json({ ok: false, error: err.message });
+    console.error('[send-email] Unexpected error:', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
   }
 }
