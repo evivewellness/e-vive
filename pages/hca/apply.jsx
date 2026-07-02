@@ -647,7 +647,7 @@ export default function HCAApply() {
               <div className="plan-single">
                 <span className="plan-badge">Review &amp; Listing</span>
                 <div className="plan-name">Review and Listing Fee</div>
-                <div className="plan-price">KSh {LISTING_FEE.price.toLocaleString()}<span>{LISTING_FEE.per}</span></div>
+                <div className="plan-price">FREE<span> for 6 months (then KSh 100/month)</span></div>
                 <ul className="plan-feat">
                   {LISTING_FEE.feats.map(f=><li key={f}>{f}</li>)}
                 </ul>
@@ -689,7 +689,7 @@ export default function HCAApply() {
                   "Application acknowledged by E-Vive Admin",
                   "Interview scheduled (video or in-person)",
                   "Certificate & ID verification completed",
-                  "Payment link sent — Review & Listing Fee (KSh 100/month)",
+                  "Payment link sent — Review & Listing Fee (FREE for 6 months, then KSh 100/month)",
                   "Profile goes live once payment is confirmed — receive placement notifications",
                 ].map((s,i)=>(
                   <div key={i} style={{display:"flex",gap:12,padding:"9px 0",borderBottom:i<4?"1px solid rgba(0,74,153,0.07)":"none",fontSize:13,color:"var(--muted)",alignItems:"flex-start"}}>

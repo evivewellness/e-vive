@@ -354,11 +354,8 @@ export default function ContactPage() {
                 <h4>Follow Us</h4>
                 <div className="social-row">
                   {[
-                    { icon: '𝕏', label: 'Twitter / X', url: '#' },
                     { icon: 'f', label: 'Facebook', url: 'https://www.facebook.com/profile.php?id=61590981592097' },
-                    { icon: '📸', label: 'Instagram', url: '#' },
-                    { icon: 'in', label: 'LinkedIn', url: '#' },
-                    { icon: '▶', label: 'YouTube', url: '#' },
+                    { icon: '📸', label: 'Instagram', url: 'https://www.instagram.com/e-vive.co.ke' },
                   ].map(s => (
                     <a href={s.url} className="social-link" key={s.label} target={s.url !== '#' ? '_blank' : undefined} rel={s.url !== '#' ? 'noopener noreferrer' : undefined}>
                       <span className="social-icon">{s.icon}</span>

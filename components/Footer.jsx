@@ -51,7 +51,7 @@ export default function Footer() {
             <div className="logo-text">e<span>-</span>vive</div>
             <p>Kenya&apos;s premier location-based homecare assistant matching platform - connecting certified carers with families who need them most.</p>
             <div className="footer-socials">
-              {[{icon:"📘",url:"https://www.facebook.com/profile.php?id=61590981592097"},{icon:"🐦",url:"#"},{icon:"📸",url:"#"},{icon:"💼",url:"#"}].map((s, i) => <a key={i} href={s.url} className="social-btn" target={s.url !== "#" ? "_blank" : undefined} rel={s.url !== "#" ? "noopener noreferrer" : undefined}>{s.icon}</a>)}
+              {[{icon:"📘",url:"https://www.facebook.com/profile.php?id=61590981592097"},{icon:"📸",url:"https://www.instagram.com/e-vive.co.ke"}].map((s, i) => <a key={i} href={s.url} className="social-btn" target={s.url !== "#" ? "_blank" : undefined} rel={s.url !== "#" ? "noopener noreferrer" : undefined}>{s.icon}</a>)}
             </div>
             <div className="footer-cert">
               <span>🏥</span>
