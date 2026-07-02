@@ -131,7 +131,7 @@ export default function TermsPage() {
           <p>As a Client, you agree to:</p>
           <ul>
             <li>Provide accurate information about the care recipient&apos;s needs, medical conditions, and living environment.</li>
-            <li>Treat all HCAs with dignity and respect. Any abusive, discriminatory, or unsafe behaviour towards an HCA will result in immediate termination of the placement.</li>
+            <li>Treat all HCAs with dignity and respect. Any abusive, discriminatory, or unsafe behaviour towards a HCA will result in immediate termination of the placement.</li>
             <li>Ensure the care environment is safe for the HCA to work in.</li>
             <li>Pay invoices by the agreed due date. Late payment may result in suspension of the placement.</li>
             <li>Give reasonable notice (minimum 48 hours) for cancellation of a placement, except in genuine emergency situations.</li>
@@ -141,7 +141,7 @@ export default function TermsPage() {
 
         <div className="legal-sec" id="hcas">
           <h2>5. HCA Terms</h2>
-          <p>As an HCA, you agree to:</p>
+          <p>As a HCA, you agree to:</p>
           <ul>
             <li>Maintain the accuracy of your profile, certificates, and availability information on the platform at all times.</li>
             <li>Attend all confirmed placements punctually. Unexplained absences will be escalated and may result in suspension from the platform.</li>
@@ -184,7 +184,7 @@ export default function TermsPage() {
         <div className="legal-sec" id="liability">
           <h2>9. Limitation of Liability</h2>
           <p>To the maximum extent permitted by Kenyan law, E-Vive&apos;s liability for any claim arising from the use of the Service is limited to the amount you have paid to E-Vive in the 30 days preceding the event giving rise to the claim.</p>
-          <p>E-Vive is not liable for any indirect, consequential, or incidental loss arising from your use of the Service, including loss of income, loss of data, or personal injury caused by an HCA acting outside the scope of their care plan.</p>
+          <p>E-Vive is not liable for any indirect, consequential, or incidental loss arising from your use of the Service, including loss of income, loss of data, or personal injury caused by a HCA acting outside the scope of their care plan.</p>
           <p>We do not guarantee that the Service will be uninterrupted or error-free. We will endeavour to give reasonable notice of planned maintenance.</p>
         </div>
 
@@ -199,7 +199,7 @@ export default function TermsPage() {
           <p>This section sets out the obligations of both Clients and HCAs to protect E-Vive&apos;s business relationships and proprietary matching services.</p>
 
           <div className="legal-highlight">
-            <strong>HCA Restriction (24 months):</strong> An HCA who leaves the E-Vive network — whether voluntarily, through suspension, or by non-renewal — may not directly provide care services to, or accept private employment from, any Client or patient they were introduced to through the E-Vive platform for a period of <strong>24 months</strong> from the date of departure or the conclusion of their last E-Vive-managed placement, whichever is later.
+            <strong>HCA Restriction (24 months):</strong> A HCA who leaves the E-Vive network — whether voluntarily, through suspension, or by non-renewal — may not directly provide care services to, or accept private employment from, any Client or patient they were introduced to through the E-Vive platform for a period of <strong>24 months</strong> from the date of departure or the conclusion of their last E-Vive-managed placement, whichever is later.
           </div>
 
           <div className="legal-highlight">

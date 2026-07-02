@@ -186,14 +186,14 @@ const PAGE_CSS = `
     /* Pull back right-side fade to reveal face; keep left wall solid for text */
     .hero-overlay {
       background: linear-gradient(to right,
-        rgba(235,241,250,0.98) 0%,
-        rgba(235,241,250,0.95) 30%,
-        rgba(235,241,250,0.76) 48%,
-        rgba(235,241,250,0.32) 63%,
-        rgba(235,241,250,0.07) 78%,
-        transparent 90%
+        rgba(235,241,250,1) 0%,
+        rgba(235,241,250,0.98) 45%,
+        rgba(235,241,250,0.85) 60%,
+        rgba(235,241,250,0.4) 75%,
+        transparent 95%
       );
     }
+    .hero-sub { color:var(--text); text-shadow:0 2px 10px rgba(255,255,255,1), 0 0 20px rgba(235,241,250,0.95); font-weight:600; background: rgba(235,241,250,0.6); padding: 8px 12px; border-radius: 8px; margin-left: -12px; }
   }
   @media (max-width:600px) {
     .portals-grid, .hca-grid, .trust-grid { grid-template-columns:1fr; }

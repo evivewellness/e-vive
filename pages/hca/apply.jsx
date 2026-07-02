@@ -304,9 +304,33 @@ export default function HCAApply() {
   const profilePhotoRef = useRef(null);
   const [form,   setForm]   = useState({
     fname:"", lname:"", dob:"", gender:"", mobile:"", email:"",
-    location:"", address:"", idNo:"", education:"", yearsExp:"", radius:"", bio:"", culturalExp:"",
+    location:"", address:"", education:"", yearsExp:"", radius:"", bio:"", culturalExp:"",
     smartphone:"",
   });
+  const [gpsCoords, setGpsCoords] = useState(null);
+  const [gpsStatus, setGpsStatus] = useState("");
+  const [gpsError, setGpsError]   = useState("");
+
+  function captureGps() {
+    if (!navigator.geolocation) {
+      setGpsError("Geolocation is not supported by your browser.");
+      return;
+    }
+    setGpsStatus("locating");
+    setGpsError("");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGpsCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setGpsStatus("captured");
+        setGpsError("");
+      },
+      (err) => {
+        setGpsStatus("");
+        setGpsError(err.code === 1 ? "Location permission denied. Please allow location access and try again." : "Unable to get your location. Please try again.");
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  }
 
   const upd = (f,v) => setForm(p=>({...p,[f]:v}));
 
@@ -317,7 +341,7 @@ export default function HCAApply() {
     setCerts(p => p.map((c,j) => j===idx ? {...c,[field]:val} : c));
   }
 
-  const can0 = !!(form.fname&&form.lname&&form.dob&&form.gender&&form.mobile&&form.email&&form.location&&form.idNo);
+  const can0 = !!(form.fname&&form.lname&&form.dob&&form.gender&&form.mobile&&form.email&&gpsCoords);
   const can1 = !!(form.education&&form.yearsExp&&form.smartphone&&certs[0]?.name&&certs[0]?.fileName&&profilePhoto.fileName);
   const can2 = !!(care.length>0&&langs.length>0&&shifts.length>0&&form.radius);
   const can3 = true;
@@ -335,9 +359,10 @@ export default function HCAApply() {
           password:       "evive2026",
           dob:            form.dob,
           gender:         form.gender,
-          nationalId:     form.idNo,
-          county:         form.location,
+          county:         form.address || 'GPS Captured',
           address:        form.address,
+          homeLat:        gpsCoords?.lat,
+          homeLng:        gpsCoords?.lng,
           education:      form.education,
           yearsExp:       Number(form.yearsExp) || 0,
           certLevel:      certs[0]?.name || "HCA",
@@ -420,31 +445,38 @@ export default function HCAApply() {
                 <div className="frg"><label className="fl">Last Name <span className="req">*</span></label><input className="fi" placeholder="Wanjiku" value={form.lname} onChange={e=>upd("lname",e.target.value)} /></div>
               </div>
               <div className="frg"><label className="fl">Date of Birth <span className="req">*</span></label><input className="fi" type="date" max={MAX_DOB} value={form.dob} onChange={e=>upd("dob",e.target.value)} style={{display:"block",width:"100%"}} /></div>
-              <div className="fr2">
-                <div className="frg">
-                  <label className="fl">Gender <span className="req">*</span></label>
-                  <select className="fsel" value={form.gender} onChange={e=>upd("gender",e.target.value)}>
-                    <option value="">Select…</option>
-                    <option>Female</option><option>Male</option><option>Prefer not to say</option>
-                  </select>
-                </div>
-                <div className="frg"><label className="fl">National ID No. <span className="req">*</span></label><input className="fi" placeholder="12345678" value={form.idNo} onChange={e=>upd("idNo",e.target.value)} /></div>
+              <div className="frg">
+                <label className="fl">Gender <span className="req">*</span></label>
+                <select className="fsel" value={form.gender} onChange={e=>upd("gender",e.target.value)}>
+                  <option value="">Select…</option>
+                  <option>Female</option><option>Male</option>
+                </select>
               </div>
               <div className="fr2">
                 <div className="frg"><label className="fl">Mobile Number <span className="req">*</span></label><input className="fi" placeholder="+254 7…" value={form.mobile} onChange={e=>upd("mobile",e.target.value)} /></div>
                 <div className="frg"><label className="fl">Email Address <span className="req">*</span></label><input className="fi" type="email" placeholder="jane@example.com" value={form.email} onChange={e=>upd("email",e.target.value)} /></div>
               </div>
-              <div className="fr2">
-                <div className="frg">
-                  <label className="fl">Home Location <span className="req">*</span></label>
-                  <select className="fsel" value={form.location} onChange={e=>upd("location",e.target.value)}>
-                    <option value="">Select…</option>
-                    {LOCATIONS.map(l=><option key={l}>{l}</option>)}
-                  </select>
-                </div>
-                <div className="frg"><label className="fl">Estate / Street</label><input className="fi" placeholder="e.g. Kilimani, Rose Ave" value={form.address} onChange={e=>upd("address",e.target.value)} /></div>
+              <div className="frg"><label className="fl">Estate / Street</label><input className="fi" placeholder="e.g. Kilimani, Rose Ave" value={form.address} onChange={e=>upd("address",e.target.value)} /></div>
+              <div className="frg">
+                <label className="fl">Home Location (GPS) <span className="req">*</span></label>
+                {gpsStatus === "captured" ? (
+                  <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 15px",background:"rgba(132,189,96,0.08)",border:"1.5px solid rgba(132,189,96,0.3)",borderRadius:11}}>
+                    <span style={{fontSize:20}}>📍</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:700,color:"var(--mint)"}}>Location Captured</div>
+                      <div style={{fontSize:12,color:"var(--muted)",fontFamily:"var(--mono)"}}>{gpsCoords.lat.toFixed(6)}, {gpsCoords.lng.toFixed(6)}</div>
+                    </div>
+                    <button type="button" onClick={captureGps} style={{background:"none",border:"1px solid rgba(0,74,153,0.2)",borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:600,color:"var(--jade)",cursor:"pointer"}}>Re-capture</button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={captureGps} disabled={gpsStatus==="locating"} style={{width:"100%",padding:"14px 15px",background:gpsStatus==="locating"?"rgba(0,74,153,0.06)":"linear-gradient(135deg,rgba(0,74,153,0.07),rgba(14,165,233,0.07))",border:"1.5px dashed rgba(0,74,153,0.3)",borderRadius:11,cursor:gpsStatus==="locating"?"wait":"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,transition:"all 0.2s",fontFamily:"var(--sans)",fontSize:14,fontWeight:600,color:"var(--jade)"}}>
+                    <span style={{fontSize:18}}>{gpsStatus==="locating" ? "⏳" : "📍"}</span>
+                    {gpsStatus==="locating" ? "Capturing your location…" : "Tap to Capture GPS Location"}
+                  </button>
+                )}
+                {gpsError && <div style={{fontSize:12,color:"var(--coral)",marginTop:6,fontWeight:500}}>⚠ {gpsError}</div>}
               </div>
-              <div className="info-box">ℹ️ Your home location calculates <strong style={{color:"var(--jade)"}}>service radius and travel time</strong> for placement matching — it is not displayed publicly.</div>
+              <div className="info-box">📍 Your GPS coordinates are used to calculate <strong style={{color:"var(--jade)"}}>service radius and travel time</strong> for placement matching — your exact coordinates are not displayed publicly.</div>
             </>
           )}
 

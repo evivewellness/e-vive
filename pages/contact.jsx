@@ -205,10 +205,10 @@ const DEPTS = [
 ];
 
 const FAQS = [
-  { q: 'How quickly can I get an HCA placed?', a: 'Urgent placements can be arranged within 24 hours. Standard placements follow the 8-step journey which typically takes 3–5 business days from account creation to first shift.' },
+  { q: 'How quickly can I get a HCA placed?', a: 'Urgent placements can be arranged within 24 hours. Standard placements follow the 8-step journey which typically takes 3–5 business days from account creation to first shift.' },
   { q: 'How do I pay for home care services?', a: 'We accept M-Pesa (Paybill 4165689, Account: your invoice number) and bank transfer. Invoices are issued after the home visit and HCA matching confirmation.' },
   { q: 'What if I am unhappy with my assigned HCA?', a: 'Contact our Client Team immediately on +254 141 888 340. We will arrange a replacement HCA as quickly as possible and investigate any quality concerns.' },
-  { q: 'I applied as an HCA - how long does verification take?', a: 'Verification of your ID, certificates, and references takes 2–3 business days. You will receive an SMS and email once your profile is approved.' },
+  { q: 'I applied as a HCA - how long does verification take?', a: 'Verification of your ID, certificates, and references takes 2–3 business days. You will receive an SMS and email once your profile is approved.' },
   { q: 'Can a hospital refer a patient directly to E-Vive?', a: 'Yes. Partner hospitals submit referrals through our Partner Portal. If your hospital is not yet a partner, contact hello@e-vive.co.ke to start the onboarding process.' },
 ];
 
@@ -233,7 +233,7 @@ export default function ContactPage() {
           <div className="ct-hero-text">
             <div className="ct-hero-eyebrow">We&apos;re Here to Help</div>
             <h1>Get in Touch with <em>E-Vive</em></h1>
-            <p>Whether you have a question, need a placement, want to join as an HCA, or are a healthcare partner — our team typically responds within 2 hours during business hours.</p>
+            <p>Whether you have a question, need a placement, want to join as a HCA, or are a healthcare partner — our team typically responds within 2 hours during business hours.</p>
           </div>
           <div className="ct-hero-photo-wrap">
             <img src="/images/hero-hca-client-care.png" alt="E-Vive HomeCare Assistant with client" className="ct-hero-photo" />
@@ -354,13 +354,13 @@ export default function ContactPage() {
                 <h4>Follow Us</h4>
                 <div className="social-row">
                   {[
-                    { icon: '𝕏', label: 'Twitter / X' },
-                    { icon: 'f', label: 'Facebook' },
-                    { icon: '📸', label: 'Instagram' },
-                    { icon: 'in', label: 'LinkedIn' },
-                    { icon: '▶', label: 'YouTube' },
+                    { icon: '𝕏', label: 'Twitter / X', url: '#' },
+                    { icon: 'f', label: 'Facebook', url: 'https://www.facebook.com/profile.php?id=61590981592097' },
+                    { icon: '📸', label: 'Instagram', url: '#' },
+                    { icon: 'in', label: 'LinkedIn', url: '#' },
+                    { icon: '▶', label: 'YouTube', url: '#' },
                   ].map(s => (
-                    <a href="#" className="social-link" key={s.label}>
+                    <a href={s.url} className="social-link" key={s.label} target={s.url !== '#' ? '_blank' : undefined} rel={s.url !== '#' ? 'noopener noreferrer' : undefined}>
                       <span className="social-icon">{s.icon}</span>
                       <span>{s.label}</span>
                     </a>

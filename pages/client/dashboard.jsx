@@ -171,7 +171,7 @@ const LOCATIONS  = ["Nairobi CBD","Westlands","Karen","Kilimani","Kileleshwa","L
 const NAV_ITEMS = [
   { icon:"📊", label:"Overview",      key:"overview"   },
   { icon:"👥", label:"Patients",      key:"patients"   },
-  { icon:"🩺", label:"Find an HCA",   key:"hcas"       },
+  { icon:"🩺", label:"Find a HCA",   key:"hcas"       },
   { icon:"💳", label:"Billing",       key:"billing"    },
   { icon:"📅", label:"Shift History", key:"shifts"     },
   { icon:"📄", label:"Documents",     key:"documents"  },
@@ -709,7 +709,7 @@ export default function ClientDashboard() {
     acknowledged:      "Our team will call you soon to discuss your care requirements.",
     call_made:         "A home visit will be scheduled after the call.",
     visit_scheduled:   client.visitDate ? `Home visit scheduled for ${fmt(client.visitDate)}.` : "A home visit date will be confirmed shortly.",
-    visit_done:        "Our team is matching an HCA to your patients.",
+    visit_done:        "Our team is matching a HCA to your patients.",
     hca_matched:       "An invoice will be issued — payment confirms the placement.",
     payment_pending:   "Please clear the invoice to activate the placement.",
     payment_confirmed: "Your placement is being activated.",
@@ -890,7 +890,7 @@ export default function ClientDashboard() {
                 <div className="tc-banner-icon">📋</div>
                 <div className="tc-banner-body">
                   <div className="tc-banner-title">Please accept our Terms & Conditions to continue your onboarding</div>
-                  <div className="tc-banner-sub">This is required before E-Vive can acknowledge your application and assign an HCA to your patients.</div>
+                  <div className="tc-banner-sub">This is required before E-Vive can acknowledge your application and assign a HCA to your patients.</div>
                 </div>
                 <button className="btn-p btn-sm" onClick={()=>setShowTc(true)}>Read & Accept →</button>
               </div>
@@ -1079,7 +1079,7 @@ export default function ClientDashboard() {
               </>
             )}
 
-            {/* ── FIND AN HCA ── */}
+            {/* ── FIND A HCA ── */}
             {tab==="hcas" && (
               <>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>

@@ -278,7 +278,7 @@ const TESTIMONIALS = [
   { av: 'PO', grad: 'linear-gradient(135deg,#0ea5e9,#0369a1)', name: 'Peter O.', loc: 'Langata, Nairobi', stars: 5, text: 'My father has dementia. The HCA is patient, gentle, and professional. The digital Cardex gives us real-time peace of mind every single day.' },
   { av: 'AM', grad: 'linear-gradient(135deg,#8b0033,#92400e)', name: 'Amina M.', loc: 'Mombasa', stars: 5, text: 'We had bad experiences before. E-Vive\'s verification process and the quality of their HCAs genuinely surprised and reassured our whole family.' },
   { av: 'JK', grad: 'linear-gradient(135deg,#06b6d4,#0e7490)', name: 'Dr. J. Kimani', loc: 'Westlands, Nairobi', stars: 5, text: 'As a physician, I refer patients to E-Vive with confidence. The clinical handover process is professional and the Cardex reports are genuinely thorough.' },
-  { av: 'EN', grad: 'linear-gradient(135deg,#818cf8,#4338ca)', name: 'Esther N.', loc: 'Karen, Nairobi', stars: 5, text: 'They matched us with an HCA who speaks Kikuyu and understands our culture. For my elderly mother, that personal connection made all the difference.' },
+  { av: 'EN', grad: 'linear-gradient(135deg,#818cf8,#4338ca)', name: 'Esther N.', loc: 'Karen, Nairobi', stars: 5, text: 'They matched us with a HCA who speaks Kikuyu and understands our culture. For my elderly mother, that personal connection made all the difference.' },
   { av: 'JM', grad: 'linear-gradient(135deg,#f97066,#be185d)', name: 'James M.', loc: 'Kisumu', stars: 5, text: 'Getting a placement in Kisumu was seamless. The HCA is certified, punctual, and genuinely caring. E-Vive operates far beyond just Nairobi.' },
   { av: 'RN', grad: 'linear-gradient(135deg,#7c3aed,#a80040)', name: 'Rose N.', loc: 'Kikuyu, Kiambu', stars: 5, text: 'After my husband\'s stroke we needed help urgently. E-Vive had a trained, caring HCA at our door within 24 hours. I cannot thank them enough.' },
   { av: 'DO', grad: 'linear-gradient(135deg,#0ea5e9,#2a0e1c)', name: 'David O.', loc: 'Kisumu', stars: 5, text: 'The GPS clock-in feature gives me real visibility into when the HCA arrives and leaves. That level of accountability was exactly what we needed.' },
@@ -396,7 +396,7 @@ export default function AboutPage() {
             <div style={{ height: 12 }} />
             <h2 className="stitle">Our Values</h2>
             <div className="divider" style={{ margin: '0 auto 14px' }} />
-            <p className="ssub">Six principles that guide every decision - from how we verify an HCA to how we handle a client complaint.</p>
+            <p className="ssub">Six principles that guide every decision - from how we verify a HCA to how we handle a client complaint.</p>
           </div>
           <div className="values-grid">
             {VALUES.map(v => (
@@ -474,10 +474,10 @@ export default function AboutPage() {
         <div className="ab-inner">
           <div className="ab-cta">
             <h2>Join the E-Vive Movement</h2>
-            <p>Whether you need care for a loved one, want to build a career as an HCA, or are a healthcare provider seeking a trusted home care partner - we are here.</p>
+            <p>Whether you need care for a loved one, want to build a career as a HCA, or are a healthcare provider seeking a trusted home care partner - we are here.</p>
             <div className="ab-cta-btns">
               <Link href="/match" className="btn-p">Find a Carer →</Link>
-              <Link href="/hca/apply" className="btn-sky">Apply as an HCA</Link>
+              <Link href="/hca/apply" className="btn-sky">Apply as a HCA</Link>
               <Link href="/contact" className="btn-o">Contact Us</Link>
             </div>
           </div>

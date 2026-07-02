@@ -813,7 +813,7 @@ export default function CaregiversPage() {
 
           <div className="gate-card">
             <div className="gate-icon">👩‍⚕️</div>
-            <h3>I&apos;m an HCA</h3>
+            <h3>I&apos;m a HCA</h3>
             <p>Access professional development courses and HCA-specific training resources.</p>
             <Link href="/hca/login" className="btn-sky btn-full" style={{ textAlign: 'center' }}>HCA Sign In</Link>
           </div>

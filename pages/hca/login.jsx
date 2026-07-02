@@ -327,7 +327,7 @@ export default function HCALogin() {
             </div>
 
             <div className="login-footer">
-              Want to join E-Vive? <Link href="/hca/apply">Apply as an HCA →</Link>
+              Want to join E-Vive? <Link href="/hca/apply">Apply as a HCA →</Link>
             </div>
           </div>
         </div>

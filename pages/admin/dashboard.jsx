@@ -237,7 +237,7 @@ function ClientModal({ client, hcaProfiles, onClose, onRefresh }) {
         });
         setMsg(`✓ Visit scheduled for ${visitDate} at ${visitTime}.`);
       } else if (action === "match") {
-        if (!hcaId) { setMsg("Please select an HCA."); setSaving(false); return; }
+        if (!hcaId) { setMsg("Please select a HCA."); setSaving(false); return; }
         await advanceClientJourney(client.id, "hca_matched", { assignedHcaId: hcaId });
         await logActivity({ type: "hca_matched", clientId: client.id, clientName: client.name, hcaId });
         setMsg("✓ HCA matched to client.");
@@ -320,7 +320,7 @@ function ClientModal({ client, hcaProfiles, onClose, onRefresh }) {
           <div className="modal-field">
             <label className="modal-label">Select HCA</label>
             <select className="modal-sel" value={hcaId} onChange={e=>setHcaId(e.target.value)}>
-              <option value="">Choose an HCA...</option>
+              <option value="">Choose a HCA...</option>
               {hcaProfiles.filter(h=>h.status==="active").map(h=>(
                 <option key={h.id} value={h.id}>{h.name} — {h.employeeId} ({h.certLevel||"HCA"})</option>
               ))}
