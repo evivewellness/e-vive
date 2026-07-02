@@ -58,10 +58,10 @@ const PAGE_CSS = `
   .hero-eyebrow { display:flex; align-items:center; gap:10px; margin-bottom:18px; }
   .eyebrow-line { width:36px; height:2px; background:linear-gradient(90deg,var(--jade),var(--mint)); border-radius:2px; }
   .eyebrow-txt { font-size:11px; font-weight:600; letter-spacing:2.5px; color:var(--jade); text-transform:uppercase; font-family:var(--mono); }
-  .hero h1 { font-family:var(--serif); font-size:clamp(36px,4.8vw,64px); font-weight:700; line-height:1.1; letter-spacing:-1px; margin-bottom:20px; color:var(--text); }
+  .hero h1 { font-family:var(--serif); font-size:clamp(36px,4.8vw,64px); font-weight:800; line-height:1.1; letter-spacing:-1px; margin-bottom:20px; color:var(--text); text-shadow:0 1px 8px rgba(235,241,250,0.9), 0 0 2px rgba(235,241,250,0.7); }
   .hero h1 em { font-style:italic; color:var(--mint); }
   .hero h1 .gold { color:var(--gold); }
-  .hero-sub { font-size:17px; line-height:1.78; color:rgba(15,32,53,0.72); max-width:500px; margin-bottom:34px; font-weight:400; }
+  .hero-sub { font-size:17px; line-height:1.78; color:rgba(15,32,53,0.88); max-width:500px; margin-bottom:34px; font-weight:500; text-shadow:0 1px 6px rgba(235,241,250,0.85); }
   .hero-btns { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:44px; }
   .hero-stats { display:flex; gap:32px; padding-top:28px; border-top:1px solid rgba(0,74,153,0.12); flex-wrap:wrap; }
   .hstat-num { font-family:var(--serif); font-size:28px; font-weight:700; color:var(--jade); }
