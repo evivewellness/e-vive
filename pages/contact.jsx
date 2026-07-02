@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Nav from '../components/Nav';
 import Footer from '../components/Footer';
+import { createContactMessage } from '../lib/store';
 import { BASE_CSS } from '../components/SharedStyles';
 
 const PAGE_CSS = `
@@ -215,11 +216,21 @@ const FAQS = [
 export default function ContactPage() {
   const [form, setForm] = useState({ fname: '', lname: '', email: '', phone: '', subject: '', message: '' });
   const [sent, setSent] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const [openFaq, setOpenFaq] = useState(null);
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    setSent(true);
+    setSaving(true);
+    setErrorMsg('');
+    try {
+      await createContactMessage(form);
+      setSent(true);
+    } catch (err) {
+      setErrorMsg(err.message || "Failed to send message. Please try again.");
+    }
+    setSaving(false);
   }
 
   return (
@@ -292,7 +303,8 @@ export default function ContactPage() {
                       <label>Message *</label>
                       <textarea required placeholder="Tell us how we can help. The more detail you provide, the faster we can assist you." value={form.message} onChange={e => setForm(p => ({ ...p, message: e.target.value }))} />
                     </div>
-                    <button type="submit" className="btn-p btn-full" style={{ marginTop: 4 }}>Send Message →</button>
+                    {errorMsg && <div style={{ color: 'var(--coral)', fontSize: '0.85rem', marginTop: '4px' }}>{errorMsg}</div>}
+                    <button type="submit" className="btn-p btn-full" style={{ marginTop: 4 }} disabled={saving}>{saving ? "Sending..." : "Send Message →"}</button>
                     <p style={{ fontSize: '0.75rem', color: 'var(--muted)', textAlign: 'center' }}>Your information is kept strictly confidential. We never share your details with third parties.</p>
                   </form>
                 </>
