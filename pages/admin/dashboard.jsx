@@ -201,6 +201,13 @@ function fmtShort(iso) {
   catch { return iso?.slice(0,10) || "—"; }
 }
 
+// ─── Shared HCA option lists ────────────────────────────────────────────────────
+const SPEC_OPTS = ["Elderly Care","Dementia Care","Post-Surgery","Palliative","Child Care","Diabetic Care","Critical Care","Cerebral Palsy","Mobility Assistance","Companionship","Driver / Transport"];
+const LANG_OPTS = ["English","Kiswahili","Kikuyu","Luhya","Dholuo","Kamba","Meru","Somali","Kalenjin"];
+const SHIFT_OPTS = ["Day Shift","Night Shift","24-Hour Care"];
+const TRAVEL_OPTS = ["Local Travel","International"];
+function tog(arr, v) { return arr.includes(v) ? arr.filter(x=>x!==v) : [...arr,v]; }
+
 // ─── Client action modal ───────────────────────────────────────────────────────
 function ClientModal({ client, hcaProfiles, onClose, onRefresh }) {
   const [action,     setAction]     = useState(""); // "call"|"visit"|"match"|"invoice"
@@ -373,7 +380,7 @@ function ClientModal({ client, hcaProfiles, onClose, onRefresh }) {
 }
 
 // ─── HCA approve modal ─────────────────────────────────────────────────────────
-function HcaApproveModal({ app, onClose, onRefresh }) {
+function HcaApproveModal({ app, hcaProfiles=[], onClose, onRefresh }) {
   const [rate,      setRate]      = useState(1000);
   const [saving,    setSaving]    = useState(false);
   const [msg,       setMsg]       = useState("");
@@ -385,6 +392,38 @@ function HcaApproveModal({ app, onClose, onRefresh }) {
   const fd    = app.formData || {};
   const certs = fd.certifications || [];
   const photo = fd.profilePhoto || null;
+  const linkedProfile = hcaProfiles.find(h => h.applicationId === app.id);
+
+  // ── Edit application data ──
+  const [editMode,   setEditMode]   = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editMsg,    setEditMsg]    = useState("");
+  const [data, setData] = useState({
+    fullName:        app.fullName || app.name || "",
+    email:           app.email || "",
+    mobile:          app.mobile || "",
+    certLevel:       app.certLevel || certs[0]?.name || "",
+    yearsExp:        app.yearsExp || 0,
+    county:          app.county || "",
+    bio:             app.bio || fd.bio || "",
+    specialisations: app.specialisations?.length ? app.specialisations : (fd.specialisations || []),
+  });
+  const updData = (k,v) => setData(p=>({...p,[k]:v}));
+
+  async function saveEdits() {
+    setEditSaving(true);
+    try {
+      await updateHcaApplication(app.id, {
+        fullName: data.fullName, email: data.email, mobile: data.mobile,
+        certLevel: data.certLevel, yearsExp: Number(data.yearsExp) || 0,
+        county: data.county, bio: data.bio, specialisations: data.specialisations,
+      });
+      setEditMsg("✓ Application updated.");
+      setEditMode(false);
+      onRefresh();
+    } catch (e) { setEditMsg("⚠ " + (e.message||"Error")); }
+    setEditSaving(false);
+  }
 
   async function approve() {
     setSaving(true);
@@ -392,25 +431,25 @@ function HcaApproveModal({ app, onClose, onRefresh }) {
     try {
       const profile = await createHcaProfile({
         applicationId:   app.id,
-        name:            app.fullName || app.name,
-        email:           app.email,
+        name:            data.fullName,
+        email:           data.email,
         password:        pwd,
-        mobile:          app.mobile,
-        certLevel:       app.certLevel || certs[0]?.name || "HCA",
-        yearsExp:        app.yearsExp || 0,
-        specialisations: app.specialisations || fd.specialisations || [],
-        county:          app.county || "",
+        mobile:          data.mobile,
+        certLevel:       data.certLevel || "HCA",
+        yearsExp:        data.yearsExp || 0,
+        specialisations: data.specialisations,
+        county:          data.county,
         rate:            Number(rate),
         rateSetAt:       new Date().toISOString(),
         gender:          fd.gender || "Not specified",
         languages:       fd.languages || ["English","Kiswahili"],
         shiftPreferences: fd.shiftTypes || ["Day Shift"],
-        bio:             app.bio || fd.bio || "",
+        bio:             data.bio,
       });
       await updateHcaApplication(app.id, { status: "approved" });
-      
-      try { await sendHcaOnboardingNotification(profile.id, app.email, app.fullName || app.name, profile.employeeId, pwd); } catch(_) { /* non-critical */ }
-      
+
+      try { await sendHcaOnboardingNotification(profile.id, data.email, data.fullName, profile.employeeId, pwd); } catch(_) { /* non-critical */ }
+
       setInitPwd(pwd);
       setEmpId(profile.employeeId);
       setApproved(true);
@@ -427,10 +466,19 @@ function HcaApproveModal({ app, onClose, onRefresh }) {
     onClose();
   }
 
+  async function reopen() {
+    setSaving(true);
+    try {
+      await updateHcaApplication(app.id, { status: "pending" });
+      onRefresh();
+      onClose();
+    } catch (e) { setMsg("⚠ " + (e.message||"Error")); setSaving(false); }
+  }
+
   const mailtoLink = () => {
     const subject = encodeURIComponent("Welcome to E-Vive — Your Application Has Been Approved");
     const body = encodeURIComponent(
-`Dear ${app.fullName || app.name},
+`Dear ${data.fullName},
 
 Congratulations! Your HomeCare Assistant application to E-Vive has been approved.
 
@@ -448,13 +496,21 @@ Welcome to the E-Vive family!
 The E-Vive Team
 +254 141 888 340 | hello@e-vive.co.ke`
     );
-    return `mailto:${app.email}?subject=${subject}&body=${body}`;
+    return `mailto:${data.email}?subject=${subject}&body=${body}`;
   };
 
   return (
     <div className="modal-bg" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-box" style={{maxWidth:660}}>
-        <div className="modal-title">Review Application: {app.fullName || app.name}</div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:20}}>
+          <div className="modal-title" style={{marginBottom:0}}>
+            {app.status === "pending" ? "Review Application: " : "Application: "}{data.fullName}
+            {" "}<span className={`badge ${app.status==="approved"?"badge-mint":app.status==="rejected"?"badge-coral":"badge-gold"}`} style={{marginLeft:8,verticalAlign:"middle"}}>{app.status}</span>
+          </div>
+          {!approved && (
+            <button className="btn-o btn-sm" onClick={()=>{ setEditMode(m=>!m); setEditMsg(""); }}>{editMode ? "Cancel Edit" : "✏️ Edit Details"}</button>
+          )}
+        </div>
 
         {/* Profile photo + summary row */}
         <div style={{display:"flex",gap:16,marginBottom:20,alignItems:"flex-start",flexWrap:"wrap"}}>
@@ -464,22 +520,60 @@ The E-Vive Team
           ) : (
             <div style={{width:80,height:80,borderRadius:"50%",background:"#f4f7fb",border:"2px solid rgba(0,74,153,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32,flexShrink:0}}>👤</div>
           )}
-          <div style={{flex:1,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-            {[["Email",app.email||"—"],["Mobile",app.mobile||"—"],["Cert Level",app.certLevel||"—"],["Years Exp",app.yearsExp||"—"],["County",app.county||"—"],["Applied",fmtShort(app.appliedAt)],["Smartphone",fd.smartphone||"—"],["Education",fd.education||"—"]].map(([l,v])=>(
-              <div key={l} style={{background:"#f4f7fb",border:"1px solid rgba(0,74,153,0.12)",borderRadius:10,padding:"8px 12px"}}>
-                <div style={{fontSize:10,color:"#5A7080",fontFamily:"var(--mono)",marginBottom:2,textTransform:"uppercase",letterSpacing:"0.5px"}}>{l}</div>
-                <div style={{fontSize:13,fontWeight:600,color:"#0F2035"}}>{v}</div>
+          {editMode ? (
+            <div style={{flex:1,display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,minWidth:260}}>
+              <div className="modal-field" style={{margin:0}}><label className="modal-label">Full Name</label><input className="modal-input" value={data.fullName} onChange={e=>updData("fullName",e.target.value)} /></div>
+              <div className="modal-field" style={{margin:0}}><label className="modal-label">Email</label><input className="modal-input" type="email" value={data.email} onChange={e=>updData("email",e.target.value)} /></div>
+              <div className="modal-field" style={{margin:0}}><label className="modal-label">Mobile</label><input className="modal-input" value={data.mobile} onChange={e=>updData("mobile",e.target.value)} /></div>
+              <div className="modal-field" style={{margin:0}}><label className="modal-label">County</label><input className="modal-input" value={data.county} onChange={e=>updData("county",e.target.value)} /></div>
+              <div className="modal-field" style={{margin:0}}><label className="modal-label">Cert Level</label>
+                <select className="modal-sel" value={data.certLevel} onChange={e=>updData("certLevel",e.target.value)}>
+                  {['HCA','Certificate III','Diploma','RN','BSN'].map(v=><option key={v}>{v}</option>)}
+                </select>
               </div>
-            ))}
-          </div>
+              <div className="modal-field" style={{margin:0}}><label className="modal-label">Years Exp</label><input className="modal-input" type="number" min={0} value={data.yearsExp} onChange={e=>updData("yearsExp",e.target.value)} /></div>
+            </div>
+          ) : (
+            <div style={{flex:1,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              {[["Email",data.email||"—"],["Mobile",data.mobile||"—"],["Cert Level",data.certLevel||"—"],["Years Exp",data.yearsExp||"—"],["County",data.county||"—"],["Applied",fmtShort(app.appliedAt)],["Smartphone",fd.smartphone||"—"],["Education",fd.education||"—"]].map(([l,v])=>(
+                <div key={l} style={{background:"#f4f7fb",border:"1px solid rgba(0,74,153,0.12)",borderRadius:10,padding:"8px 12px"}}>
+                  <div style={{fontSize:10,color:"#5A7080",fontFamily:"var(--mono)",marginBottom:2,textTransform:"uppercase",letterSpacing:"0.5px"}}>{l}</div>
+                  <div style={{fontSize:13,fontWeight:600,color:"#0F2035"}}>{v}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Bio */}
-        {(app.bio||fd.bio) && (
+        {editMode ? (
+          <div className="modal-field">
+            <label className="modal-label">Bio</label>
+            <textarea className="modal-input" rows={3} value={data.bio} onChange={e=>updData("bio",e.target.value)} style={{resize:"vertical"}} />
+          </div>
+        ) : data.bio ? (
           <div style={{background:"#f4f7fb",border:"1px solid rgba(0,74,153,0.12)",borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:13,color:"#0F2035",lineHeight:1.6}}>
             <div style={{fontSize:10,color:"#5A7080",fontFamily:"var(--mono)",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.5px"}}>Bio</div>
-            {app.bio||fd.bio}
+            {data.bio}
           </div>
+        ) : null}
+
+        {editMode && (
+          <div className="modal-field">
+            <label className="modal-label">Specialisations</label>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:4}}>
+              {SPEC_OPTS.map(v=><button key={v} type="button" onClick={()=>updData("specialisations",tog(data.specialisations,v))} style={{padding:'4px 10px',borderRadius:'100px',fontSize:11,fontFamily:'var(--mono)',border:'1px solid rgba(168,0,64,0.25)',background:data.specialisations.includes(v)?'rgba(132,189,96,0.2)':'transparent',color:data.specialisations.includes(v)?'var(--mint)':'var(--muted)',cursor:'pointer'}}>{v}</button>)}
+            </div>
+          </div>
+        )}
+
+        {editMode && (
+          <>
+            {editMsg && <div style={{padding:"10px 14px",borderRadius:10,fontSize:13,marginBottom:12,background:editMsg.startsWith("✓")?"rgba(0,74,153,0.08)":"rgba(249,112,102,0.08)",border:editMsg.startsWith("✓")?"1px solid rgba(0,74,153,0.2)":"1px solid rgba(249,112,102,0.25)",color:editMsg.startsWith("✓")?"var(--mint)":"var(--coral)"}}>{editMsg}</div>}
+            <div className="modal-actions" style={{marginBottom:16}}>
+              <button className="btn-p btn-sm" onClick={saveEdits} disabled={editSaving}>{editSaving?"Saving…":"Save Changes"}</button>
+            </div>
+          </>
         )}
 
         {/* Certificates section */}
@@ -531,22 +625,9 @@ The E-Vive Team
           </div>
         ) : null}
 
-        {!approved ? (
-          <>
-            <div className="modal-field">
-              <label className="modal-label">Set HCA Rate (KES/shift)</label>
-              <input type="number" className="modal-input" value={rate} onChange={e=>setRate(e.target.value)} min={500} placeholder="1000" />
-            </div>
-            {msg && <div style={{background:"rgba(244,63,94,0.07)",border:"1px solid rgba(244,63,94,0.3)",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#c0392b",marginBottom:12,fontWeight:500}}>{msg}</div>}
-            <div className="modal-actions">
-              <button onClick={reject} style={{padding:"8px 16px",borderRadius:10,border:"1px solid rgba(244,63,94,0.35)",background:"rgba(244,63,94,0.05)",color:"#c0392b",fontSize:13,cursor:"pointer",fontFamily:"var(--sans)",fontWeight:600}}>Reject</button>
-              <button className="btn-o btn-sm" onClick={onClose}>Cancel</button>
-              <button className="btn-p btn-sm" onClick={approve} disabled={saving}>{saving?"Saving…":"Approve & Set Rate"}</button>
-            </div>
-          </>
-        ) : (
+        {!editMode && (approved ? (
           <div style={{background:"rgba(132,189,96,0.08)",border:"1px solid rgba(132,189,96,0.3)",borderRadius:12,padding:"18px 20px"}}>
-            <div style={{fontWeight:700,fontSize:15,color:"#2d7a1f",marginBottom:12}}>✅ {app.fullName||app.name} approved as {empId}</div>
+            <div style={{fontWeight:700,fontSize:15,color:"#2d7a1f",marginBottom:12}}>✅ {data.fullName} approved as {empId}</div>
             <div style={{background:"#fff",border:"1px solid rgba(0,74,153,0.15)",borderRadius:10,padding:"12px 16px",marginBottom:14,fontFamily:"var(--mono)",fontSize:13}}>
               <div style={{color:"#5A7080",marginBottom:4}}>INITIAL PASSWORD</div>
               <div style={{fontWeight:700,fontSize:16,color:"#0F2035",letterSpacing:"1px"}}>{initPwd}</div>
@@ -560,7 +641,37 @@ The E-Vive Team
               <button className="btn-p btn-sm" onClick={onClose}>Done</button>
             </div>
           </div>
-        )}
+        ) : app.status === "pending" ? (
+          <>
+            <div className="modal-field">
+              <label className="modal-label">Set HCA Rate (KES/shift)</label>
+              <input type="number" className="modal-input" value={rate} onChange={e=>setRate(e.target.value)} min={500} placeholder="1000" />
+            </div>
+            {msg && <div style={{background:"rgba(244,63,94,0.07)",border:"1px solid rgba(244,63,94,0.3)",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#c0392b",marginBottom:12,fontWeight:500}}>{msg}</div>}
+            <div className="modal-actions">
+              <button onClick={reject} style={{padding:"8px 16px",borderRadius:10,border:"1px solid rgba(244,63,94,0.35)",background:"rgba(244,63,94,0.05)",color:"#c0392b",fontSize:13,cursor:"pointer",fontFamily:"var(--sans)",fontWeight:600}}>Reject</button>
+              <button className="btn-o btn-sm" onClick={onClose}>Cancel</button>
+              <button className="btn-p btn-sm" onClick={approve} disabled={saving}>{saving?"Saving…":"Approve & Set Rate"}</button>
+            </div>
+          </>
+        ) : app.status === "rejected" ? (
+          <div style={{background:"rgba(249,112,102,0.07)",border:"1px solid rgba(249,112,102,0.25)",borderRadius:12,padding:"16px 20px"}}>
+            <div style={{fontWeight:700,fontSize:14,color:"var(--coral)",marginBottom:10}}>❌ This application was rejected.</div>
+            {msg && <div style={{fontSize:13,color:"#c0392b",marginBottom:10}}>{msg}</div>}
+            <div className="modal-actions" style={{marginTop:0,borderTop:"none",paddingTop:0}}>
+              <button className="btn-o btn-sm" onClick={onClose}>Close</button>
+              <button className="btn-p btn-sm" onClick={reopen} disabled={saving}>{saving?"Reopening…":"↩ Reopen for Review"}</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{background:"rgba(132,189,96,0.08)",border:"1px solid rgba(132,189,96,0.3)",borderRadius:12,padding:"16px 20px"}}>
+            <div style={{fontWeight:700,fontSize:14,color:"#2d7a1f",marginBottom:6}}>✅ Already approved{linkedProfile ? ` — HCA Profile ${linkedProfile.employeeId} (${linkedProfile.status})` : ""}.</div>
+            <div style={{fontSize:12,color:"#5A7080"}}>Manage the corresponding profile from the HCA Profiles table below.</div>
+            <div className="modal-actions" style={{marginTop:12,borderTop:"none",paddingTop:0}}>
+              <button className="btn-p btn-sm" onClick={onClose}>Close</button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -568,12 +679,6 @@ The E-Vive Team
 
 // ─── HCA edit modal ────────────────────────────────────────────────────────────
 function HcaEditModal({ hca, onClose, onRefresh }) {
-  const SPEC_OPTS = ["Elderly Care","Dementia Care","Post-Surgery","Palliative","Child Care","Diabetic Care","Critical Care","Cerebral Palsy","Mobility Assistance","Companionship","Driver / Transport"];
-  const LANG_OPTS = ["English","Kiswahili","Kikuyu","Luhya","Dholuo","Kamba","Meru","Somali","Kalenjin"];
-  const SHIFT_OPTS = ["Day Shift","Night Shift","24-Hour Care"];
-  const TRAVEL_OPTS = ["Local Travel","International"];
-
-  function tog(arr, v) { return arr.includes(v) ? arr.filter(x=>x!==v) : [...arr,v]; }
 
   const [form, setForm] = useState({
     name:             hca.name || '',
@@ -707,6 +812,131 @@ function HcaEditModal({ hca, onClose, onRefresh }) {
           <button className="btn-o btn-sm" onClick={onClose}>Cancel</button>
           <button className="btn-p btn-sm" onClick={save} disabled={saving}>{saving?'Saving…':'Save Changes'}</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Manually add HCA profile (no application required) ───────────────────────
+function AddHcaProfileModal({ onClose, onRefresh }) {
+  const [form, setForm] = useState({
+    name:'', email:'', mobile:'', certLevel:'HCA', yearsExp:0, rate:2000,
+    county:'', gender:'Not specified', bio:'',
+    specialisations:[], languages:['English','Kiswahili'], shiftPreferences:['Day Shift'],
+  });
+  const [saving,   setSaving]   = useState(false);
+  const [msg,      setMsg]      = useState('');
+  const [created,  setCreated]  = useState(false);
+  const [initPwd,  setInitPwd]  = useState('');
+  const [empId,    setEmpId]    = useState('');
+  const [notify,   setNotify]   = useState(true);
+
+  const upd = (f,v) => setForm(p=>({...p,[f]:v}));
+
+  async function save() {
+    if (!form.name.trim())  { setMsg('Name is required.');  return; }
+    if (!form.email.trim()) { setMsg('Email is required.'); return; }
+    setSaving(true);
+    const pwd = generateInitialPassword();
+    try {
+      const profile = await createHcaProfile({
+        name: form.name, email: form.email, password: pwd, mobile: form.mobile,
+        certLevel: form.certLevel, yearsExp: Number(form.yearsExp) || 0,
+        specialisations: form.specialisations, rate: Number(form.rate) || 2000,
+        rateSetAt: new Date().toISOString(), county: form.county,
+        gender: form.gender, languages: form.languages,
+        shiftPreferences: form.shiftPreferences, bio: form.bio,
+      });
+      if (notify) {
+        try { await sendHcaOnboardingNotification(profile.id, form.email, form.name, profile.employeeId, pwd); } catch(_) { /* non-critical */ }
+      }
+      setInitPwd(pwd);
+      setEmpId(profile.employeeId);
+      setCreated(true);
+      onRefresh();
+    } catch (e) { setMsg('⚠ ' + (e.message||'Error')); setSaving(false); }
+  }
+
+  return (
+    <div className="modal-bg" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal-box" style={{maxWidth:580,maxHeight:'90vh',overflowY:'auto'}}>
+        <div className="modal-title">➕ Add HCA Profile Manually</div>
+
+        {!created ? (
+          <>
+            <div style={{fontSize:12,color:'var(--muted)',marginBottom:16,lineHeight:1.6}}>Use this to onboard a HomeCare Assistant directly, without a submitted application (e.g. walk-in or manual registration).</div>
+
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:4}}>
+              <div className="modal-field"><label className="modal-label">Full Name *</label><input className="modal-input" value={form.name} onChange={e=>upd('name',e.target.value)} /></div>
+              <div className="modal-field"><label className="modal-label">Email *</label><input className="modal-input" type="email" value={form.email} onChange={e=>upd('email',e.target.value)} /></div>
+              <div className="modal-field"><label className="modal-label">Mobile</label><input className="modal-input" value={form.mobile} onChange={e=>upd('mobile',e.target.value)} /></div>
+              <div className="modal-field"><label className="modal-label">County</label><input className="modal-input" value={form.county} onChange={e=>upd('county',e.target.value)} /></div>
+              <div className="modal-field"><label className="modal-label">Cert Level</label>
+                <select className="modal-sel" value={form.certLevel} onChange={e=>upd('certLevel',e.target.value)}>
+                  {['HCA','Certificate III','Diploma','RN','BSN'].map(v=><option key={v}>{v}</option>)}
+                </select>
+              </div>
+              <div className="modal-field"><label className="modal-label">Years Exp</label><input className="modal-input" type="number" min={0} value={form.yearsExp} onChange={e=>upd('yearsExp',e.target.value)} /></div>
+              <div className="modal-field"><label className="modal-label">Rate (KES/shift)</label><input className="modal-input" type="number" min={0} value={form.rate} onChange={e=>upd('rate',e.target.value)} /></div>
+              <div className="modal-field"><label className="modal-label">Gender</label>
+                <select className="modal-sel" value={form.gender} onChange={e=>upd('gender',e.target.value)}>
+                  {['Not specified','Female','Male','Non-binary'].map(v=><option key={v}>{v}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="modal-field">
+              <label className="modal-label">Bio / Profile Summary</label>
+              <textarea className="modal-input" rows={2} value={form.bio} onChange={e=>upd('bio',e.target.value)} style={{resize:'vertical'}} />
+            </div>
+
+            <div className="modal-field">
+              <label className="modal-label">Specialisations</label>
+              <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:4}}>
+                {SPEC_OPTS.map(v=><button key={v} type="button" onClick={()=>upd('specialisations',tog(form.specialisations,v))} style={{padding:'4px 10px',borderRadius:'100px',fontSize:11,fontFamily:'var(--mono)',border:'1px solid rgba(168,0,64,0.25)',background:form.specialisations.includes(v)?'rgba(132,189,96,0.2)':'transparent',color:form.specialisations.includes(v)?'var(--mint)':'var(--muted)',cursor:'pointer'}}>{v}</button>)}
+              </div>
+            </div>
+
+            <div className="modal-field">
+              <label className="modal-label">Languages</label>
+              <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:4}}>
+                {LANG_OPTS.map(v=><button key={v} type="button" onClick={()=>upd('languages',tog(form.languages,v))} style={{padding:'4px 10px',borderRadius:'100px',fontSize:11,fontFamily:'var(--mono)',border:'1px solid rgba(168,0,64,0.25)',background:form.languages.includes(v)?'rgba(0,74,153,0.15)':'transparent',color:form.languages.includes(v)?'var(--sky)':'var(--muted)',cursor:'pointer'}}>{v}</button>)}
+              </div>
+            </div>
+
+            <div className="modal-field">
+              <label className="modal-label">Shift Preferences</label>
+              <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:4}}>
+                {SHIFT_OPTS.map(v=><button key={v} type="button" onClick={()=>upd('shiftPreferences',tog(form.shiftPreferences,v))} style={{padding:'4px 10px',borderRadius:'100px',fontSize:11,fontFamily:'var(--mono)',border:'1px solid rgba(168,0,64,0.25)',background:form.shiftPreferences.includes(v)?'rgba(0,74,153,0.15)':'transparent',color:form.shiftPreferences.includes(v)?'var(--sky)':'var(--muted)',cursor:'pointer'}}>{v}</button>)}
+              </div>
+            </div>
+
+            <div className="modal-field">
+              <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13}}>
+                <input type="checkbox" checked={notify} onChange={e=>setNotify(e.target.checked)} />
+                Send onboarding email with employee ID and password
+              </label>
+            </div>
+
+            {msg && <div style={{padding:'10px 14px',borderRadius:10,fontSize:13,marginBottom:12,background:'rgba(249,112,102,0.08)',border:'1px solid rgba(249,112,102,0.25)',color:'var(--coral)'}}>{msg}</div>}
+            <div className="modal-actions">
+              <button className="btn-o btn-sm" onClick={onClose}>Cancel</button>
+              <button className="btn-p btn-sm" onClick={save} disabled={saving}>{saving?'Creating…':'Create HCA Profile'}</button>
+            </div>
+          </>
+        ) : (
+          <div style={{background:'rgba(132,189,96,0.08)',border:'1px solid rgba(132,189,96,0.3)',borderRadius:12,padding:'18px 20px'}}>
+            <div style={{fontWeight:700,fontSize:15,color:'#2d7a1f',marginBottom:12}}>✅ {form.name} created as {empId}</div>
+            <div style={{background:'#fff',border:'1px solid rgba(0,74,153,0.15)',borderRadius:10,padding:'12px 16px',marginBottom:14,fontFamily:'var(--mono)',fontSize:13}}>
+              <div style={{color:'#5A7080',marginBottom:4}}>INITIAL PASSWORD</div>
+              <div style={{fontWeight:700,fontSize:16,color:'#0F2035',letterSpacing:'1px'}}>{initPwd}</div>
+              <div style={{fontSize:11,color:'#5A7080',marginTop:4}}>{notify ? 'This has been sent to the HCA’s email.' : 'Share this with the HCA securely — no email was sent.'} They must change it on first login.</div>
+            </div>
+            <div className="modal-actions" style={{marginTop:0}}>
+              <button className="btn-p btn-sm" onClick={onClose}>Done</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -997,6 +1227,8 @@ export default function AdminDashboard() {
   const [sideOpen,  setSideOpen] = useState(false);
   const [hcaFilter, setHcaFilter]= useState("All");
   const [search,    setSearch]   = useState("");
+  const [appStatusFilter, setAppStatusFilter] = useState("All");
+  const [appSearch,       setAppSearch]       = useState("");
   const [clients,   setClients]  = useState([]);
   const [hcaApps,   setHcaApps]  = useState([]);
   const [hcaProfiles, setHcaProfiles] = useState([]);
@@ -1008,6 +1240,7 @@ export default function AdminDashboard() {
   // Modals
   const [clientModal,    setClientModal]    = useState(null);
   const [hcaModal,       setHcaModal]       = useState(null);
+  const [addHcaModal,    setAddHcaModal]    = useState(false);
   const [editHcaModal,   setEditHcaModal]   = useState(null);
   const [editClientModal,setEditClientModal] = useState(null);
   const [addEvent,       setAddEvent]       = useState(null);
@@ -1169,6 +1402,12 @@ export default function AdminDashboard() {
     return matchFilter && (!q || h.name?.toLowerCase().includes(q) || h.employeeId?.includes(q) || h.email?.toLowerCase().includes(q));
   });
 
+  const filteredAppsList = hcaApps.filter(a => {
+    const matchStatus = appStatusFilter === "All" ? true : a.status === appStatusFilter.toLowerCase();
+    const q = appSearch.toLowerCase();
+    return matchStatus && (!q || (a.fullName||a.name||"").toLowerCase().includes(q) || a.email?.toLowerCase().includes(q));
+  });
+
   // ── Calendar build ──
   const DAYS_OF_WEEK = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const calFirstDay = new Date(calYear, calMonth, 1);
@@ -1213,10 +1452,12 @@ export default function AdminDashboard() {
       {hcaModal && (
         <HcaApproveModal
           app={hcaModal}
+          hcaProfiles={hcaProfiles}
           onClose={() => setHcaModal(null)}
           onRefresh={refresh}
         />
       )}
+      {addHcaModal && <AddHcaProfileModal onClose={()=>setAddHcaModal(false)} onRefresh={refresh} />}
       {editHcaModal && <HcaEditModal hca={editHcaModal} onClose={()=>setEditHcaModal(null)} onRefresh={refresh} />}
       {editClientModal && <ClientEditModal client={editClientModal} onClose={()=>setEditClientModal(null)} onRefresh={refresh} />}
       {addEvent && (
@@ -1541,15 +1782,23 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                {hcaApps.length > 0 && (
-                  <div className="panel" style={{marginBottom:18}}>
-                    <div className="panel-head"><div className="panel-title">📁 All Applications</div><span className="badge badge-dim">{hcaApps.length}</span></div>
-                    <div className="panel-body">
+                <div className="panel" style={{marginBottom:18}}>
+                  <div className="panel-head"><div className="panel-title">📁 All Applications</div><span className="badge badge-dim">{hcaApps.length}</span></div>
+                  <div className="panel-body">
+                    <div className="filter-bar">
+                      {["All","Pending","Approved","Rejected"].map(f=>(
+                        <button key={f} className={`filter-chip${appStatusFilter===f?" active":""}`} onClick={()=>setAppStatusFilter(f)}>{f}</button>
+                      ))}
+                      <input className="search-bar" placeholder="Search applications..." value={appSearch} onChange={e=>setAppSearch(e.target.value)} style={{marginLeft:"auto"}} />
+                    </div>
+                    {filteredAppsList.length === 0 ? (
+                      <div style={{textAlign:"center",padding:"32px 0",color:"var(--muted)",fontSize:13}}>No applications match this filter.</div>
+                    ) : (
                       <div className="dash-table-wrap">
                         <table className="dash-table">
                           <thead><tr><th>Name</th><th>Email</th><th>Cert Level</th><th>Status</th><th>Applied</th><th>Actions</th></tr></thead>
                           <tbody>
-                            {hcaApps.map((a,i)=>(
+                            {filteredAppsList.map((a,i)=>(
                               <tr key={a.id||i}>
                                 <td style={{fontWeight:600}}>{a.fullName||a.name}</td>
                                 <td style={{fontSize:12,color:"var(--muted)"}}>{a.email}</td>
@@ -1560,7 +1809,7 @@ export default function AdminDashboard() {
                                 <td style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--muted)"}}>{fmtShort(a.appliedAt)}</td>
                                 <td>
                                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                                    {a.status==="pending" && <button className="btn-p btn-sm" onClick={()=>setHcaModal(a)}>Review</button>}
+                                    <button className="btn-p btn-sm" onClick={()=>setHcaModal(a)}>{a.status==="pending" ? "Review" : "View"}</button>
                                     <button className="btn-danger btn-sm" onClick={async ()=>{
                                       if (!confirm(`Permanently delete application from ${a.fullName||a.name}? This cannot be undone.`)) return;
                                       await deleteHcaApplication(a.id);
@@ -1573,15 +1822,16 @@ export default function AdminDashboard() {
                           </tbody>
                         </table>
                       </div>
-                    </div>
+                    )}
                   </div>
-                )}
+                </div>
 
                 <div className="filter-bar">
                   {["All","Active","Inactive"].map(f=>(
                     <button key={f} className={`filter-chip${hcaFilter===f?" active":""}`} onClick={()=>setHcaFilter(f)}>{f}</button>
                   ))}
-                  <input className="search-bar" placeholder="Search by name, ID, or email..." value={search} onChange={e=>setSearch(e.target.value)} style={{marginLeft:"auto"}} />
+                  <input className="search-bar" placeholder="Search by name, ID, or email..." value={search} onChange={e=>setSearch(e.target.value)} />
+                  <button className="btn-p btn-sm" style={{marginLeft:"auto"}} onClick={()=>setAddHcaModal(true)}>+ Add HCA Profile</button>
                 </div>
 
                 {filteredHCAs.length === 0 ? (
