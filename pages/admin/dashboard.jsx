@@ -20,8 +20,11 @@ import {
   getCalendarItemsForMonth,
   createHcaProfile,
   updateHcaApplication,
+  deleteHcaApplication,
   updateHcaProfile,
+  deleteHcaProfile,
   updateClient,
+  deleteClient,
   createInvoice,
   getRbacRules,
   setRbacRule,
@@ -1166,11 +1169,6 @@ export default function AdminDashboard() {
     return matchFilter && (!q || h.name?.toLowerCase().includes(q) || h.employeeId?.includes(q) || h.email?.toLowerCase().includes(q));
   });
 
-  const filteredApps = hcaApps.filter(a =>
-    hcaFilter === "Pending" ? a.status === "pending" :
-    hcaFilter === "All"     ? true : a.status === hcaFilter.toLowerCase()
-  );
-
   // ── Calendar build ──
   const DAYS_OF_WEEK = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const calFirstDay = new Date(calYear, calMonth, 1);
@@ -1524,7 +1522,52 @@ export default function AdminDashboard() {
                                 <td style={{fontSize:12,color:"var(--muted)"}}>{a.email}</td>
                                 <td><span className="badge badge-sky">{a.certLevel||"HCA"}</span></td>
                                 <td style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--muted)"}}>{fmtShort(a.appliedAt)}</td>
-                                <td><button className="btn-p btn-sm" onClick={()=>setHcaModal(a)}>Review</button></td>
+                                <td>
+                                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                                    <button className="btn-p btn-sm" onClick={()=>setHcaModal(a)}>Review</button>
+                                    <button className="btn-danger btn-sm" onClick={async ()=>{
+                                      if (!confirm(`Delete application from ${a.fullName||a.name}? This cannot be undone.`)) return;
+                                      await deleteHcaApplication(a.id);
+                                      await refresh();
+                                    }}>Delete</button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {hcaApps.length > 0 && (
+                  <div className="panel" style={{marginBottom:18}}>
+                    <div className="panel-head"><div className="panel-title">📁 All Applications</div><span className="badge badge-dim">{hcaApps.length}</span></div>
+                    <div className="panel-body">
+                      <div className="dash-table-wrap">
+                        <table className="dash-table">
+                          <thead><tr><th>Name</th><th>Email</th><th>Cert Level</th><th>Status</th><th>Applied</th><th>Actions</th></tr></thead>
+                          <tbody>
+                            {hcaApps.map((a,i)=>(
+                              <tr key={a.id||i}>
+                                <td style={{fontWeight:600}}>{a.fullName||a.name}</td>
+                                <td style={{fontSize:12,color:"var(--muted)"}}>{a.email}</td>
+                                <td><span className="badge badge-sky">{a.certLevel||"HCA"}</span></td>
+                                <td>
+                                  <span className={`badge ${a.status==="approved"?"badge-mint":a.status==="rejected"?"badge-coral":"badge-gold"}`}>{a.status}</span>
+                                </td>
+                                <td style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--muted)"}}>{fmtShort(a.appliedAt)}</td>
+                                <td>
+                                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                                    {a.status==="pending" && <button className="btn-p btn-sm" onClick={()=>setHcaModal(a)}>Review</button>}
+                                    <button className="btn-danger btn-sm" onClick={async ()=>{
+                                      if (!confirm(`Permanently delete application from ${a.fullName||a.name}? This cannot be undone.`)) return;
+                                      await deleteHcaApplication(a.id);
+                                      await refresh();
+                                    }}>Delete</button>
+                                  </div>
+                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -1576,6 +1619,11 @@ export default function AdminDashboard() {
                                   setHcaSession({ id:h.id, name:h.name, email:h.email, employeeId:h.employeeId });
                                   window.open("/hca/dashboard","_blank");
                                 }}>🔐 Login as</button>
+                                <button className="btn-danger btn-sm" onClick={async ()=>{
+                                  if (!confirm(`Permanently delete HCA profile for ${h.name} (${h.employeeId})? This cannot be undone.`)) return;
+                                  await deleteHcaProfile(h.id);
+                                  await refresh();
+                                }}>Delete</button>
                               </div>
                             </td>
                           </tr>
@@ -1647,6 +1695,11 @@ export default function AdminDashboard() {
                                     setClientSession({ id:c.id, name:c.name, email:c.email, mobile:c.mobile });
                                     window.open("/client/dashboard","_blank");
                                   }}>🔐 Login as</button>
+                                  <button className="btn-danger btn-sm" onClick={async ()=>{
+                                    if (!confirm(`Permanently delete client ${c.name} and all associated patient records? This cannot be undone.`)) return;
+                                    await deleteClient(c.id);
+                                    await refresh();
+                                  }}>Delete</button>
                                 </div>
                               </td>
                             </tr>
