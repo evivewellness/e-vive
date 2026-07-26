@@ -21,6 +21,7 @@ import {
   createHcaProfile,
   updateHcaApplication,
   deleteHcaApplication,
+  repairHcaApplicationStatuses,
   updateHcaProfile,
   deleteHcaProfile,
   updateClient,
@@ -1229,6 +1230,8 @@ export default function AdminDashboard() {
   const [search,    setSearch]   = useState("");
   const [appStatusFilter, setAppStatusFilter] = useState("All");
   const [appSearch,       setAppSearch]       = useState("");
+  const [repairing,       setRepairing]       = useState(false);
+  const [repairMsg,       setRepairMsg]       = useState("");
   const [clients,   setClients]  = useState([]);
   const [hcaApps,   setHcaApps]  = useState([]);
   const [hcaProfiles, setHcaProfiles] = useState([]);
@@ -1388,6 +1391,7 @@ export default function AdminDashboard() {
   // ── derived stats ──
   const activeClients    = clients.filter(c => c.status === "active");
   const pendingApps      = hcaApps.filter(a => a.status === "pending");
+  const unstatusedApps   = hcaApps.filter(a => !["pending","approved","rejected"].includes(a.status));
   const activeHCAs       = hcaProfiles.filter(h => h.status === "active");
   const activePlacements = clients.filter(c => c.journeyStage === "placement_active");
   const outstandingTotal = invoices.filter(i=>i.status!=="paid").reduce((s,i)=>s+(i.total||0),0);
@@ -1738,6 +1742,27 @@ export default function AdminDashboard() {
             {/* ── HCA MANAGEMENT ── */}
             {tab==="hcas" && (
               <>
+                {unstatusedApps.length > 0 && (
+                  <div className="panel" style={{marginBottom:18,borderColor:"rgba(249,112,102,0.35)"}}>
+                    <div className="panel-body" style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:14,color:"var(--coral)"}}>⚠ {unstatusedApps.length} application{unstatusedApps.length!==1?"s":""} missing a status — not showing in the Pending queue.</div>
+                        <div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>These were submitted but never marked &quot;pending&quot;, so they only appear in Recent Activity. Repair restores them to the workflow below.</div>
+                      </div>
+                      <button className="btn-p btn-sm" disabled={repairing} onClick={async ()=>{
+                        setRepairing(true);
+                        try {
+                          const n = await repairHcaApplicationStatuses();
+                          setRepairMsg(`✓ Repaired ${n} application${n!==1?"s":""}.`);
+                          await refresh();
+                        } catch(e) { setRepairMsg("⚠ " + (e.message||"Error")); }
+                        setRepairing(false);
+                      }}>{repairing ? "Repairing…" : "🔧 Repair Now"}</button>
+                    </div>
+                    {repairMsg && <div style={{padding:"0 16px 14px",fontSize:12,color:repairMsg.startsWith("✓")?"var(--mint)":"var(--coral)"}}>{repairMsg}</div>}
+                  </div>
+                )}
+
                 <div className="stat-grid">
                   {[
                     {icon:"🩺",lbl:"Total HCA Profiles",val:hcaProfiles.length,color:"mint"},
