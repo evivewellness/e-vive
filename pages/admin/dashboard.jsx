@@ -1232,6 +1232,7 @@ export default function AdminDashboard() {
   const [appSearch,       setAppSearch]       = useState("");
   const [repairing,       setRepairing]       = useState(false);
   const [repairMsg,       setRepairMsg]       = useState("");
+  const [appsLoadError,   setAppsLoadError]   = useState("");
   const [clients,   setClients]  = useState([]);
   const [hcaApps,   setHcaApps]  = useState([]);
   const [hcaProfiles, setHcaProfiles] = useState([]);
@@ -1308,7 +1309,9 @@ export default function AdminDashboard() {
 
   const refresh = useCallback(async () => {
     const [clients, apps, profiles, invoices, shifts, events, activity, rbac, anns, nls, cardex, pc, discounts, cMsgs] = await Promise.all([
-      getAllClients(), getAllHcaApplications(), getAllHcaProfiles(), getAllInvoices(),
+      getAllClients(),
+      getAllHcaApplications().then(r => { setAppsLoadError(""); return r; }).catch(e => { setAppsLoadError(e.message || "Failed to load applications."); return []; }),
+      getAllHcaProfiles(), getAllInvoices(),
       getAllShifts(), getAllCalendarEvents(), getActivityLog(), getRbacRules(),
       getAllAnnouncements(), getAllNewsletters(), getAllCardexEntries(), getPricingConfig(), getAllDiscountCodes(), getAllContactMessages(),
     ]);
@@ -1742,6 +1745,18 @@ export default function AdminDashboard() {
             {/* ── HCA MANAGEMENT ── */}
             {tab==="hcas" && (
               <>
+                {appsLoadError && (
+                  <div className="panel" style={{marginBottom:18,borderColor:"rgba(249,112,102,0.5)",background:"rgba(249,112,102,0.05)"}}>
+                    <div className="panel-body">
+                      <div style={{fontWeight:700,fontSize:14,color:"var(--coral)",marginBottom:6}}>⚠ Could not load HCA applications</div>
+                      <div style={{fontSize:12,color:"var(--muted)",lineHeight:1.6}}>
+                        Error: <span style={{fontFamily:"var(--mono)"}}>{appsLoadError}</span><br/>
+                        This is almost always a Supabase Row-Level Security policy blocking reads on the <code>hca_applications</code> table for the key this app uses — check Table Editor → <code>hca_applications</code> → RLS Policies for a SELECT policy covering the anon/public role, and compare it against <code>hca_profiles</code> (which is loading fine). Applications may still be submitting successfully even while this read is blocked.
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {unstatusedApps.length > 0 && (
                   <div className="panel" style={{marginBottom:18,borderColor:"rgba(249,112,102,0.35)"}}>
                     <div className="panel-body" style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
