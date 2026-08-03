@@ -8,6 +8,7 @@ import {
   clearAdminSession,
   getAllClients,
   getAllHcaApplications,
+  getHcaApplicationById,
   getAllHcaProfiles,
   getAllInvoices,
   getAllShifts,
@@ -1233,6 +1234,7 @@ export default function AdminDashboard() {
   const [repairing,       setRepairing]       = useState(false);
   const [repairMsg,       setRepairMsg]       = useState("");
   const [appsLoadError,   setAppsLoadError]   = useState("");
+  const [loadingAppId,    setLoadingAppId]    = useState(null);
   const [clients,   setClients]  = useState([]);
   const [hcaApps,   setHcaApps]  = useState([]);
   const [hcaProfiles, setHcaProfiles] = useState([]);
@@ -1336,6 +1338,19 @@ export default function AdminDashboard() {
     setDiscounts(discounts);
     setContactMessages(cMsgs);
   }, []);
+
+  // Application list rows omit form_data (certs/photo) to keep the list query
+  // fast — fetch the full row on demand when opening the review/view modal.
+  async function openHcaModal(app) {
+    setLoadingAppId(app.id);
+    try {
+      const full = await getHcaApplicationById(app.id);
+      setHcaModal(full || app);
+    } catch (e) {
+      setHcaModal(app);
+    }
+    setLoadingAppId(null);
+  }
 
   // ── Auth guard ──
   useEffect(() => {
@@ -1751,7 +1766,11 @@ export default function AdminDashboard() {
                       <div style={{fontWeight:700,fontSize:14,color:"var(--coral)",marginBottom:6}}>⚠ Could not load HCA applications</div>
                       <div style={{fontSize:12,color:"var(--muted)",lineHeight:1.6}}>
                         Error: <span style={{fontFamily:"var(--mono)"}}>{appsLoadError}</span><br/>
-                        This is almost always a Supabase Row-Level Security policy blocking reads on the <code>hca_applications</code> table for the key this app uses — check Table Editor → <code>hca_applications</code> → RLS Policies for a SELECT policy covering the anon/public role, and compare it against <code>hca_profiles</code> (which is loading fine). Applications may still be submitting successfully even while this read is blocked.
+                        {appsLoadError.toLowerCase().includes("timeout") ? (
+                          <>This is a database query timeout, not a permissions problem. It&apos;s most likely caused by uploaded certificate/profile-photo files stored as base64 text inside the <code>form_data</code> column, making each row heavy enough that scanning the whole table is too slow. The applications list query has been changed to skip that column, which should resolve this once it&apos;s deployed — refresh after the deploy finishes. If it still times out, the <code>hca_applications</code> table may need an index on <code>applied_at</code>, or the large file uploads should move to Supabase Storage instead of being embedded as base64.</>
+                        ) : (
+                          <>This is often a Supabase Row-Level Security policy blocking reads on the <code>hca_applications</code> table — check Table Editor → <code>hca_applications</code> → RLS Policies for a SELECT policy covering the anon/public role, comparing against <code>hca_profiles</code> (which loads fine).</>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1805,7 +1824,7 @@ export default function AdminDashboard() {
                                 <td style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--muted)"}}>{fmtShort(a.appliedAt)}</td>
                                 <td>
                                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                                    <button className="btn-p btn-sm" onClick={()=>setHcaModal(a)}>Review</button>
+                                    <button className="btn-p btn-sm" disabled={loadingAppId===a.id} onClick={()=>openHcaModal(a)}>{loadingAppId===a.id?"Loading…":"Review"}</button>
                                     <button className="btn-danger btn-sm" onClick={async ()=>{
                                       if (!confirm(`Delete application from ${a.fullName||a.name}? This cannot be undone.`)) return;
                                       await deleteHcaApplication(a.id);
@@ -1849,7 +1868,7 @@ export default function AdminDashboard() {
                                 <td style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--muted)"}}>{fmtShort(a.appliedAt)}</td>
                                 <td>
                                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                                    <button className="btn-p btn-sm" onClick={()=>setHcaModal(a)}>{a.status==="pending" ? "Review" : "View"}</button>
+                                    <button className="btn-p btn-sm" disabled={loadingAppId===a.id} onClick={()=>openHcaModal(a)}>{loadingAppId===a.id ? "Loading…" : a.status==="pending" ? "Review" : "View"}</button>
                                     <button className="btn-danger btn-sm" onClick={async ()=>{
                                       if (!confirm(`Permanently delete application from ${a.fullName||a.name}? This cannot be undone.`)) return;
                                       await deleteHcaApplication(a.id);
