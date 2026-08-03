@@ -390,6 +390,7 @@ function HcaApproveModal({ app, hcaProfiles=[], onClose, onRefresh }) {
   const [initPwd,   setInitPwd]   = useState("");
   const [empId,     setEmpId]     = useState("");
   const [certIdx,   setCertIdx]   = useState(0);
+  const [emailStatus, setEmailStatus] = useState(null);
 
   const fd    = app.formData || {};
   const certs = fd.certifications || [];
@@ -450,7 +451,10 @@ function HcaApproveModal({ app, hcaProfiles=[], onClose, onRefresh }) {
       });
       await updateHcaApplication(app.id, { status: "approved" });
 
-      try { await sendHcaOnboardingNotification(profile.id, data.email, data.fullName, profile.employeeId, pwd); } catch(_) { /* non-critical */ }
+      try {
+        const { ok, skipped, error } = await sendHcaOnboardingNotification(profile.id, data.email, data.fullName, profile.employeeId, pwd);
+        setEmailStatus(ok && !skipped ? { sent:true } : { sent:false, skipped, error });
+      } catch (e) { setEmailStatus({ sent:false, error: e.message||"Error" }); }
 
       setInitPwd(pwd);
       setEmpId(profile.employeeId);
@@ -633,12 +637,19 @@ The E-Vive Team
             <div style={{background:"#fff",border:"1px solid rgba(0,74,153,0.15)",borderRadius:10,padding:"12px 16px",marginBottom:14,fontFamily:"var(--mono)",fontSize:13}}>
               <div style={{color:"#5A7080",marginBottom:4}}>INITIAL PASSWORD</div>
               <div style={{fontWeight:700,fontSize:16,color:"#0F2035",letterSpacing:"1px"}}>{initPwd}</div>
-              <div style={{fontSize:11,color:"#5A7080",marginTop:4}}>This has been securely sent to the applicant&apos;s email. They must change it on first login.</div>
+              <div style={{fontSize:11,color:"#5A7080",marginTop:4}}>{emailStatus?.sent ? "This has been securely sent to the applicant’s email." : "Share this with the applicant directly — see below."} They must change it on first login.</div>
             </div>
-            <div style={{display:"inline-flex",alignItems:"center",gap:10,padding:"10px 20px",borderRadius:10,background:"rgba(132,189,96,0.1)",border:"1px solid rgba(132,189,96,0.3)",color:"#2d7a1f",fontSize:13,fontWeight:700,marginBottom:12}}>
-              📧 Onboarding email sent automatically
-            </div>
-            <div style={{fontSize:11,color:"#5A7080",lineHeight:1.6}}>The applicant has received their employee ID, initial password, and login instructions.</div>
+            {emailStatus?.sent ? (
+              <div style={{display:"inline-flex",alignItems:"center",gap:10,padding:"10px 20px",borderRadius:10,background:"rgba(132,189,96,0.1)",border:"1px solid rgba(132,189,96,0.3)",color:"#2d7a1f",fontSize:13,fontWeight:700,marginBottom:12}}>
+                📧 Onboarding email sent
+              </div>
+            ) : (
+              <div style={{padding:"10px 16px",borderRadius:10,background:"rgba(249,112,102,0.1)",border:"1px solid rgba(249,112,102,0.3)",color:"var(--coral)",fontSize:13,fontWeight:700,marginBottom:12}}>
+                <div>⚠ Onboarding email was NOT sent{emailStatus?.skipped ? " — email sending isn’t configured on the server." : emailStatus?.error ? `: ${emailStatus.error}` : "."}</div>
+                <a href={mailtoLink()} style={{display:"inline-flex",marginTop:8,fontSize:12,color:"#004A99",fontWeight:600,textDecoration:"underline"}}>✉️ Open in email client to send manually</a>
+              </div>
+            )}
+            <div style={{fontSize:11,color:"#5A7080",lineHeight:1.6}}>{emailStatus?.sent ? "The applicant has received their employee ID, initial password, and login instructions." : "Share the employee ID and password above with the applicant yourself so they can log in."}</div>
             <div className="modal-actions" style={{marginTop:16}}>
               <button className="btn-p btn-sm" onClick={onClose}>Done</button>
             </div>
@@ -832,6 +843,7 @@ function AddHcaProfileModal({ onClose, onRefresh }) {
   const [initPwd,  setInitPwd]  = useState('');
   const [empId,    setEmpId]    = useState('');
   const [notify,   setNotify]   = useState(true);
+  const [emailStatus, setEmailStatus] = useState(null);
 
   const upd = (f,v) => setForm(p=>({...p,[f]:v}));
 
@@ -850,7 +862,10 @@ function AddHcaProfileModal({ onClose, onRefresh }) {
         shiftPreferences: form.shiftPreferences, bio: form.bio,
       });
       if (notify) {
-        try { await sendHcaOnboardingNotification(profile.id, form.email, form.name, profile.employeeId, pwd); } catch(_) { /* non-critical */ }
+        try {
+          const { ok, skipped, error } = await sendHcaOnboardingNotification(profile.id, form.email, form.name, profile.employeeId, pwd);
+          setEmailStatus(ok && !skipped ? { sent:true } : { sent:false, skipped, error });
+        } catch (e) { setEmailStatus({ sent:false, error: e.message||"Error" }); }
       }
       setInitPwd(pwd);
       setEmpId(profile.employeeId);
@@ -932,8 +947,13 @@ function AddHcaProfileModal({ onClose, onRefresh }) {
             <div style={{background:'#fff',border:'1px solid rgba(0,74,153,0.15)',borderRadius:10,padding:'12px 16px',marginBottom:14,fontFamily:'var(--mono)',fontSize:13}}>
               <div style={{color:'#5A7080',marginBottom:4}}>INITIAL PASSWORD</div>
               <div style={{fontWeight:700,fontSize:16,color:'#0F2035',letterSpacing:'1px'}}>{initPwd}</div>
-              <div style={{fontSize:11,color:'#5A7080',marginTop:4}}>{notify ? 'This has been sent to the HCA’s email.' : 'Share this with the HCA securely — no email was sent.'} They must change it on first login.</div>
+              <div style={{fontSize:11,color:'#5A7080',marginTop:4}}>{notify && emailStatus?.sent ? 'This has been sent to the HCA’s email.' : 'Share this with the HCA securely.'} They must change it on first login.</div>
             </div>
+            {notify && emailStatus && !emailStatus.sent && (
+              <div style={{padding:'10px 16px',borderRadius:10,background:'rgba(249,112,102,0.1)',border:'1px solid rgba(249,112,102,0.3)',color:'var(--coral)',fontSize:13,fontWeight:700,marginBottom:12}}>
+                ⚠ Onboarding email was NOT sent{emailStatus.skipped ? " — email sending isn’t configured on the server." : emailStatus.error ? `: ${emailStatus.error}` : "."}
+              </div>
+            )}
             <div className="modal-actions" style={{marginTop:0}}>
               <button className="btn-p btn-sm" onClick={onClose}>Done</button>
             </div>
