@@ -1128,8 +1128,7 @@ The admin dashboard has a fully functional mobile hamburger sidebar:
 | Icon | Label | Key | Notes |
 |---|---|---|---|
 | 📊 | Overview | `overview` | Platform stats |
-| 📥 | Inbox | `inbox` | Contact page submissions (`contact_messages` table) |
-| 📨 | Messages | `messages` | Unified email inbox/sent/outbox/trash — see §9.4 |
+| 📨 | Messages | `messages` | Unified email inbox/sent/outbox/trash, including Contact page submissions — see §9.4 |
 | 🩺 | HCA Management | `hcas` | HCA management + approval queue |
 | 👥 | Client Management | `clients` | Family management |
 | 📋 | Care Quality | `quality` | Cardex QA review |
@@ -1152,12 +1151,13 @@ The admin dashboard has a fully functional mobile hamburger sidebar:
 Unified email view backed by the `emails` table (see §9.2/§9.4 for setup — requires a one-time SQL migration and Resend webhook configuration).
 - 4 folders as stat-box shortcuts + filter chips: Inbox, Sent, Outbox, Trash
 - Search bar filters by subject, from/to address, body text, and origin tag across the active folder
-- Each row tagged by origin badge (`EMAIL_ORIGIN_LABELS`): Resend, Admin, System (Contact Page origin reserved for a future pass folding in `contact_messages`)
+- Each row tagged by origin badge (`EMAIL_ORIGIN_LABELS`): Resend, Admin, System, Contact Page
 - Status badge reflects Resend delivery lifecycle for outbound mail: sent → delivered → opened/clicked, or bounced/complained/failed; inbound mail shows `received`
 - **Compose** (`ComposeEmailModal`) — To field autocompletes against loaded clients/HCAs by email, supports comma-separated multiple recipients, sends via `sendAdminEmail()` (tagged `origin: 'admin_composed'`)
-- **View** (`EmailDetailModal`) — marks inbound messages read, shows full headers/body, **Reply** (inbound only, pre-fills Compose with quoted body) and **Move to Trash**
+- **View** (`EmailDetailModal`) — marks inbound messages read, shows full headers/body (with a collapsible raw-event view when Resend didn't include body text), **Reply** (inbound only, pre-fills Compose with quoted body) and **Move to Trash**
 - Trash supports **Restore** (back to Inbox/Sent based on direction) and **Delete Forever** (hard delete, confirmed)
 - All outbound mail sent anywhere in the app (HCA onboarding, invoices, visit confirmations, etc.) is automatically logged here too, tagged `origin: 'system'`, since `/api/send-email` records every attempt regardless of caller
+- Contact page submissions (`pages/contact.jsx`) are inserted directly into `emails` (tagged `origin: 'contact_page'`) by `createContactMessage()` — there is no separate `contact_messages` table; the standalone "Inbox" tab that used to read from it has been retired in favour of this unified view
 
 #### Clients Tab
 Data table columns: Name, Email, Mobile, Location, Journey Stage, Assigned HCA, Actions  
@@ -1615,8 +1615,7 @@ All application data is persisted to a Supabase PostgreSQL database. The `lib/st
 | `lms_submissions` | Partner-submitted course content awaiting admin review |
 | `hub_referrals` | Counselling referral requests from caregivers page |
 | `hub_access_requests` | Partner organisation access requests for the Family Hub |
-| `contact_messages` | Contact page submissions (shown in the Admin Dashboard's "Inbox" tab) |
-| `emails` | Unified inbox/sent/outbox/trash for admin Messages — Resend inbound + outbound, admin-composed sends, and system notification sends. See §9.4. |
+| `emails` | Unified inbox/sent/outbox/trash for admin Messages — Resend inbound + outbound, admin-composed sends, system notification sends, and Contact page submissions. See §9.4. |
 
 **localStorage keys (session tokens only):**
 
@@ -2385,7 +2384,7 @@ Each function creates a Supabase notification record AND calls `dispatchEmail()`
 
 ### 9.4 Messages / Email Setup
 
-The admin "Messages" tab (`tab==="messages"` in `pages/admin/dashboard.jsx`) is a unified inbox/sent/outbox/trash for email, tagged by origin (`Resend`, `Admin`, `System`, and — planned — `Contact Page`). It needs two pieces of one-time setup outside the codebase:
+The admin "Messages" tab (`tab==="messages"` in `pages/admin/dashboard.jsx`) is a unified inbox/sent/outbox/trash for email, tagged by origin (`Resend`, `Admin`, `System`, `Contact Page`). It needs two pieces of one-time setup outside the codebase:
 
 **1. Database migration** — the `emails` table doesn't exist until you create it. Run `supabase/migrations/0001_create_emails_table.sql` once in the Supabase SQL Editor for this project. It creates the table, indexes, and an RLS policy granting the `anon` role full access (matching how every other table in this app is accessed — there is no service-role key in use anywhere in the project).
 

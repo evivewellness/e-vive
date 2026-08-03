@@ -53,8 +53,6 @@ import {
   deleteDiscountCode,
   getAllCardexEntries,
   addCardexQaComment,
-  getAllContactMessages,
-  updateContactMessage,
   updateClientCoords,
   updateHcaCoords,
   sendVisitScheduledNotification,
@@ -173,7 +171,6 @@ const CSS = `
 
 const NAV = [
   { icon:"📊", label:"Overview",          key:"overview"       },
-  { icon:"📥", label:"Inbox",             key:"inbox"          },
   { icon:"📨", label:"Messages",          key:"messages"       },
   { icon:"🩺", label:"HCA Management",    key:"hcas"           },
   { icon:"👥", label:"Client Management", key:"clients"        },
@@ -1422,10 +1419,6 @@ export default function AdminDashboard() {
   const [rbacRules,    setRbacRules]    = useState({});
   const [newRbacUser,  setNewRbacUser]  = useState({ userId:"", role:"client_coordinator", permissions:[] });
 
-  // Inbox state
-  const [contactMessages, setContactMessages] = useState([]);
-  const [msgOpenId, setMsgOpenId] = useState(null);
-
   // Messages (email) state
   const [emails,        setEmails]        = useState([]);
   const [emailFolder,   setEmailFolder]   = useState("inbox");
@@ -1477,12 +1470,12 @@ export default function AdminDashboard() {
   const [editingLessons,   setEditingLessons]   = useState([]);
 
   const refresh = useCallback(async () => {
-    const [clients, apps, profiles, invoices, shifts, events, activity, rbac, anns, nls, cardex, pc, discounts, cMsgs, emailRows] = await Promise.all([
+    const [clients, apps, profiles, invoices, shifts, events, activity, rbac, anns, nls, cardex, pc, discounts, emailRows] = await Promise.all([
       getAllClients(),
       getAllHcaApplications().then(r => { setAppsLoadError(""); return r; }).catch(e => { setAppsLoadError(e.message || "Failed to load applications."); return []; }),
       getAllHcaProfiles(), getAllInvoices(),
       getAllShifts(), getAllCalendarEvents(), getActivityLog(), getRbacRules(),
-      getAllAnnouncements(), getAllNewsletters(), getAllCardexEntries(), getPricingConfig(), getAllDiscountCodes(), getAllContactMessages(),
+      getAllAnnouncements(), getAllNewsletters(), getAllCardexEntries(), getPricingConfig(), getAllDiscountCodes(),
       getAllEmails().then(r => { setEmailsLoadError(""); return r; }).catch(e => { setEmailsLoadError(e.message || "Failed to load messages."); return []; }),
     ]);
     setEmails(emailRows);
@@ -1505,7 +1498,6 @@ export default function AdminDashboard() {
     Object.entries(pc.plans || {}).forEach(([k, v]) => { planPrices[k] = v.price; });
     setLocalPlanPrices(planPrices);
     setDiscounts(discounts);
-    setContactMessages(cMsgs);
   }, []);
 
   // Application list rows omit form_data (certs/photo) to keep the list query
@@ -1915,73 +1907,7 @@ export default function AdminDashboard() {
               </>
             )}
 
-            {/* ── INBOX ── */}
-            {tab==="inbox" && (
-              <div>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
-                  <h2 style={{fontFamily:"var(--serif)",fontSize:22,fontWeight:700,color:"var(--deep)"}}>Contact Inbox</h2>
-                  <div style={{fontSize:13,color:"var(--muted)",fontFamily:"var(--mono)"}}>Total: {contactMessages.length}</div>
-                </div>
-                
-                <div style={{background:"#fff",border:"1px solid rgba(0,74,153,0.12)",borderRadius:14,overflow:"hidden"}}>
-                  {contactMessages.length === 0 ? (
-                    <div style={{padding:40,textAlign:"center",color:"var(--muted)",fontSize:14}}>No messages found.</div>
-                  ) : (
-                    <table style={{width:"100%",borderCollapse:"collapse",textAlign:"left"}}>
-                      <thead>
-                        <tr style={{background:"#f4f7fb",borderBottom:"1px solid rgba(0,74,153,0.12)",fontSize:11,fontFamily:"var(--mono)",color:"var(--muted)",textTransform:"uppercase",letterSpacing:0.5}}>
-                          <th style={{padding:"14px 20px"}}>Date</th>
-                          <th style={{padding:"14px 20px"}}>Name</th>
-                          <th style={{padding:"14px 20px"}}>Subject</th>
-                          <th style={{padding:"14px 20px"}}>Status</th>
-                          <th style={{padding:"14px 20px",textAlign:"right"}}>Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {contactMessages.map(m => (
-                          <React.Fragment key={m.id}>
-                            <tr style={{borderBottom:"1px solid rgba(0,74,153,0.06)",background:m.status==="unread"?"rgba(132,189,96,0.05)":"transparent"}}>
-                              <td style={{padding:"14px 20px",fontSize:13,color:"var(--muted)",fontFamily:"var(--mono)"}}>{fmtShort(m.createdAt)}</td>
-                              <td style={{padding:"14px 20px",fontSize:14,fontWeight:600,color:"var(--deep)"}}>{m.fname} {m.lname}<br/><span style={{fontSize:11,color:"var(--muted)",fontWeight:400}}>{m.email}</span></td>
-                              <td style={{padding:"14px 20px",fontSize:13,color:"var(--text)"}}>{m.subject}</td>
-                              <td style={{padding:"14px 20px"}}>
-                                <span style={{padding:"4px 10px",borderRadius:100,fontSize:10,fontFamily:"var(--mono)",fontWeight:700,background:m.status==="unread"?"rgba(132,189,96,0.15)":"rgba(0,0,0,0.05)",color:m.status==="unread"?"var(--mint)":"var(--muted)"}}>{(m.status||"unread").toUpperCase()}</span>
-                              </td>
-                              <td style={{padding:"14px 20px",textAlign:"right"}}>
-                                <button onClick={() => setMsgOpenId(msgOpenId === m.id ? null : m.id)} className="btn-o btn-sm">View</button>
-                              </td>
-                            </tr>
-                            {msgOpenId === m.id && (
-                              <tr style={{background:"rgba(255,255,255,0.8)",borderBottom:"1px solid rgba(0,74,153,0.12)"}}>
-                                <td colSpan={5} style={{padding:"20px",borderLeft:"3px solid var(--mint)"}}>
-                                  <div style={{fontSize:11,fontFamily:"var(--mono)",color:"var(--muted)",marginBottom:6}}>MESSAGE:</div>
-                                  <div style={{fontSize:14,color:"var(--text)",lineHeight:1.6,marginBottom:16,whiteSpace:"pre-wrap"}}>{m.message}</div>
-                                  <div style={{display:"flex",gap:10}}>
-                                    {m.status === "unread" && (
-                                      <button className="btn-p btn-sm" onClick={async () => {
-                                        await updateContactMessage(m.id, { status: "read" });
-                                        refresh();
-                                      }}>Mark as Read</button>
-                                    )}
-                                    <a href={`mailto:${m.email}?subject=Re: ${m.subject}`} className="btn-o btn-sm" target="_blank" rel="noopener noreferrer">Reply via Email</a>
-                                    <button className="btn-o btn-sm" onClick={async () => {
-                                      await updateContactMessage(m.id, { status: "archived" });
-                                      refresh();
-                                    }}>Archive</button>
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
-                          </React.Fragment>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* ── MESSAGES (Resend two-way email) ── */}
+            {/* ── MESSAGES (unified inbox: Resend, Admin, System, Contact Page) ── */}
             {tab==="messages" && (
               <>
                 {emailsLoadError && (
