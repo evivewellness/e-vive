@@ -36,19 +36,26 @@ function arrayOf(v) {
   return Array.isArray(v) ? v : [v];
 }
 
-async function handleInbound(event, data) {
+// Anything that isn't a recognized outbound lifecycle event is stored here
+// rather than dropped — covers genuine inbound mail, but also protects
+// against the inbound event's real `type` name (or payload shape) turning
+// out to differ from what was assumed when this was built without access
+// to a live payload to verify against. Worst case an unrecognized event
+// shows up in the Inbox labelled with its raw type and full metadata,
+// instead of vanishing with no trace.
+async function handleInbound(type, event, data) {
   const { error } = await supabase.from('emails').insert({
     direction: 'inbound',
     origin: 'resend',
     folder: 'inbox',
     status: 'received',
-    subject: data.subject || '(no subject)',
+    subject: data.subject || `[${type || 'unrecognized event'}]`,
     from_address: firstOf(data.from) || null,
     from_name: data.from_name || null,
     to_addresses: arrayOf(data.to),
     cc_addresses: arrayOf(data.cc),
     reply_to: data.reply_to || null,
-    body_text: data.text || '',
+    body_text: data.text || (Object.keys(data).length ? JSON.stringify(data, null, 2) : ''),
     body_html: data.html || null,
     resend_message_id: data.email_id || data.message_id || data.id || null,
     thread_id: data.headers?.['in-reply-to'] || data.headers?.references || null,
@@ -106,12 +113,13 @@ export default async function handler(req, res) {
   const data = event?.data || {};
 
   try {
-    if (type.includes('received') || type.includes('inbound')) {
-      await handleInbound(event, data);
-    } else if (type.startsWith('email.')) {
+    if (OUTBOUND_STATUS_BY_TYPE[type]) {
       await handleOutboundEvent(type, event, data);
     } else {
-      console.warn('[webhooks/resend] unhandled event type:', type);
+      // Not a known outbound lifecycle event — treat as inbound so nothing
+      // is silently dropped (see handleInbound for why).
+      console.warn('[webhooks/resend] non-lifecycle event, storing as inbound:', type);
+      await handleInbound(type, event, data);
     }
   } catch (e) {
     console.error('[webhooks/resend] error processing event:', e.message);
