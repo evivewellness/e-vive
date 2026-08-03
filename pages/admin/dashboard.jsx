@@ -75,6 +75,13 @@ import {
   setClientSession,
   setHcaSession,
   generateInitialPassword,
+  getAllEmails,
+  markEmailRead,
+  toggleEmailStar,
+  moveEmailToTrash,
+  restoreEmailFromTrash,
+  deleteEmailPermanently,
+  sendAdminEmail,
 } from "../../lib/store";
 
 const CSS = `
@@ -167,6 +174,7 @@ const CSS = `
 const NAV = [
   { icon:"📊", label:"Overview",          key:"overview"       },
   { icon:"📥", label:"Inbox",             key:"inbox"          },
+  { icon:"📨", label:"Messages",          key:"messages"       },
   { icon:"🩺", label:"HCA Management",    key:"hcas"           },
   { icon:"👥", label:"Client Management", key:"clients"        },
   { icon:"📋", label:"Care Quality",      key:"quality"        },
@@ -189,6 +197,25 @@ const EVENT_COLORS = {
   training: { bg:"rgba(120,80,0,0.35)",   text:"#fcd34d" },
   meeting:  { bg:"rgba(90,0,120,0.35)",   text:"#d8b4fe" },
   other:    { bg:"rgba(60,60,80,0.4)",    text:"#d1d5db" },
+};
+
+const EMAIL_ORIGIN_LABELS = {
+  resend:         "Resend",
+  contact_page:   "Contact Page",
+  admin_composed: "Admin",
+  system:         "System",
+};
+const EMAIL_STATUS_BADGE = {
+  sent:       "badge-mint",
+  delivered:  "badge-mint",
+  opened:     "badge-sky",
+  clicked:    "badge-sky",
+  received:   "badge-sky",
+  bounced:    "badge-coral",
+  complained: "badge-coral",
+  failed:     "badge-coral",
+  skipped:    "badge-gold",
+  delayed:    "badge-gold",
 };
 
 function fmt(iso) {
@@ -962,6 +989,86 @@ function AddHcaProfileModal({ onClose, onRefresh }) {
   );
 }
 
+// ─── Compose email modal ────────────────────────────────────────────────────────
+function ComposeEmailModal({ initial, clients, hcaProfiles, onClose, onRefresh }) {
+  const [to,      setTo]      = useState(initial?.to || "");
+  const [subject, setSubject] = useState(initial?.subject || "");
+  const [body,    setBody]    = useState(initial?.body || "");
+  const [saving,  setSaving]  = useState(false);
+  const [msg,     setMsg]     = useState("");
+
+  const people = [
+    ...clients.filter(c=>c.email).map(c=>({ label:`${c.name} (Client) — ${c.email}`, email:c.email })),
+    ...hcaProfiles.filter(h=>h.email).map(h=>({ label:`${h.name} (HCA) — ${h.email}`, email:h.email })),
+  ];
+
+  async function send() {
+    if (!to.trim() || !subject.trim() || !body.trim()) { setMsg("To, subject and message are required."); return; }
+    setSaving(true);
+    try {
+      const toList = to.split(",").map(s=>s.trim()).filter(Boolean);
+      await sendAdminEmail({ to: toList, subject, text: body, replyTo: initial?.replyTo });
+      setMsg("✓ Sent.");
+      setTimeout(() => { onRefresh(); onClose(); }, 700);
+    } catch (e) { setMsg("⚠ " + (e.message||"Error")); setSaving(false); }
+  }
+
+  return (
+    <div className="modal-bg" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-box" style={{maxWidth:560}}>
+        <div className="modal-title">✏️ Compose Email</div>
+        <div className="modal-field">
+          <label className="modal-label">To *</label>
+          <input className="modal-input" list="email-people-list" value={to} onChange={e=>setTo(e.target.value)} placeholder="name@example.com (comma-separate for multiple)" />
+          <datalist id="email-people-list">
+            {people.map((p,i) => <option key={i} value={p.email}>{p.label}</option>)}
+          </datalist>
+        </div>
+        <div className="modal-field">
+          <label className="modal-label">Subject *</label>
+          <input className="modal-input" value={subject} onChange={e=>setSubject(e.target.value)} />
+        </div>
+        <div className="modal-field">
+          <label className="modal-label">Message *</label>
+          <textarea className="modal-input" rows={8} value={body} onChange={e=>setBody(e.target.value)} style={{resize:"vertical"}} />
+        </div>
+        {msg && <div style={{padding:"10px 14px",borderRadius:10,fontSize:13,marginBottom:12,background:msg.startsWith("✓")?"rgba(0,74,153,0.08)":"rgba(249,112,102,0.08)",border:msg.startsWith("✓")?"1px solid rgba(0,74,153,0.2)":"1px solid rgba(249,112,102,0.25)",color:msg.startsWith("✓")?"var(--mint)":"var(--coral)"}}>{msg}</div>}
+        <div className="modal-actions">
+          <button className="btn-o btn-sm" onClick={onClose}>Cancel</button>
+          <button className="btn-p btn-sm" onClick={send} disabled={saving}>{saving?"Sending…":"Send"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Email detail modal ─────────────────────────────────────────────────────────
+function EmailDetailModal({ email, onClose, onReply, onTrash }) {
+  const isInbound = email.direction === "inbound";
+  return (
+    <div className="modal-bg" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-box" style={{maxWidth:640,maxHeight:"85vh",overflowY:"auto"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,marginBottom:16}}>
+          <div className="modal-title" style={{marginBottom:0}}>{email.subject || "(no subject)"}</div>
+          <span className="badge badge-sky">{EMAIL_ORIGIN_LABELS[email.origin] || email.origin}</span>
+        </div>
+        <div style={{background:"#f4f7fb",border:"1px solid rgba(0,74,153,0.12)",borderRadius:10,padding:"12px 16px",marginBottom:16,fontSize:13,color:"#0F2035",lineHeight:1.8}}>
+          <div><strong>{isInbound ? "From" : "To"}:</strong> {isInbound ? (email.fromAddress || "—") : ((email.toAddresses||[]).join(", ") || "—")}</div>
+          {email.ccAddresses?.length > 0 && <div><strong>Cc:</strong> {email.ccAddresses.join(", ")}</div>}
+          <div><strong>Date:</strong> {fmt(email.createdAt)}</div>
+          <div><strong>Status:</strong> <span className={`badge ${EMAIL_STATUS_BADGE[email.status]||"badge-dim"}`}>{email.status}</span></div>
+        </div>
+        <div style={{whiteSpace:"pre-wrap",fontSize:14,lineHeight:1.6,color:"#0F2035",marginBottom:20}}>{email.bodyText || "(empty)"}</div>
+        <div className="modal-actions">
+          <button className="btn-o btn-sm" onClick={onClose}>Close</button>
+          {isInbound && <button className="btn-p btn-sm" onClick={() => onReply(email)}>↩ Reply</button>}
+          {email.folder !== "trash" && <button className="btn-danger btn-sm" onClick={() => onTrash(email)}>Move to Trash</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Add calendar event modal ──────────────────────────────────────────────────
 function AddEventModal({ defaultDate, clients, hcaProfiles, onClose, onRefresh }) {
   const [title,    setTitle]    = useState("");
@@ -1285,6 +1392,14 @@ export default function AdminDashboard() {
   const [contactMessages, setContactMessages] = useState([]);
   const [msgOpenId, setMsgOpenId] = useState(null);
 
+  // Messages (email) state
+  const [emails,        setEmails]        = useState([]);
+  const [emailFolder,   setEmailFolder]   = useState("inbox");
+  const [emailSearch,   setEmailSearch]   = useState("");
+  const [emailDetail,   setEmailDetail]   = useState(null);
+  const [composeModal,  setComposeModal]  = useState(null); // null | {} | {to,subject,body,replyToEmailId}
+  const [emailsLoadError, setEmailsLoadError] = useState("");
+
   // Announcements state
   const [announcements, setAnnouncements] = useState([]);
   const [newAnn, setNewAnn] = useState({ title:"", body:"", target:"all", type:"info", priority:"normal" });
@@ -1328,13 +1443,15 @@ export default function AdminDashboard() {
   const [editingLessons,   setEditingLessons]   = useState([]);
 
   const refresh = useCallback(async () => {
-    const [clients, apps, profiles, invoices, shifts, events, activity, rbac, anns, nls, cardex, pc, discounts, cMsgs] = await Promise.all([
+    const [clients, apps, profiles, invoices, shifts, events, activity, rbac, anns, nls, cardex, pc, discounts, cMsgs, emailRows] = await Promise.all([
       getAllClients(),
       getAllHcaApplications().then(r => { setAppsLoadError(""); return r; }).catch(e => { setAppsLoadError(e.message || "Failed to load applications."); return []; }),
       getAllHcaProfiles(), getAllInvoices(),
       getAllShifts(), getAllCalendarEvents(), getActivityLog(), getRbacRules(),
       getAllAnnouncements(), getAllNewsletters(), getAllCardexEntries(), getPricingConfig(), getAllDiscountCodes(), getAllContactMessages(),
+      getAllEmails().then(r => { setEmailsLoadError(""); return r; }).catch(e => { setEmailsLoadError(e.message || "Failed to load messages."); return []; }),
     ]);
+    setEmails(emailRows);
     setClients(clients);
     setHcaApps(apps);
     setHcaProfiles(profiles);
@@ -1448,6 +1565,44 @@ export default function AdminDashboard() {
     return matchStatus && (!q || (a.fullName||a.name||"").toLowerCase().includes(q) || a.email?.toLowerCase().includes(q));
   });
 
+  const filteredEmails = emails.filter(m => {
+    if (m.folder !== emailFolder) return false;
+    const q = emailSearch.toLowerCase();
+    if (!q) return true;
+    return (
+      (m.subject||"").toLowerCase().includes(q) ||
+      (m.fromAddress||"").toLowerCase().includes(q) ||
+      (m.toAddresses||[]).some(a=>a.toLowerCase().includes(q)) ||
+      (m.bodyText||"").toLowerCase().includes(q) ||
+      (EMAIL_ORIGIN_LABELS[m.origin]||m.origin||"").toLowerCase().includes(q)
+    );
+  });
+
+  async function openEmail(m) {
+    if (m.direction === "inbound" && !m.read) {
+      await markEmailRead(m.id, true);
+      setEmails(prev => prev.map(e => e.id===m.id ? { ...e, read:true } : e));
+    }
+    setEmailDetail(m);
+  }
+
+  async function trashEmail(m) {
+    if (!confirm("Move this message to Trash?")) return;
+    await moveEmailToTrash(m.id);
+    setEmailDetail(null);
+    await refresh();
+  }
+
+  function replyToEmail(m) {
+    setEmailDetail(null);
+    setComposeModal({
+      to: m.fromAddress || "",
+      subject: m.subject?.toLowerCase().startsWith("re:") ? m.subject : `Re: ${m.subject||""}`,
+      body: `\n\n---\nOn ${fmt(m.createdAt)}, ${m.fromAddress} wrote:\n${(m.bodyText||"").split("\n").map(l=>"> "+l).join("\n")}`,
+      replyTo: m.fromAddress,
+    });
+  }
+
   // ── Calendar build ──
   const DAYS_OF_WEEK = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const calFirstDay = new Date(calYear, calMonth, 1);
@@ -1498,6 +1653,23 @@ export default function AdminDashboard() {
         />
       )}
       {addHcaModal && <AddHcaProfileModal onClose={()=>setAddHcaModal(false)} onRefresh={refresh} />}
+      {composeModal && (
+        <ComposeEmailModal
+          initial={composeModal}
+          clients={clients}
+          hcaProfiles={hcaProfiles}
+          onClose={() => setComposeModal(null)}
+          onRefresh={refresh}
+        />
+      )}
+      {emailDetail && (
+        <EmailDetailModal
+          email={emailDetail}
+          onClose={() => setEmailDetail(null)}
+          onReply={replyToEmail}
+          onTrash={trashEmail}
+        />
+      )}
       {editHcaModal && <HcaEditModal hca={editHcaModal} onClose={()=>setEditHcaModal(null)} onRefresh={refresh} />}
       {editClientModal && <ClientEditModal client={editClientModal} onClose={()=>setEditClientModal(null)} onRefresh={refresh} />}
       {addEvent && (
@@ -1773,6 +1945,99 @@ export default function AdminDashboard() {
                   )}
                 </div>
               </div>
+            )}
+
+            {/* ── MESSAGES (Resend two-way email) ── */}
+            {tab==="messages" && (
+              <>
+                {emailsLoadError && (
+                  <div className="panel" style={{marginBottom:18,borderColor:"rgba(249,112,102,0.5)",background:"rgba(249,112,102,0.05)"}}>
+                    <div className="panel-body">
+                      <div style={{fontWeight:700,fontSize:14,color:"var(--coral)",marginBottom:6}}>⚠ Could not load Messages</div>
+                      <div style={{fontSize:12,color:"var(--muted)",lineHeight:1.6}}>
+                        Error: <span style={{fontFamily:"var(--mono)"}}>{emailsLoadError}</span><br/>
+                        If this says the table doesn&apos;t exist, run <code>supabase/migrations/0001_create_emails_table.sql</code> in the Supabase SQL Editor, then refresh this page.
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="stat-grid">
+                  {[
+                    { key:"inbox",  icon:"📥", lbl:"Inbox",  color:"sky"   },
+                    { key:"sent",   icon:"📤", lbl:"Sent",   color:"mint"  },
+                    { key:"outbox", icon:"📮", lbl:"Outbox", color:"amber" },
+                    { key:"trash",  icon:"🗑️", lbl:"Trash",  color:"coral" },
+                  ].map(s => (
+                    <div className="stat-box" key={s.key} style={{cursor:"pointer"}} onClick={()=>setEmailFolder(s.key)}>
+                      <div className="stat-box-icon">{s.icon}</div>
+                      <div className={`stat-box-val ${s.color}`}>{emails.filter(e=>e.folder===s.key).length}</div>
+                      <div className="stat-box-label">{s.lbl}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="filter-bar">
+                  {[
+                    { key:"inbox",  label:"📥 Inbox"  },
+                    { key:"sent",   label:"📤 Sent"   },
+                    { key:"outbox", label:"📮 Outbox" },
+                    { key:"trash",  label:"🗑️ Trash"  },
+                  ].map(f => (
+                    <button key={f.key} className={`filter-chip${emailFolder===f.key?" active":""}`} onClick={()=>setEmailFolder(f.key)}>{f.label}</button>
+                  ))}
+                  <input className="search-bar" placeholder="Search subject, sender, recipient, body, tag..." value={emailSearch} onChange={e=>setEmailSearch(e.target.value)} />
+                  <button className="btn-p btn-sm" style={{marginLeft:"auto"}} onClick={()=>setComposeModal({})}>✏️ Compose</button>
+                </div>
+
+                {filteredEmails.length === 0 ? (
+                  <div style={{textAlign:"center",padding:"48px 0",color:"var(--muted)"}}>
+                    <div style={{fontSize:40,marginBottom:12}}>📭</div>
+                    <div style={{fontSize:14}}>No messages in {emailFolder}{emailSearch ? " matching your search" : ""}.</div>
+                  </div>
+                ) : (
+                  <div className="dash-table-wrap">
+                    <table className="dash-table">
+                      <thead><tr>
+                        <th>{emailFolder==="inbox" ? "From" : "To"}</th>
+                        <th>Subject</th>
+                        <th>Tag</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                      </tr></thead>
+                      <tbody>
+                        {filteredEmails.map(m => (
+                          <tr key={m.id} style={{fontWeight: m.direction==="inbound" && !m.read ? 700 : 400}}>
+                            <td style={{fontSize:13}}>{emailFolder==="inbox" ? (m.fromAddress||"—") : ((m.toAddresses||[]).join(", ")||"—")}</td>
+                            <td style={{fontSize:13}}>{m.subject||"(no subject)"}{m.starred?" ⭐":""}</td>
+                            <td><span className="badge badge-sky">{EMAIL_ORIGIN_LABELS[m.origin]||m.origin}</span></td>
+                            <td><span className={`badge ${EMAIL_STATUS_BADGE[m.status]||"badge-dim"}`}>{m.status}</span></td>
+                            <td style={{fontFamily:"var(--mono)",fontSize:11,color:"var(--muted)"}}>{fmtShort(m.createdAt)}</td>
+                            <td>
+                              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                                <button className="btn-o btn-sm" onClick={()=>openEmail(m)}>View</button>
+                                {emailFolder !== "trash" ? (
+                                  <button className="btn-danger btn-sm" onClick={async ()=>{ await moveEmailToTrash(m.id); await refresh(); }}>Trash</button>
+                                ) : (
+                                  <>
+                                    <button className="btn-o btn-sm" onClick={async ()=>{ await restoreEmailFromTrash(m.id, m.direction==="inbound"?"inbox":"sent"); await refresh(); }}>Restore</button>
+                                    <button className="btn-danger btn-sm" onClick={async ()=>{
+                                      if (!confirm("Permanently delete this message? This cannot be undone.")) return;
+                                      await deleteEmailPermanently(m.id);
+                                      await refresh();
+                                    }}>Delete Forever</button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
             )}
 
             {/* ── HCA MANAGEMENT ── */}

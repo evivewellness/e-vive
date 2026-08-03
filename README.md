@@ -125,6 +125,7 @@ E-Vive is Kenya's location-based homecare assistant matching platform, operated 
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/public key | Yes |
 | `RESEND_API_KEY` | Resend email API key | Optional (email silently skipped if absent) |
 | `EMAIL_FROM` | Override sender address | Optional (defaults to `E-Vive Kenya <hello@e-vive.co.ke>`) |
+| `RESEND_WEBHOOK_SECRET` | Signing secret for the Resend webhook (`whsec_...`, from the Resend dashboard's webhook settings) | Optional but strongly recommended — without it, `/api/webhooks/resend` accepts events without verifying they came from Resend |
 | `NEXT_PUBLIC_ADMIN_EMAIL` | Override admin login email | Optional |
 | `NEXT_PUBLIC_ADMIN_HASH` | SHA-256 hex of admin password | Optional |
 
@@ -138,7 +139,8 @@ E-Vive is Kenya's location-based homecare assistant matching platform, operated 
 
 | Route | File | Purpose |
 |---|---|---|
-| `POST /api/send-email` | `pages/api/send-email.js` | Sends transactional emails via Resend SDK. Accepts `{ to, subject, text }`. Converts plain text to HTML. Returns `{ ok: true }` on success; silently returns `{ ok: true, skipped: true }` if `RESEND_API_KEY` is not set. |
+| `POST /api/send-email` | `pages/api/send-email.js` | Sends transactional emails via Resend SDK. Accepts `{ to, cc, subject, text, replyTo, origin, relatedClientId, relatedHcaId, adminId }`. Converts plain text to HTML. Logs every attempt (sent/failed/skipped) to the `emails` table. Returns `{ ok: true }` on success; silently returns `{ ok: true, skipped: true }` if `RESEND_API_KEY` is not set. |
+| `POST /api/webhooks/resend` | `pages/api/webhooks/resend.js` | Resend webhook receiver — reconciles outbound delivery lifecycle events (`email.sent`/`delivered`/`bounced`/`complained`/`opened`/`clicked`) against the matching `emails` row by `resend_message_id`, and inserts new rows for inbound mail (Resend Inbound). Verifies the Svix signature via `RESEND_WEBHOOK_SECRET` when set. See §9.4 for setup. |
 
 ---
 
@@ -1121,11 +1123,13 @@ The admin dashboard has a fully functional mobile hamburger sidebar:
 - **Overlay:** `<div className="dash-side-overlay{sideOpen ? ' open' : ''}">` — semi-transparent backdrop, closes sidebar on tap
 - **Aside:** `<aside className="dash-side{sideOpen ? ' open' : ''}">` — slides in from left when open
 
-#### Sidebar Navigation (13 tabs/links)
+#### Sidebar Navigation
 
 | Icon | Label | Key | Notes |
 |---|---|---|---|
 | 📊 | Overview | `overview` | Platform stats |
+| 📥 | Inbox | `inbox` | Contact page submissions (`contact_messages` table) |
+| 📨 | Messages | `messages` | Unified email inbox/sent/outbox/trash — see §9.4 |
 | 🩺 | HCA Management | `hcas` | HCA management + approval queue |
 | 👥 | Client Management | `clients` | Family management |
 | 📋 | Care Quality | `quality` | Cardex QA review |
@@ -1143,6 +1147,17 @@ The admin dashboard has a fully functional mobile hamburger sidebar:
 - 4 stat boxes: Total Families, Total HCAs, Active Placements, Outstanding Revenue (KES)
 - Priority alerts panel (low ratings, pending verifications, overdue invoices)
 - Recent activity feed (last 20 activity log entries)
+
+#### Messages Tab
+Unified email view backed by the `emails` table (see §9.2/§9.4 for setup — requires a one-time SQL migration and Resend webhook configuration).
+- 4 folders as stat-box shortcuts + filter chips: Inbox, Sent, Outbox, Trash
+- Search bar filters by subject, from/to address, body text, and origin tag across the active folder
+- Each row tagged by origin badge (`EMAIL_ORIGIN_LABELS`): Resend, Admin, System (Contact Page origin reserved for a future pass folding in `contact_messages`)
+- Status badge reflects Resend delivery lifecycle for outbound mail: sent → delivered → opened/clicked, or bounced/complained/failed; inbound mail shows `received`
+- **Compose** (`ComposeEmailModal`) — To field autocompletes against loaded clients/HCAs by email, supports comma-separated multiple recipients, sends via `sendAdminEmail()` (tagged `origin: 'admin_composed'`)
+- **View** (`EmailDetailModal`) — marks inbound messages read, shows full headers/body, **Reply** (inbound only, pre-fills Compose with quoted body) and **Move to Trash**
+- Trash supports **Restore** (back to Inbox/Sent based on direction) and **Delete Forever** (hard delete, confirmed)
+- All outbound mail sent anywhere in the app (HCA onboarding, invoices, visit confirmations, etc.) is automatically logged here too, tagged `origin: 'system'`, since `/api/send-email` records every attempt regardless of caller
 
 #### Clients Tab
 Data table columns: Name, Email, Mobile, Location, Journey Stage, Assigned HCA, Actions  
@@ -1600,6 +1615,8 @@ All application data is persisted to a Supabase PostgreSQL database. The `lib/st
 | `lms_submissions` | Partner-submitted course content awaiting admin review |
 | `hub_referrals` | Counselling referral requests from caregivers page |
 | `hub_access_requests` | Partner organisation access requests for the Family Hub |
+| `contact_messages` | Contact page submissions (shown in the Admin Dashboard's "Inbox" tab) |
+| `emails` | Unified inbox/sent/outbox/trash for admin Messages — Resend inbound + outbound, admin-composed sends, and system notification sends. See §9.4. |
 
 **localStorage keys (session tokens only):**
 
@@ -2062,6 +2079,36 @@ All application data is persisted to a Supabase PostgreSQL database. The `lib/st
 }
 ```
 
+#### Email Record (`emails` table)
+```typescript
+{
+  id: string;                  // UUID
+  direction: 'inbound' | 'outbound';
+  origin: 'resend' | 'contact_page' | 'admin_composed' | 'system';
+  folder: 'inbox' | 'sent' | 'outbox' | 'trash';
+  status: 'received' | 'queued' | 'sent' | 'delivered' | 'delayed' | 'opened' | 'clicked' | 'bounced' | 'complained' | 'failed' | 'skipped';
+  subject: string;
+  fromAddress?: string;
+  fromName?: string;
+  toAddresses: string[];
+  ccAddresses: string[];
+  replyTo?: string;
+  bodyText: string;
+  bodyHtml?: string;
+  resendMessageId?: string;    // links outbound sends to their webhook lifecycle events
+  threadId?: string;
+  relatedClientId?: string;
+  relatedHcaId?: string;
+  adminId?: string;            // who composed it, for admin-initiated sends
+  read: boolean;
+  starred: boolean;
+  metadata: object;            // raw webhook payload(s), keyed by event type for outbound
+  createdAt: string;
+  sentAt?: string;
+  deletedAt?: string;
+}
+```
+
 ---
 
 ### 9.3 Store Functions Reference
@@ -2322,6 +2369,29 @@ Each function creates a Supabase notification record AND calls `dispatchEmail()`
 | Function | Notes |
 |---|---|
 | `seedDemoDataIfEmpty` | `async () → void` — checks if `clients` table is empty; only runs once; creates demo client, HCA profile, invoice, and calendar event in Supabase |
+
+#### Messages (`emails` table)
+
+| Function | Signature | Returns | Notes |
+|---|---|---|---|
+| `getAllEmails` | `async () → Email[]` | Array | All messages, newest first, capped at 1000 |
+| `getEmailById` | `async (id) → Email` | Row | Single message |
+| `markEmailRead` | `async (id, read=true) → void` | — | |
+| `toggleEmailStar` | `async (id, starred) → void` | — | |
+| `moveEmailToTrash` | `async (id) → void` | — | Sets `folder='trash'`, `deleted_at=now()` |
+| `restoreEmailFromTrash` | `async (id, folder) → void` | — | Restores to `'inbox'` or `'sent'` |
+| `deleteEmailPermanently` | `async (id) → void` | — | Hard delete — only meaningful from Trash |
+| `sendAdminEmail` | `async ({to, cc?, subject, text, replyTo?, relatedClientId?, relatedHcaId?, adminId?}) → {ok,id?}` | Send result | Posts to `/api/send-email` with `origin: 'admin_composed'`; throws on failure |
+
+### 9.4 Messages / Email Setup
+
+The admin "Messages" tab (`tab==="messages"` in `pages/admin/dashboard.jsx`) is a unified inbox/sent/outbox/trash for email, tagged by origin (`Resend`, `Admin`, `System`, and — planned — `Contact Page`). It needs two pieces of one-time setup outside the codebase:
+
+**1. Database migration** — the `emails` table doesn't exist until you create it. Run `supabase/migrations/0001_create_emails_table.sql` once in the Supabase SQL Editor for this project. It creates the table, indexes, and an RLS policy granting the `anon` role full access (matching how every other table in this app is accessed — there is no service-role key in use anywhere in the project).
+
+**2. Resend webhook** — in the Resend dashboard, add a webhook endpoint pointing at `https://<your-domain>/api/webhooks/resend`, subscribed to: `email.sent`, `email.delivered`, `email.delivery_delayed`, `email.bounced`, `email.complained`, `email.opened`, `email.clicked`, and the Inbound event (for two-way email — requires Resend's Inbound Routes feature and its own DNS/MX setup on your domain, done separately in Resend). Copy the webhook's signing secret into the `RESEND_WEBHOOK_SECRET` environment variable in Vercel. Without it, the endpoint still works but accepts events without verifying they actually came from Resend.
+
+**Note on inbound field mapping:** the inbound branch in `pages/api/webhooks/resend.js` (`handleInbound`) extracts `from`/`to`/`subject`/`text`/`html` using best-effort field names, since the exact inbound payload shape wasn't verified against a live event while this was built. The full raw event is always stored in `metadata` regardless, so nothing is lost — if the parsed fields look wrong on a real inbound message, check `metadata` in that message's raw record and adjust the extraction in `handleInbound` accordingly.
 
 ---
 
