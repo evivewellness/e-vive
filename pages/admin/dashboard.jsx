@@ -227,6 +227,29 @@ function fmtShort(iso) {
   catch { return iso?.slice(0,10) || "—"; }
 }
 
+// Best-effort plain-text extraction from an email's HTML body, used as a
+// display fallback when no plain-text alternative was captured — never
+// injected as HTML (no dangerouslySetInnerHTML), so this stays immune to
+// script/style injection from inbound mail.
+function htmlToText(html) {
+  if (!html) return "";
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|tr|li|h[1-6])>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, "\"")
+    .replace(/&#0?39;/gi, "'")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 // ─── Shared HCA option lists ────────────────────────────────────────────────────
 const SPEC_OPTS = ["Elderly Care","Dementia Care","Post-Surgery","Palliative","Child Care","Diabetic Care","Critical Care","Cerebral Palsy","Mobility Assistance","Companionship","Driver / Transport"];
 const LANG_OPTS = ["English","Kiswahili","Kikuyu","Luhya","Dholuo","Kamba","Meru","Somali","Kalenjin"];
@@ -1047,10 +1070,16 @@ function EmailDetailModal({ email, onClose, onReply, onTrash }) {
   // Older records (and any event Resend sends without a parsed body) may
   // have had the raw webhook payload stored directly in bodyText as a
   // fallback — detect that shape so it's never shown as if it were the
-  // actual message text.
+  // actual message text. Fall back to the raw event's own data.text/html
+  // (preserved in metadata) if the dedicated columns came up empty, and
+  // convert HTML to plain text rather than injecting it as markup.
   const trimmed = (email.bodyText || "").trim();
   const looksLikeRawJson = trimmed.startsWith("{") || trimmed.startsWith("[");
-  const hasRealBody = trimmed && !looksLikeRawJson;
+  const rawEventData = email.metadata?.data || {};
+  const plainText = (trimmed && !looksLikeRawJson) ? trimmed : (rawEventData.text || "");
+  const htmlSource = email.bodyHtml || rawEventData.html || "";
+  const displayBody = plainText || htmlToText(htmlSource);
+  const hasRealBody = !!displayBody;
   const rawJson = looksLikeRawJson ? trimmed : (email.metadata && Object.keys(email.metadata).length ? JSON.stringify(email.metadata, null, 2) : "");
 
   return (
@@ -1068,7 +1097,7 @@ function EmailDetailModal({ email, onClose, onReply, onTrash }) {
         </div>
 
         {hasRealBody ? (
-          <div style={{whiteSpace:"pre-wrap",fontSize:14,lineHeight:1.6,color:"#0F2035",marginBottom:20}}>{email.bodyText}</div>
+          <div style={{whiteSpace:"pre-wrap",fontSize:14,lineHeight:1.6,color:"#0F2035",marginBottom:20}}>{displayBody}</div>
         ) : (
           <div style={{fontSize:13,color:"var(--muted)",fontStyle:"italic",marginBottom:16}}>
             No message text was included with this event{isInbound ? " — some inbound notifications only carry headers, not the body" : ""}.
