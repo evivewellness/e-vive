@@ -264,7 +264,7 @@ export default function ContactPage() {
                 <div className="ct-form-success">
                   <span className="icon">✅</span>
                   <h3>Message Received</h3>
-                  <p>Thank you for reaching out. A member of our team will respond to <strong>{form.email}</strong> within 2 business hours.<br /><br />For urgent placement needs call <strong>+254 141 888 340</strong>.</p>
+                  <p>Thank you for reaching out. A member of our team will respond to <strong>{form.email}</strong> within 24 business hours.<br /><br />For urgent placement needs call <strong>+254 141 888 340</strong>.</p>
                   <button className="btn-o" style={{ marginTop: 24 }} onClick={() => { setSent(false); setForm({ fname:'',lname:'',email:'',phone:'',subject:'',message:'' }); }}>Send Another Message</button>
                 </div>
               ) : (

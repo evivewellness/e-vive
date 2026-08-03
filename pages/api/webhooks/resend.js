@@ -36,6 +36,20 @@ function arrayOf(v) {
   return Array.isArray(v) ? v : [v];
 }
 
+// Attachments on an inbound email can carry their raw content (often
+// base64) inline in the webhook payload. Storing that in `metadata` would
+// risk the exact same row-bloat/statement-timeout problem hit previously
+// with base64 files embedded in hca_applications.form_data — keep only
+// lightweight descriptors, never the content bytes.
+function sanitizeAttachmentsForStorage(attachments) {
+  if (!Array.isArray(attachments)) return attachments;
+  return attachments.map((a) => {
+    if (!a || typeof a !== 'object') return a;
+    const { content, content_bytes, data, ...meta } = a;
+    return { ...meta, contentOmitted: !!(content || content_bytes || data) };
+  });
+}
+
 // Anything that isn't a recognized outbound lifecycle event is stored here
 // rather than dropped — covers genuine inbound mail, but also protects
 // against the inbound event's real `type` name (or payload shape) turning
@@ -44,6 +58,11 @@ function arrayOf(v) {
 // shows up in the Inbox labelled with its raw type and full metadata,
 // instead of vanishing with no trace.
 async function handleInbound(type, event, data) {
+  // Never persist attachment content bytes into metadata — see
+  // sanitizeAttachmentsForStorage for why.
+  const safeData = { ...data, attachments: sanitizeAttachmentsForStorage(data.attachments) };
+  const safeEvent = { ...event, data: safeData };
+
   const { error } = await supabase.from('emails').insert({
     direction: 'inbound',
     origin: 'resend',
@@ -59,7 +78,7 @@ async function handleInbound(type, event, data) {
     body_html: data.html || data.body_html || null,
     resend_message_id: data.email_id || data.message_id || data.id || null,
     thread_id: data.headers?.['in-reply-to'] || data.headers?.references || null,
-    metadata: event,
+    metadata: safeEvent,
   });
   if (error) console.error('[webhooks/resend] failed to store inbound email:', error.message);
 }

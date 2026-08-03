@@ -1081,6 +1081,7 @@ function EmailDetailModal({ email, onClose, onReply, onTrash }) {
   const displayBody = plainText || htmlToText(htmlSource);
   const hasRealBody = !!displayBody;
   const rawJson = looksLikeRawJson ? trimmed : (email.metadata && Object.keys(email.metadata).length ? JSON.stringify(email.metadata, null, 2) : "");
+  const attachments = Array.isArray(rawEventData.attachments) ? rawEventData.attachments : [];
 
   return (
     <div className="modal-bg" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -1101,6 +1102,13 @@ function EmailDetailModal({ email, onClose, onReply, onTrash }) {
         ) : (
           <div style={{fontSize:13,color:"var(--muted)",fontStyle:"italic",marginBottom:16}}>
             No message text was included with this event{isInbound ? " — some inbound notifications only carry headers, not the body" : ""}.
+          </div>
+        )}
+
+        {attachments.length > 0 && (
+          <div style={{fontSize:12,color:"var(--muted)",marginBottom:20}}>
+            📎 {attachments.length} attachment{attachments.length!==1?"s":""}: {attachments.map((a,i) => a?.filename || a?.name || `file ${i+1}`).join(", ")}
+            <span style={{display:"block",fontSize:11,marginTop:2}}>(content isn&apos;t stored or downloadable here — see raw event data for filename/type details)</span>
           </div>
         )}
 
