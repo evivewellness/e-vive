@@ -1044,7 +1044,18 @@ function ComposeEmailModal({ initial, clients, hcaProfiles, onClose, onRefresh }
 
 // ─── Email detail modal ─────────────────────────────────────────────────────────
 function EmailDetailModal({ email, onClose, onReply, onTrash }) {
+  const [showRaw, setShowRaw] = useState(false);
   const isInbound = email.direction === "inbound";
+
+  // Older records (and any event Resend sends without a parsed body) may
+  // have had the raw webhook payload stored directly in bodyText as a
+  // fallback — detect that shape so it's never shown as if it were the
+  // actual message text.
+  const trimmed = (email.bodyText || "").trim();
+  const looksLikeRawJson = trimmed.startsWith("{") || trimmed.startsWith("[");
+  const hasRealBody = trimmed && !looksLikeRawJson;
+  const rawJson = looksLikeRawJson ? trimmed : (email.metadata && Object.keys(email.metadata).length ? JSON.stringify(email.metadata, null, 2) : "");
+
   return (
     <div className="modal-bg" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-box" style={{maxWidth:640,maxHeight:"85vh",overflowY:"auto"}}>
@@ -1058,7 +1069,30 @@ function EmailDetailModal({ email, onClose, onReply, onTrash }) {
           <div><strong>Date:</strong> {fmt(email.createdAt)}</div>
           <div><strong>Status:</strong> <span className={`badge ${EMAIL_STATUS_BADGE[email.status]||"badge-dim"}`}>{email.status}</span></div>
         </div>
-        <div style={{whiteSpace:"pre-wrap",fontSize:14,lineHeight:1.6,color:"#0F2035",marginBottom:20}}>{email.bodyText || "(empty)"}</div>
+
+        {hasRealBody ? (
+          <div style={{whiteSpace:"pre-wrap",fontSize:14,lineHeight:1.6,color:"#0F2035",marginBottom:20}}>{email.bodyText}</div>
+        ) : (
+          <div style={{fontSize:13,color:"var(--muted)",fontStyle:"italic",marginBottom:16}}>
+            No message text was included with this event{isInbound ? " — some inbound notifications only carry headers, not the body" : ""}.
+          </div>
+        )}
+
+        {rawJson && (
+          <div style={{marginBottom:20}}>
+            <button
+              type="button"
+              onClick={() => setShowRaw(s => !s)}
+              style={{background:"none",border:"none",padding:0,cursor:"pointer",fontSize:12,fontFamily:"var(--mono)",color:"#5A7080",display:"flex",alignItems:"center",gap:6}}
+            >
+              {showRaw ? "▾" : "▸"} Raw event data
+            </button>
+            {showRaw && (
+              <pre style={{marginTop:8,background:"#0F2035",color:"#d1d5db",borderRadius:10,padding:"14px 16px",fontSize:11,lineHeight:1.6,overflowX:"auto",maxHeight:280,overflowY:"auto"}}>{rawJson}</pre>
+            )}
+          </div>
+        )}
+
         <div className="modal-actions">
           <button className="btn-o btn-sm" onClick={onClose}>Close</button>
           {isInbound && <button className="btn-p btn-sm" onClick={() => onReply(email)}>↩ Reply</button>}

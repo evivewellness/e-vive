@@ -55,7 +55,11 @@ async function handleInbound(type, event, data) {
     to_addresses: arrayOf(data.to),
     cc_addresses: arrayOf(data.cc),
     reply_to: data.reply_to || null,
-    body_text: data.text || (Object.keys(data).length ? JSON.stringify(data, null, 2) : ''),
+    // Resend's `email.received` event only carries headers (from/to/subject/
+    // message_id), not the parsed body — leave this empty rather than
+    // dumping the raw payload here; the full raw event is preserved in
+    // `metadata` and the UI renders it as raw data rather than message text.
+    body_text: data.text || '',
     body_html: data.html || null,
     resend_message_id: data.email_id || data.message_id || data.id || null,
     thread_id: data.headers?.['in-reply-to'] || data.headers?.references || null,
