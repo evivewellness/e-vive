@@ -1,5 +1,8 @@
 import { Webhook } from 'svix';
+import { Resend } from 'resend';
 import { supabase } from '../../../lib/supabase';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Resend signs webhooks using Svix. Disable Next's body parser so we can
 // verify the signature against the exact raw bytes Resend sent.
@@ -63,6 +66,29 @@ async function handleInbound(type, event, data) {
   const safeData = { ...data, attachments: sanitizeAttachmentsForStorage(data.attachments) };
   const safeEvent = { ...event, data: safeData };
 
+  let bodyText = data.text || data.body_text || data.plain || '';
+  let bodyHtml = data.html || data.body_html || null;
+
+  // Resend's `email.received` webhook payload for this account doesn't
+  // include the parsed body inline (confirmed against real payloads — only
+  // headers + attachment metadata are present). Fall back to fetching the
+  // full email by ID, which does carry text/html, for both inbound and
+  // outbound mail per Resend's own guidance.
+  const emailId = data.email_id || data.id;
+  if (!bodyText && !bodyHtml && emailId && process.env.RESEND_API_KEY) {
+    try {
+      const { data: fullEmail, error: fetchErr } = await resend.emails.get(emailId);
+      if (fetchErr) {
+        console.error('[webhooks/resend] emails.get failed:', fetchErr.message);
+      } else if (fullEmail) {
+        bodyText = fullEmail.text || bodyText;
+        bodyHtml = fullEmail.html || bodyHtml;
+      }
+    } catch (e) {
+      console.error('[webhooks/resend] emails.get threw:', e.message);
+    }
+  }
+
   const { error } = await supabase.from('emails').insert({
     direction: 'inbound',
     origin: 'resend',
@@ -74,9 +100,9 @@ async function handleInbound(type, event, data) {
     to_addresses: arrayOf(data.to),
     cc_addresses: arrayOf(data.cc),
     reply_to: data.reply_to || null,
-    body_text: data.text || data.body_text || data.plain || '',
-    body_html: data.html || data.body_html || null,
-    resend_message_id: data.email_id || data.message_id || data.id || null,
+    body_text: bodyText,
+    body_html: bodyHtml,
+    resend_message_id: emailId || null,
     thread_id: data.headers?.['in-reply-to'] || data.headers?.references || null,
     metadata: safeEvent,
   });
