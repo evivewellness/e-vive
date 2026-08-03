@@ -491,11 +491,9 @@ Congratulations! Your HomeCare Assistant application to E-Vive has been approved
 Your Employee ID: ${empId}
 Your Initial Password: ${initPwd}
 
-Please log in at https://e-vive.vercel.app/hca/login using your registered email address and the password above.
+Please log in at https://e-vive.co.ke/hca/login using your registered email address and the password above.
 
 You will be prompted to change your password upon first login.
-
-Next step: Pay the Review & Listing Fee (KSh 100/month) to activate your public profile. You will receive a payment link separately.
 
 Welcome to the E-Vive family!
 
