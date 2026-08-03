@@ -64,7 +64,6 @@ async function handleInbound(type, event, data) {
   // Never persist attachment content bytes into metadata — see
   // sanitizeAttachmentsForStorage for why.
   const safeData = { ...data, attachments: sanitizeAttachmentsForStorage(data.attachments) };
-  const safeEvent = { ...event, data: safeData };
 
   let bodyText = data.text || data.body_text || data.plain || '';
   let bodyHtml = data.html || data.body_html || null;
@@ -73,21 +72,39 @@ async function handleInbound(type, event, data) {
   // include the parsed body inline (confirmed against real payloads — only
   // headers + attachment metadata are present). Fall back to fetching the
   // full email by ID, which does carry text/html, for both inbound and
-  // outbound mail per Resend's own guidance.
+  // outbound mail per Resend's own guidance. `_fetchDebug` is stored in
+  // metadata (not just console.error'd) so the outcome is visible in the
+  // admin UI's raw-event view without needing separate log access.
   const emailId = data.email_id || data.id;
-  if (!bodyText && !bodyHtml && emailId && process.env.RESEND_API_KEY) {
+  let fetchDebug = null;
+  if (bodyText || bodyHtml) {
+    fetchDebug = { attempted: false, reason: 'body already present in webhook payload' };
+  } else if (!emailId) {
+    fetchDebug = { attempted: false, reason: 'no email id in payload' };
+  } else if (!process.env.RESEND_API_KEY) {
+    fetchDebug = { attempted: false, reason: 'RESEND_API_KEY not set' };
+  } else if (typeof resend.emails?.get !== 'function') {
+    fetchDebug = { attempted: false, reason: 'resend.emails.get is not a function in this SDK version' };
+  } else {
     try {
       const { data: fullEmail, error: fetchErr } = await resend.emails.get(emailId);
       if (fetchErr) {
-        console.error('[webhooks/resend] emails.get failed:', fetchErr.message);
+        fetchDebug = { attempted: true, ok: false, error: fetchErr.message || JSON.stringify(fetchErr) };
+        console.error('[webhooks/resend] emails.get failed:', fetchDebug.error);
       } else if (fullEmail) {
         bodyText = fullEmail.text || bodyText;
         bodyHtml = fullEmail.html || bodyHtml;
+        fetchDebug = { attempted: true, ok: true, gotText: !!fullEmail.text, gotHtml: !!fullEmail.html };
+      } else {
+        fetchDebug = { attempted: true, ok: false, error: 'empty response from emails.get' };
       }
     } catch (e) {
+      fetchDebug = { attempted: true, ok: false, error: e.message };
       console.error('[webhooks/resend] emails.get threw:', e.message);
     }
   }
+
+  const safeEvent = { ...event, data: safeData, _fetchDebug: fetchDebug };
 
   const { error } = await supabase.from('emails').insert({
     direction: 'inbound',
