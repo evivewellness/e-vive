@@ -80,6 +80,11 @@ const CSS = `
   .shr-type { font-size:11px; color:var(--amber); font-family:var(--mono); min-width:80px; }
   .shr-dur  { font-size:12px; color:var(--muted); font-family:var(--mono); min-width:60px; }
 
+  /* Cardex view modal */
+  .cx-view-bg { position:fixed; inset:0; background:rgba(0,8,24,0.7); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; padding:20px; z-index:200; }
+  .cx-view-box { background:rgba(6,20,44,0.98); border:1px solid rgba(14,165,233,0.25); border-radius:20px; padding:26px; max-width:640px; width:100%; max-height:85vh; overflow-y:auto; box-shadow:0 24px 80px rgba(0,0,0,0.4); }
+  .cx-view-section { margin-bottom:20px; }
+
   /* Welfare */
   .welfare-opts { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:18px; }
   .welfare-opt  { background:rgba(0,74,153,0.05); border:1px solid rgba(0,74,153,0.15); border-radius:14px; padding:18px; cursor:pointer; transition:all 0.28s; text-align:center; }
@@ -155,6 +160,8 @@ export default function HCADashboard() {
   const [liveShifts,setLiveShifts]= useState([]);
   const [cardexLog, setCardexLog] = useState([]);
   const [assignedClient, setAssignedClient] = useState(null);
+  const [clients,   setClients]   = useState([]);
+  const [viewCardex,setViewCardex]= useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletionSubmitted, setDeletionSubmitted]  = useState(false);
@@ -186,6 +193,7 @@ export default function HCADashboard() {
           setAuthed(true);
           setLiveShifts(shifts);
           setCardexLog(cardex);
+          setClients(clients);
           const linked = clients.find(c => c.assignedHcaId === profile.id);
           if (linked) {
             setAssignedClient(linked);
@@ -253,6 +261,20 @@ export default function HCADashboard() {
   const earningsMTD = completedShifts.length * hcaRate;
   const ratingDisplay = hcaProfile?.rating ? `${Number(hcaProfile.rating).toFixed(1)} ★` : "—";
   const patient = assignedClient?.patients?.[0] || null;
+
+  function clientForShift(s) {
+    return clients.find(c => c.id === s.clientId) || null;
+  }
+  function patientNameForShift(s) {
+    const c = clientForShift(s);
+    if (!c) return null;
+    const p = s.patientId ? (c.patients||[]).find(p => p.id === s.patientId) : null;
+    return p?.name || c.patients?.[0]?.name || c.name || null;
+  }
+  function clientNameById(id) {
+    if (!id) return null;
+    return clients.find(c => c.id === id)?.name || null;
+  }
 
   // Haversine distance in metres between two GPS points
   function haversineM(lat1, lng1, lat2, lng2) {
@@ -636,14 +658,15 @@ export default function HCADashboard() {
                           const [stLabel,stCls] = s.status==="completed"?["Completed","badge-mint"]:s.status==="in-progress"?["In Progress","badge-gold"]:s.status==="missed"?["Missed","badge-coral"]:["Scheduled","badge-dim"];
                           const dur = s.clockIn&&s.clockOut?`${Math.round((new Date(s.clockOut)-new Date(s.clockIn))/3600000)}h`:s.status==="in-progress"?"Active":"—";
                           const dateDisplay = s.date?new Date(s.date).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"}):"—";
+                          const shiftCardex = cardexLog.find(c => c.shiftId === s.id);
                           return (
                             <div key={s.id} className="shift-hist-row">
                               <div className="shr-date">{dateDisplay}</div>
-                              <div className="shr-pat">{patient?.name||"—"}</div>
+                              <div className="shr-pat">{patientNameForShift(s)||"—"}</div>
                               <div className="shr-type">{typeLabel}</div>
                               <div className="shr-dur">{dur}</div>
                               <span className={`badge ${stCls}`}>{stLabel}</span>
-                              {s.status==="completed"&&<button className="btn-o btn-sm">View Cardex</button>}
+                              {s.status==="completed"&&shiftCardex&&<button className="btn-o btn-sm" onClick={()=>setViewCardex(shiftCardex)}>View Cardex</button>}
                             </div>
                           );
                         })}
@@ -974,7 +997,7 @@ export default function HCADashboard() {
                           {liveShifts.map(s=>(
                             <tr key={s.id}>
                               <td style={{fontFamily:"var(--mono)",fontSize:12}}>{s.date}</td>
-                              <td>{s.clientId||"—"}</td>
+                              <td>{clientNameById(s.clientId)||"—"}</td>
                               <td><span className="badge badge-gold">{s.type}</span></td>
                               <td><span className={`badge ${s.status==="completed"?"badge-mint":s.status==="missed"?"badge-coral":"badge-dim"}`}>{s.status}</span></td>
                             </tr>
@@ -1093,6 +1116,61 @@ export default function HCADashboard() {
           </div>
         </main>
       </div>
+
+      {viewCardex && (
+        <div className="cx-view-bg" onClick={e => e.target === e.currentTarget && setViewCardex(null)}>
+          <div className="cx-view-box">
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
+              <div>
+                <div style={{fontFamily:"var(--serif)",fontSize:18,fontWeight:700}}>Cardex — {viewCardex.date?new Date(viewCardex.date).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric"}):"—"}</div>
+                <div style={{fontSize:12,color:"var(--muted)",fontFamily:"var(--mono)",marginTop:3}}>Submitted {viewCardex.submittedAt?new Date(viewCardex.submittedAt).toLocaleString("en-GB"):"—"}</div>
+              </div>
+              <button className="btn-o btn-sm" onClick={()=>setViewCardex(null)}>✕ Close</button>
+            </div>
+
+            <div className="cx-view-section">
+              <div className="cs-title">🩺 Vital Signs</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+                {Object.entries(viewCardex.vitals||{}).map(([k,v])=>(
+                  <div key={k} style={{fontSize:13}}><span style={{color:"var(--muted)",fontFamily:"var(--mono)",fontSize:11}}>{k}: </span>{v||"—"}</div>
+                ))}
+              </div>
+            </div>
+
+            {(viewCardex.medications||[]).length>0 && (
+              <div className="cx-view-section">
+                <div className="cs-title">💊 Medications</div>
+                {viewCardex.medications.map((m,i)=>(
+                  <div key={i} style={{fontSize:13,marginBottom:4}}>{m.time} — {m.drug} {m.dose} ({m.route}){m.notes?` · ${m.notes}`:""}</div>
+                ))}
+              </div>
+            )}
+
+            {viewCardex.incidents && (
+              <div className="cx-view-section">
+                <div className="cs-title">⚠️ Incidents & Observations</div>
+                <div style={{fontSize:13,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{viewCardex.incidents}</div>
+              </div>
+            )}
+
+            {viewCardex.handover && (
+              <div className="cx-view-section">
+                <div className="cs-title">🤝 Handover Notes</div>
+                <div style={{fontSize:13,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{viewCardex.handover}</div>
+              </div>
+            )}
+
+            <div className="cx-view-section" style={{marginBottom:0}}>
+              <div className="cs-title">✅ Special Needs Checklist</div>
+              {(viewCardex.specialNeedsChecks||[]).length===0 ? (
+                <div style={{fontSize:13,color:"var(--muted)"}}>None recorded.</div>
+              ) : viewCardex.specialNeedsChecks.map((c,i)=>(
+                <div key={i} style={{fontSize:13,marginBottom:4}}>{c.done?"✓":c.flagged?"🚩":"○"} {c.need}</div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
