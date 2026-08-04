@@ -201,10 +201,15 @@ const EVENT_COLORS = {
 };
 
 const EMAIL_ORIGIN_LABELS = {
-  resend:         "Resend",
-  contact_page:   "Contact Page",
-  admin_composed: "Admin",
-  system:         "System",
+  resend:                    "Resend",
+  contact_page:              "Contact Page",
+  admin_composed:            "Admin",
+  system:                    "System",
+  hca_training_request:      "HCA — Training Request",
+  hca_welfare_counselling:   "HCA Welfare — Counselling",
+  hca_welfare_safety:        "HCA Welfare — Safety Concern",
+  hca_welfare_note:          "HCA Welfare — Note",
+  hca_off_day_request:       "HCA — Off-Day Request",
 };
 const EMAIL_STATUS_BADGE = {
   sent:       "badge-mint",
@@ -1624,6 +1629,8 @@ export default function AdminDashboard() {
       await Promise.all(selectedAppIds.map(id => deleteHcaApplication(id)));
       setSelectedAppIds([]);
       await refresh();
+    } catch (e) {
+      alert(`Delete failed: ${e.message}`);
     } finally { setBulkDeleting(false); }
   }
 
@@ -1635,6 +1642,8 @@ export default function AdminDashboard() {
       await Promise.all(selectedHcaIds.map(id => deleteHcaProfile(id)));
       setSelectedHcaIds([]);
       await refresh();
+    } catch (e) {
+      alert(`Delete failed: ${e.message}`);
     } finally { setBulkDeleting(false); }
   }
 
@@ -2195,7 +2204,7 @@ export default function AdminDashboard() {
                                     <button className="btn-p btn-sm" disabled={loadingAppId===a.id} onClick={()=>openHcaModal(a)}>{loadingAppId===a.id?"Loading…":"Review"}</button>
                                     <button className="btn-danger btn-sm" onClick={async ()=>{
                                       if (!confirm(`Delete application from ${a.fullName||a.name}? This cannot be undone.`)) return;
-                                      await deleteHcaApplication(a.id);
+                                      try { await deleteHcaApplication(a.id); } catch (e) { alert(`Delete failed: ${e.message}`); return; }
                                       await refresh();
                                     }}>Delete</button>
                                   </div>
@@ -2249,7 +2258,7 @@ export default function AdminDashboard() {
                                     <button className="btn-p btn-sm" disabled={loadingAppId===a.id} onClick={()=>openHcaModal(a)}>{loadingAppId===a.id ? "Loading…" : a.status==="pending" ? "Review" : "View"}</button>
                                     <button className="btn-danger btn-sm" onClick={async ()=>{
                                       if (!confirm(`Permanently delete application from ${a.fullName||a.name}? This cannot be undone.`)) return;
-                                      await deleteHcaApplication(a.id);
+                                      try { await deleteHcaApplication(a.id); } catch (e) { alert(`Delete failed: ${e.message}`); return; }
                                       await refresh();
                                     }}>Delete</button>
                                   </div>
@@ -2331,7 +2340,12 @@ export default function AdminDashboard() {
                                 }}>🔐 Login as</button>
                                 <button className="btn-danger btn-sm" onClick={async ()=>{
                                   if (!confirm(`Permanently delete HCA profile for ${h.name} (${h.employeeId})? This cannot be undone.`)) return;
-                                  await deleteHcaProfile(h.id);
+                                  try {
+                                    await deleteHcaProfile(h.id);
+                                  } catch (e) {
+                                    alert(`Delete failed: ${e.message}`);
+                                    return;
+                                  }
                                   await refresh();
                                 }}>Delete</button>
                               </div>

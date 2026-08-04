@@ -14,6 +14,10 @@ import {
   clockInHca,
   clockOutHca,
   updateHcaProfile,
+  getLmsCourses,
+  getEnrollmentsForUser,
+  enrollInCourse,
+  createHcaRequest,
 } from "../../lib/store";
 
 const CSS = `
@@ -162,6 +166,12 @@ export default function HCADashboard() {
   const [assignedClient, setAssignedClient] = useState(null);
   const [clients,   setClients]   = useState([]);
   const [viewCardex,setViewCardex]= useState(null);
+  const [courses,     setCourses]     = useState([]);
+  const [enrollments, setEnrollments] = useState([]);
+  const [enrolling,   setEnrolling]   = useState(null);
+  const [offDay, setOffDay] = useState({ from:"", to:"", reason:"" });
+  const [offDayMsg, setOffDayMsg] = useState("");
+  const [offDaySaving, setOffDaySaving] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletionSubmitted, setDeletionSubmitted]  = useState(false);
@@ -181,11 +191,13 @@ export default function HCADashboard() {
     const session = getHcaSession();
     if (session?.id) {
       async function loadData() {
-        const [profile, shifts, cardex, clients] = await Promise.all([
+        const [profile, shifts, cardex, clients, courses, enrollments] = await Promise.all([
           getHcaProfileById(session.id),
           getShiftsByHca(session.id),
           getCardexByHca(session.id),
           getAllClients(),
+          getLmsCourses('hca'),
+          getEnrollmentsForUser(session.id, 'hca'),
         ]);
         if (profile) {
           setHcaProfile(profile);
@@ -194,6 +206,8 @@ export default function HCADashboard() {
           setLiveShifts(shifts);
           setCardexLog(cardex);
           setClients(clients);
+          setCourses(courses);
+          setEnrollments(enrollments);
           const linked = clients.find(c => c.assignedHcaId === profile.id);
           if (linked) {
             setAssignedClient(linked);
@@ -448,6 +462,59 @@ export default function HCADashboard() {
       setPwdMsg("✓ Password changed successfully.");
     } catch (e) { setPwdMsg("⚠ " + (e.message || "Failed to change password.")); }
     setPwdSaving(false);
+  }
+
+  async function handleEnrol(course) {
+    if (!hcaProfile?.id) return;
+    setEnrolling(course.id);
+    try {
+      await enrollInCourse(hcaProfile.id, 'hca', course.id);
+      setEnrollments(await getEnrollmentsForUser(hcaProfile.id, 'hca'));
+    } catch (e) { alert(e.message || "Could not enrol. Please try again."); }
+    setEnrolling(null);
+  }
+
+  async function handleRequestTraining() {
+    const topic = prompt("What training topic would you like E-Vive to offer? (e.g. Wound care, Dementia refresher)");
+    if (!topic) return;
+    try {
+      await createHcaRequest({
+        hcaId: hcaProfile?.id, hcaName: hcaProfile?.name, hcaEmail: hcaProfile?.email,
+        origin: 'hca_training_request', subject: `Training request from ${hcaProfile?.name || hcaId}`,
+        message: topic,
+      });
+      alert("✓ Request sent to the E-Vive training team.");
+    } catch (e) { alert(e.message || "Could not send request. Please try again."); }
+  }
+
+  async function handleWelfareOption(origin, subject, promptLabel) {
+    const details = prompt(promptLabel);
+    if (details === null) return;
+    try {
+      await createHcaRequest({
+        hcaId: hcaProfile?.id, hcaName: hcaProfile?.name, hcaEmail: hcaProfile?.email,
+        origin, subject: `${subject} — ${hcaProfile?.name || hcaId}`,
+        message: details || "(no additional details provided)",
+      });
+      alert("✓ Submitted confidentially to the E-Vive welfare team.");
+    } catch (e) { alert(e.message || "Could not submit. Please try again."); }
+  }
+
+  async function handleSubmitOffDay() {
+    setOffDayMsg("");
+    if (!offDay.from || !offDay.to) { setOffDayMsg("⚠ Please select both dates."); return; }
+    setOffDaySaving(true);
+    try {
+      await createHcaRequest({
+        hcaId: hcaProfile?.id, hcaName: hcaProfile?.name, hcaEmail: hcaProfile?.email,
+        origin: 'hca_off_day_request',
+        subject: `Off-day request from ${hcaProfile?.name || hcaId}`,
+        message: `From: ${offDay.from}\nTo: ${offDay.to}\nReason: ${offDay.reason || "—"}`,
+      });
+      setOffDay({ from:"", to:"", reason:"" });
+      setOffDayMsg("✓ Off-day request submitted. Your coordinator will confirm shortly.");
+    } catch (e) { setOffDayMsg("⚠ " + (e.message || "Could not submit request.")); }
+    setOffDaySaving(false);
   }
 
   if (!authed) return null;
@@ -1015,26 +1082,39 @@ export default function HCADashboard() {
               <div>
                 <div style={{marginBottom:20,fontWeight:700,fontSize:16}}>Training & Development</div>
                 <div className="stat-grid">
-                  {[{icon:"🎓",lbl:"Modules Completed",val:"8",color:"mint"},{icon:"📅",lbl:"Next Training",val:"15 May",color:"amber"},{icon:"📜",lbl:"Certs Expiring",val:"1",color:"coral"},{icon:"📊",lbl:"Training Score",val:"94%",color:"sky"}].map(s=>(
+                  {(()=>{
+                    const completed = enrollments.filter(e=>e.progress_pct===100).length;
+                    const avgProgress = enrollments.length ? Math.round(enrollments.reduce((s,e)=>s+(e.progress_pct||0),0)/enrollments.length) : 0;
+                    return [
+                      {icon:"🎓",lbl:"Modules Completed",val:String(completed),color:"mint"},
+                      {icon:"📚",lbl:"Modules Available",val:String(courses.length),color:"amber"},
+                      {icon:"📝",lbl:"Enrolled",val:String(enrollments.length),color:"sky"},
+                      {icon:"📊",lbl:"Avg. Progress",val:enrollments.length?`${avgProgress}%`:"—",color:"sky"},
+                    ];
+                  })().map(s=>(
                     <div className="stat-box" key={s.lbl}><div className="stat-box-icon">{s.icon}</div><div className={`stat-box-val ${s.color}`}>{s.val}</div><div className="stat-box-label">{s.lbl}</div></div>
                   ))}
                 </div>
                 <div className="panel">
-                  <div className="panel-head"><div className="panel-title">Available Training Modules</div><button className="btn-p btn-sm">Request Training</button></div>
+                  <div className="panel-head"><div className="panel-title">Available Training Modules</div><button className="btn-p btn-sm" onClick={handleRequestTraining}>Request Training</button></div>
                   <div className="panel-body">
-                    {[
-                      {icon:"🧠",title:"Advanced Dementia Care",date:"15 May 2026",type:"In-Person",status:"Enrolled"},
-                      {icon:"💊",title:"Medication Administration",date:"22 May 2026",type:"Online",status:"Available"},
-                      {icon:"🩺",title:"Palliative Care Principles",date:"Jun 2026",type:"Online",status:"Available"},
-                      {icon:"🏋️",title:"Mobility & Physiotherapy Assist",date:"Jun 2026",type:"In-Person",status:"Available"},
-                    ].map((t,i)=>(
-                      <div key={i} style={{display:"flex",alignItems:"center",gap:14,padding:"13px 0",borderBottom:i<3?"1px solid rgba(0,74,153,0.1)":"none"}}>
-                        <span style={{fontSize:24}}>{t.icon}</span>
-                        <div style={{flex:1}}><div style={{fontWeight:700,fontSize:13}}>{t.title}</div><div style={{fontSize:11,color:"var(--muted)",fontFamily:"var(--mono)",marginTop:2}}>{t.date} · {t.type}</div></div>
-                        <span className={`badge ${t.status==="Enrolled"?"badge-mint":"badge-dim"}`}>{t.status}</span>
-                        {t.status==="Available" && <button className="btn-p btn-sm">Enrol</button>}
-                      </div>
-                    ))}
+                    {courses.length===0 ? (
+                      <div style={{textAlign:"center",padding:"32px 0",color:"var(--muted)",fontSize:13}}>No training modules published yet. Use &quot;Request Training&quot; to suggest a topic to the E-Vive training team.</div>
+                    ) : courses.map((c,i)=>{
+                      const enr = enrollments.find(e=>e.course_id===c.id);
+                      const status = enr ? (enr.progress_pct===100?"Completed":"Enrolled") : "Available";
+                      return (
+                        <div key={c.id} style={{display:"flex",alignItems:"center",gap:14,padding:"13px 0",borderBottom:i<courses.length-1?"1px solid rgba(0,74,153,0.1)":"none"}}>
+                          <span style={{fontSize:24}}>{c.cover_emoji||"📚"}</span>
+                          <div style={{flex:1}}>
+                            <div style={{fontWeight:700,fontSize:13}}>{c.title}</div>
+                            <div style={{fontSize:11,color:"var(--muted)",fontFamily:"var(--mono)",marginTop:2}}>{c.category||"General"} · {c.difficulty||"Beginner"} · {c.duration_mins||60} min{enr&&enr.progress_pct>0&&enr.progress_pct<100?` · ${enr.progress_pct}% complete`:""}</div>
+                          </div>
+                          <span className={`badge ${status==="Completed"?"badge-mint":status==="Enrolled"?"badge-gold":"badge-dim"}`}>{status}</span>
+                          {status==="Available" && <button className="btn-p btn-sm" disabled={enrolling===c.id} onClick={()=>handleEnrol(c)}>{enrolling===c.id?"Enrolling…":"Enrol"}</button>}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -1047,28 +1127,32 @@ export default function HCADashboard() {
                 <p style={{fontSize:14,color:"var(--muted)",marginBottom:24,lineHeight:1.7}}>E-Vive is committed to your wellbeing. All welfare requests are confidential and handled by our dedicated welfare officer.</p>
                 <div className="welfare-opts">
                   {[
-                    {icon:"💬",title:"Request Counselling",sub:"Book a confidential session with a welfare counsellor"},
-                    {icon:"🆘",title:"Report a Safety Concern",sub:"Report unsafe working conditions or misconduct"},
-                    {icon:"📅",title:"Request Time Off",sub:"Submit an off-day request (48hrs notice required)"},
-                    {icon:"📝",title:"Submit Welfare Note",sub:"Share feedback about your working conditions"},
+                    {icon:"💬",title:"Request Counselling",sub:"Book a confidential session with a welfare counsellor",origin:"hca_welfare_counselling",prompt:"Briefly share what you'd like to discuss (optional — a counsellor will reach out to schedule):"},
+                    {icon:"🆘",title:"Report a Safety Concern",sub:"Report unsafe working conditions or misconduct",origin:"hca_welfare_safety",prompt:"Describe the safety concern or misconduct you'd like to report:"},
+                    {icon:"📅",title:"Request Time Off",sub:"Submit an off-day request (48hrs notice required)",scrollTo:"offday-panel"},
+                    {icon:"📝",title:"Submit Welfare Note",sub:"Share feedback about your working conditions",origin:"hca_welfare_note",prompt:"Share your feedback about your working conditions:"},
                   ].map(w=>(
-                    <div key={w.title} className="welfare-opt">
+                    <div key={w.title} className="welfare-opt" onClick={()=>{
+                      if (w.scrollTo) { document.getElementById(w.scrollTo)?.scrollIntoView({behavior:"smooth",block:"center"}); return; }
+                      handleWelfareOption(w.origin, w.title, w.prompt);
+                    }}>
                       <div className="welfare-opt-icon">{w.icon}</div>
                       <div className="welfare-opt-title">{w.title}</div>
                       <div className="welfare-opt-sub">{w.sub}</div>
                     </div>
                   ))}
                 </div>
-                <div className="panel">
+                <div className="panel" id="offday-panel">
                   <div className="panel-head"><div className="panel-title">Off-Day Requests</div></div>
                   <div className="panel-body">
                     <p style={{fontSize:13,color:"var(--muted)",marginBottom:14}}>You must give <strong style={{color:"var(--text)"}}>48 hours notice</strong> for off-day requests when placed with a client.</p>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 2fr",gap:12,marginBottom:14}}>
-                      <div><div className="dash-label">From Date</div><input type="date" className="dash-input" /></div>
-                      <div><div className="dash-label">To Date</div><input type="date" className="dash-input" /></div>
-                      <div><div className="dash-label">Reason</div><input className="dash-input" placeholder="e.g. Medical appointment" /></div>
+                      <div><div className="dash-label">From Date</div><input type="date" className="dash-input" value={offDay.from} onChange={e=>setOffDay(p=>({...p,from:e.target.value}))} /></div>
+                      <div><div className="dash-label">To Date</div><input type="date" className="dash-input" value={offDay.to} onChange={e=>setOffDay(p=>({...p,to:e.target.value}))} /></div>
+                      <div><div className="dash-label">Reason</div><input className="dash-input" placeholder="e.g. Medical appointment" value={offDay.reason} onChange={e=>setOffDay(p=>({...p,reason:e.target.value}))} /></div>
                     </div>
-                    <button className="btn-sky">Submit Off-Day Request</button>
+                    {offDayMsg && <div style={{fontSize:12,marginBottom:10,color:offDayMsg.startsWith("✓")?"var(--mint)":"var(--coral)"}}>{offDayMsg}</div>}
+                    <button className="btn-sky" disabled={offDaySaving} onClick={handleSubmitOffDay}>{offDaySaving?"Submitting…":"Submit Off-Day Request"}</button>
                   </div>
                 </div>
               </div>
