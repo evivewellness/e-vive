@@ -25,6 +25,10 @@ import {
   repairHcaApplicationStatuses,
   updateHcaProfile,
   deleteHcaProfile,
+  suspendHcaProfile,
+  reinstateHcaProfile,
+  enableApplicationEdit,
+  HCA_APPLICATION_EDITABLE_FIELDS,
   updateClient,
   deleteClient,
   createInvoice,
@@ -460,6 +464,29 @@ function HcaApproveModal({ app, hcaProfiles=[], onClose, onRefresh }) {
   });
   const updData = (k,v) => setData(p=>({...p,[k]:v}));
 
+  // ── Enable applicant self-service edit ──
+  const existingEditAccess = fd.editAccess;
+  const [requestEditOpen, setRequestEditOpen] = useState(false);
+  const [editReqFields,   setEditReqFields]   = useState([]);
+  const [editReqNote,     setEditReqNote]     = useState("");
+  const [editReqSending,  setEditReqSending]  = useState(false);
+  const [editReqMsg,      setEditReqMsg]      = useState("");
+
+  function toggleEditReqField(key) {
+    setEditReqFields(prev => prev.includes(key) ? prev.filter(f=>f!==key) : [...prev, key]);
+  }
+
+  async function sendEditAccess() {
+    if (editReqFields.length === 0) { setEditReqMsg("Select at least one field to unlock."); return; }
+    setEditReqSending(true);
+    try {
+      await enableApplicationEdit(app.id, { fields: editReqFields, note: editReqNote });
+      setEditReqMsg("✓ Edit link sent to the applicant.");
+      onRefresh();
+    } catch (e) { setEditReqMsg("⚠ " + (e.message||"Error")); }
+    setEditReqSending(false);
+  }
+
   async function saveEdits() {
     setEditSaving(true);
     try {
@@ -559,9 +586,38 @@ The E-Vive Team
             {" "}<span className={`badge ${app.status==="approved"?"badge-mint":app.status==="rejected"?"badge-coral":"badge-gold"}`} style={{marginLeft:8,verticalAlign:"middle"}}>{app.status}</span>
           </div>
           {!approved && (
-            <button className="btn-o btn-sm" onClick={()=>{ setEditMode(m=>!m); setEditMsg(""); }}>{editMode ? "Cancel Edit" : "✏️ Edit Details"}</button>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              <button className="btn-o btn-sm" onClick={()=>{ setEditMode(m=>!m); setEditMsg(""); }}>{editMode ? "Cancel Edit" : "✏️ Edit Details"}</button>
+              <button className="btn-o btn-sm" onClick={()=>{ setRequestEditOpen(o=>!o); setEditReqMsg(""); }}>{requestEditOpen ? "Cancel" : "🔓 Enable Applicant Edit"}</button>
+            </div>
           )}
         </div>
+
+        {existingEditAccess && (
+          <div style={{background: existingEditAccess.submitted ? "rgba(132,189,96,0.08)" : "rgba(240,169,139,0.1)", border:`1px solid ${existingEditAccess.submitted?"rgba(132,189,96,0.3)":"rgba(232,132,90,0.3)"}`, borderRadius:10, padding:"10px 14px", marginBottom:16, fontSize:12, color:"#0F2035"}}>
+            {existingEditAccess.submitted
+              ? `✓ Applicant resubmitted updates on ${fmtShort(existingEditAccess.submittedAt)} for: ${(existingEditAccess.fields||[]).join(", ")}`
+              : `🔓 Edit access granted on ${fmtShort(existingEditAccess.grantedAt)} for: ${(existingEditAccess.fields||[]).join(", ")} — awaiting applicant response.`}
+            {existingEditAccess.note && <div style={{marginTop:4,fontStyle:"italic",color:"#5A7080"}}>Note sent: “{existingEditAccess.note}”</div>}
+          </div>
+        )}
+
+        {requestEditOpen && (
+          <div style={{background:"#f4f7fb",border:"1px solid rgba(0,74,153,0.14)",borderRadius:12,padding:"14px 16px",marginBottom:20}}>
+            <div style={{fontSize:12,fontWeight:700,color:"#5A7080",marginBottom:10,textTransform:"uppercase",letterSpacing:"0.5px"}}>Unlock fields for applicant to edit</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
+              {HCA_APPLICATION_EDITABLE_FIELDS.map(f => (
+                <button key={f.key} type="button" onClick={()=>toggleEditReqField(f.key)} style={{padding:"4px 10px",borderRadius:"100px",fontSize:11,fontFamily:"var(--mono)",border:"1px solid rgba(168,0,64,0.25)",background:editReqFields.includes(f.key)?"rgba(132,189,96,0.2)":"transparent",color:editReqFields.includes(f.key)?"var(--mint)":"var(--muted)",cursor:"pointer"}}>{f.label}</button>
+              ))}
+            </div>
+            <div className="modal-field">
+              <label className="modal-label">Note to applicant (optional)</label>
+              <textarea className="modal-input" rows={2} value={editReqNote} onChange={e=>setEditReqNote(e.target.value)} placeholder="e.g. Your certificate photo is blurry — please re-upload a clearer copy." style={{resize:"vertical"}} />
+            </div>
+            {editReqMsg && <div style={{fontSize:12,marginBottom:10,color:editReqMsg.startsWith("✓")?"var(--mint)":"var(--coral)"}}>{editReqMsg}</div>}
+            <button className="btn-p btn-sm" onClick={sendEditAccess} disabled={editReqSending}>{editReqSending?"Sending…":"Send Edit Link"}</button>
+          </div>
+        )}
 
         {/* Profile photo + summary row */}
         <div style={{display:"flex",gap:16,marginBottom:20,alignItems:"flex-start",flexWrap:"wrap"}}>
@@ -1428,6 +1484,9 @@ export default function AdminDashboard() {
   const [repairMsg,       setRepairMsg]       = useState("");
   const [appsLoadError,   setAppsLoadError]   = useState("");
   const [loadingAppId,    setLoadingAppId]    = useState(null);
+  const [selectedAppIds,  setSelectedAppIds]  = useState([]);
+  const [selectedHcaIds,  setSelectedHcaIds]  = useState([]);
+  const [bulkDeleting,    setBulkDeleting]    = useState(false);
   const [clients,   setClients]  = useState([]);
   const [hcaApps,   setHcaApps]  = useState([]);
   const [hcaProfiles, setHcaProfiles] = useState([]);
@@ -1548,6 +1607,35 @@ export default function AdminDashboard() {
       setHcaModal(app);
     }
     setLoadingAppId(null);
+  }
+
+  function toggleAppSelect(id) {
+    setSelectedAppIds(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id]);
+  }
+  function toggleHcaSelect(id) {
+    setSelectedHcaIds(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id]);
+  }
+
+  async function bulkDeleteApps() {
+    if (selectedAppIds.length === 0) return;
+    if (!confirm(`Permanently delete ${selectedAppIds.length} application(s)? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    try {
+      await Promise.all(selectedAppIds.map(id => deleteHcaApplication(id)));
+      setSelectedAppIds([]);
+      await refresh();
+    } finally { setBulkDeleting(false); }
+  }
+
+  async function bulkDeleteHcas() {
+    if (selectedHcaIds.length === 0) return;
+    if (!confirm(`Permanently delete ${selectedHcaIds.length} HCA profile(s)? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    try {
+      await Promise.all(selectedHcaIds.map(id => deleteHcaProfile(id)));
+      setSelectedHcaIds([]);
+      await refresh();
+    } finally { setBulkDeleting(false); }
   }
 
   // ── Auth guard ──
@@ -2129,16 +2217,26 @@ export default function AdminDashboard() {
                         <button key={f} className={`filter-chip${appStatusFilter===f?" active":""}`} onClick={()=>setAppStatusFilter(f)}>{f}</button>
                       ))}
                       <input className="search-bar" placeholder="Search applications..." value={appSearch} onChange={e=>setAppSearch(e.target.value)} style={{marginLeft:"auto"}} />
+                      {selectedAppIds.length > 0 && (
+                        <button className="btn-danger btn-sm" disabled={bulkDeleting} onClick={bulkDeleteApps}>{bulkDeleting?"Deleting…":`Delete Selected (${selectedAppIds.length})`}</button>
+                      )}
                     </div>
                     {filteredAppsList.length === 0 ? (
                       <div style={{textAlign:"center",padding:"32px 0",color:"var(--muted)",fontSize:13}}>No applications match this filter.</div>
                     ) : (
                       <div className="dash-table-wrap">
                         <table className="dash-table">
-                          <thead><tr><th>Name</th><th>Email</th><th>Cert Level</th><th>Status</th><th>Applied</th><th>Actions</th></tr></thead>
+                          <thead><tr>
+                            <th style={{width:32}}>
+                              <input type="checkbox"
+                                checked={filteredAppsList.length>0 && filteredAppsList.every(a=>selectedAppIds.includes(a.id))}
+                                onChange={e => setSelectedAppIds(e.target.checked ? filteredAppsList.map(a=>a.id) : [])} />
+                            </th>
+                            <th>Name</th><th>Email</th><th>Cert Level</th><th>Status</th><th>Applied</th><th>Actions</th></tr></thead>
                           <tbody>
                             {filteredAppsList.map((a,i)=>(
                               <tr key={a.id||i}>
+                                <td><input type="checkbox" checked={selectedAppIds.includes(a.id)} onChange={()=>toggleAppSelect(a.id)} /></td>
                                 <td style={{fontWeight:600}}>{a.fullName||a.name}</td>
                                 <td style={{fontSize:12,color:"var(--muted)"}}>{a.email}</td>
                                 <td><span className="badge badge-sky">{a.certLevel||"HCA"}</span></td>
@@ -2170,7 +2268,10 @@ export default function AdminDashboard() {
                     <button key={f} className={`filter-chip${hcaFilter===f?" active":""}`} onClick={()=>setHcaFilter(f)}>{f}</button>
                   ))}
                   <input className="search-bar" placeholder="Search by name, ID, or email..." value={search} onChange={e=>setSearch(e.target.value)} />
-                  <button className="btn-p btn-sm" style={{marginLeft:"auto"}} onClick={()=>setAddHcaModal(true)}>+ Add HCA Profile</button>
+                  {selectedHcaIds.length > 0 && (
+                    <button className="btn-danger btn-sm" disabled={bulkDeleting} onClick={bulkDeleteHcas}>{bulkDeleting?"Deleting…":`Delete Selected (${selectedHcaIds.length})`}</button>
+                  )}
+                  <button className="btn-p btn-sm" style={{marginLeft:selectedHcaIds.length>0?0:"auto"}} onClick={()=>setAddHcaModal(true)}>+ Add HCA Profile</button>
                 </div>
 
                 {filteredHCAs.length === 0 ? (
@@ -2181,10 +2282,17 @@ export default function AdminDashboard() {
                 ) : (
                   <div className="dash-table-wrap">
                     <table className="dash-table">
-                      <thead><tr><th>HCA</th><th>ID</th><th>Cert Level</th><th>Exp.</th><th>Rate (KES)</th><th>Status</th><th>Actions</th></tr></thead>
+                      <thead><tr>
+                        <th style={{width:32}}>
+                          <input type="checkbox"
+                            checked={filteredHCAs.length>0 && filteredHCAs.every(h=>selectedHcaIds.includes(h.id))}
+                            onChange={e => setSelectedHcaIds(e.target.checked ? filteredHCAs.map(h=>h.id) : [])} />
+                        </th>
+                        <th>HCA</th><th>ID</th><th>Cert Level</th><th>Exp.</th><th>Rate (KES)</th><th>Status</th><th>Actions</th></tr></thead>
                       <tbody>
                         {filteredHCAs.map((h,i)=>(
                           <tr key={h.id||i}>
+                            <td><input type="checkbox" checked={selectedHcaIds.includes(h.id)} onChange={()=>toggleHcaSelect(h.id)} /></td>
                             <td>
                               <div style={{fontWeight:700,fontSize:13}}>{h.name}</div>
                               <div style={{fontSize:11,color:"var(--muted)"}}>{h.email}</div>
@@ -2193,7 +2301,7 @@ export default function AdminDashboard() {
                             <td><span className="badge badge-mint">{h.certLevel||"HCA"}</span></td>
                             <td style={{fontFamily:"var(--mono)",fontSize:12}}>{h.yearsExp||0}y</td>
                             <td style={{fontFamily:"var(--mono)",fontSize:12,color:"var(--amber)"}}>{h.rate ? h.rate.toLocaleString() : "—"}</td>
-                            <td><span className={`badge ${h.status==="active"?"badge-mint":"badge-dim"}`}>{h.status}</span></td>
+                            <td><span className={`badge ${h.status==="active"?"badge-mint":h.status==="suspended"?"badge-coral":"badge-dim"}`}>{h.status}</span></td>
                             <td>
                               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                                 <button className="btn-p btn-sm" onClick={()=>setEditHcaModal(h)}>Edit</button>
@@ -2204,6 +2312,19 @@ export default function AdminDashboard() {
                                 }}>
                                   {h.status === "active" ? "Deactivate" : "Activate"}
                                 </button>
+                                {h.status === "suspended" ? (
+                                  <button className="btn-o btn-sm" onClick={async ()=>{
+                                    await reinstateHcaProfile(h.id);
+                                    await refresh();
+                                  }}>✅ Reinstate</button>
+                                ) : (
+                                  <button className="btn-danger btn-sm" title="Disable until compliance (e.g. expired cert, failed verification)" onClick={async ()=>{
+                                    const reason = prompt(`Reason for suspending ${h.name} until compliance is achieved:`);
+                                    if (reason === null) return;
+                                    await suspendHcaProfile(h.id, reason);
+                                    await refresh();
+                                  }}>🚫 Suspend</button>
+                                )}
                                 <button className="btn-sky btn-sm" title="Log in as this HCA" onClick={()=>{
                                   setHcaSession({ id:h.id, name:h.name, email:h.email, employeeId:h.employeeId });
                                   window.open("/hca/dashboard","_blank");
