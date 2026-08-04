@@ -1,8 +1,5 @@
 import { Webhook } from 'svix';
-import { Resend } from 'resend';
 import { supabase } from '../../../lib/supabase';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Resend signs webhooks using Svix. Disable Next's body parser so we can
 // verify the signature against the exact raw bytes Resend sent.
@@ -70,11 +67,15 @@ async function handleInbound(type, event, data) {
 
   // Resend's `email.received` webhook payload for this account doesn't
   // include the parsed body inline (confirmed against real payloads — only
-  // headers + attachment metadata are present). Fall back to fetching the
-  // full email by ID, which does carry text/html, for both inbound and
-  // outbound mail per Resend's own guidance. `_fetchDebug` is stored in
-  // metadata (not just console.error'd) so the outcome is visible in the
-  // admin UI's raw-event view without needing separate log access.
+  // headers + attachment metadata are present). resend.emails.get(id) was
+  // tried first (per Resend's general docs) but returned "Email not found"
+  // — that method is scoped to emails sent via the API, not received mail,
+  // which appears to be a distinct resource (a shared-link token for a
+  // received message was internally tagged type: "receiving", not "email").
+  // Try the dedicated receiving-email endpoint directly instead. This is a
+  // best-effort guess at the exact path, not confirmed against docs — if it
+  // also fails, `_fetchDebug` records exactly why so the next step doesn't
+  // require another blind attempt.
   const emailId = data.email_id || data.id;
   let fetchDebug = null;
   if (bodyText || bodyHtml) {
@@ -83,24 +84,23 @@ async function handleInbound(type, event, data) {
     fetchDebug = { attempted: false, reason: 'no email id in payload' };
   } else if (!process.env.RESEND_API_KEY) {
     fetchDebug = { attempted: false, reason: 'RESEND_API_KEY not set' };
-  } else if (typeof resend.emails?.get !== 'function') {
-    fetchDebug = { attempted: false, reason: 'resend.emails.get is not a function in this SDK version' };
   } else {
     try {
-      const { data: fullEmail, error: fetchErr } = await resend.emails.get(emailId);
-      if (fetchErr) {
-        fetchDebug = { attempted: true, ok: false, error: fetchErr.message || JSON.stringify(fetchErr) };
-        console.error('[webhooks/resend] emails.get failed:', fetchDebug.error);
-      } else if (fullEmail) {
-        bodyText = fullEmail.text || bodyText;
-        bodyHtml = fullEmail.html || bodyHtml;
-        fetchDebug = { attempted: true, ok: true, gotText: !!fullEmail.text, gotHtml: !!fullEmail.html };
+      const res = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
+        headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        fetchDebug = { attempted: true, ok: false, endpoint: 'emails/receiving/:id', status: res.status, error: body?.message || JSON.stringify(body) };
+        console.error('[webhooks/resend] receiving-email fetch failed:', res.status, fetchDebug.error);
       } else {
-        fetchDebug = { attempted: true, ok: false, error: 'empty response from emails.get' };
+        bodyText = body.text || bodyText;
+        bodyHtml = body.html || bodyHtml;
+        fetchDebug = { attempted: true, ok: true, endpoint: 'emails/receiving/:id', gotText: !!body.text, gotHtml: !!body.html, responseKeys: Object.keys(body || {}) };
       }
     } catch (e) {
-      fetchDebug = { attempted: true, ok: false, error: e.message };
-      console.error('[webhooks/resend] emails.get threw:', e.message);
+      fetchDebug = { attempted: true, ok: false, endpoint: 'emails/receiving/:id', error: e.message };
+      console.error('[webhooks/resend] receiving-email fetch threw:', e.message);
     }
   }
 
