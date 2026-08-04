@@ -334,6 +334,27 @@ const PAGE_CSS = `
   .rota-legend-dot { width:10px; height:10px; border-radius:3px; }
 `;
 
+// Buckets a date of birth into the same age-range labels used by the
+// filter sidebar (AGE_RANGES below), so applicants who only ever gave a
+// DOB (not a manually-picked range) are still filterable/searchable.
+function ageRangeFromDob(dob) {
+  if (!dob) return '';
+  const d = new Date(dob);
+  if (isNaN(d)) return '';
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  if (age < 21) return '21–25';
+  if (age <= 25) return '21–25';
+  if (age <= 30) return '26–30';
+  if (age <= 35) return '31–35';
+  if (age <= 40) return '36–40';
+  if (age <= 45) return '41–45';
+  if (age <= 50) return '46–50';
+  return '51+';
+}
+
 // ── DB profile → match-page format ─────────────────────────────────────────
 function profileToHca(p) {
   return {
@@ -343,7 +364,7 @@ function profileToHca(p) {
     photo: null,
     name: maskName(p.name),
     gender: p.gender || 'Not specified',
-    age: p.ageRange || '',
+    age: ageRangeFromDob(p.dob) || p.ageRange || '',
     role: p.certLevel || 'Home Care Assistant',
     cert: true,
     rat: Number(p.rating) || 0,
@@ -1023,6 +1044,7 @@ export default function MatchPage() {
                       {h.langs.map(l => <span className="lang-pill" key={l}>{l}</span>)}
                     </div>
                     <div className="hc-meta">
+                      {h.age && <div className="hc-meta-item">🎂 <strong>{h.age}</strong> yrs</div>}
                       <div className="hc-meta-item">⏳ <strong>{h.exp} yrs</strong></div>
                       <div className="hc-meta-item">📋 <strong>{h.placements}</strong> placements</div>
                       {h.travel.includes("International") && <div className="hc-meta-item">✈️ Intl travel</div>}
