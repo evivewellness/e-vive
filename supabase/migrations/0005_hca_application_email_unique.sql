@@ -13,19 +13,18 @@
 -- (non-rejected) application, keep the most recently submitted one and mark
 -- the rest as rejected — they remain fully visible and reopenable by Admin
 -- under the Rejected filter, nothing is deleted.
-with ranked as (
-  select id,
-         row_number() over (
-           partition by lower(btrim(email))
-           order by applied_at desc nulls last, id desc
-         ) as rn
-  from public.hca_applications
-  where status <> 'rejected' and coalesce(btrim(email), '') <> ''
-)
 update public.hca_applications a
 set status = 'rejected'
-from ranked r
-where a.id = r.id and r.rn > 1;
+where a.status <> 'rejected'
+  and coalesce(btrim(a.email), '') <> ''
+  and a.id <> (
+    select b.id
+    from public.hca_applications b
+    where b.status <> 'rejected'
+      and lower(btrim(b.email)) = lower(btrim(a.email))
+    order by b.applied_at desc nulls last, b.id desc
+    limit 1
+  );
 
 -- Step 2: prevent it from ever happening again. Only one non-rejected
 -- application per email is allowed; a rejected applicant can still reapply
