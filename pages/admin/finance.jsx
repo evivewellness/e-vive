@@ -147,7 +147,7 @@ export default function AdminFinance() {
     if (!authed) return;
     async function load() {
       const [invList, clientList, profiles, allShifts, exps, paidList] = await Promise.all([
-        getAllInvoices(), getAllClients(), getAllHcaProfiles(),
+        getAllInvoices(), getAllClients(), getAllHcaProfiles().catch(() => []),
         getAllShifts(), getAllExpenses(), getPayrollPayments(curMonth, curYear),
       ]);
       setInvoices(invList);

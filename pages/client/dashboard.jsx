@@ -661,7 +661,7 @@ export default function ClientDashboard() {
       }
       const log = await getActivityLog();
       setActivity(log.filter(a => !a.clientId || a.clientId === full.id).slice(0, 12));
-      const hcas = await getAllHcaProfiles();
+      const hcas = await getAllHcaProfiles().catch(() => []);
       setHcaProfiles(hcas.filter(h => h.status === "active"));
     }
     loadData();

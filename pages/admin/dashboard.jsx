@@ -11,6 +11,7 @@ import {
   getHcaApplicationById,
   advanceHcaApplicationJourney,
   getAllHcaProfiles,
+  getHcaProfileById,
   getAllInvoices,
   getAllShifts,
   getAllCalendarEvents,
@@ -1534,7 +1535,9 @@ export default function AdminDashboard() {
   const [backfilling,     setBackfilling]     = useState(false);
   const [backfillMsg,     setBackfillMsg]     = useState("");
   const [appsLoadError,   setAppsLoadError]   = useState("");
+  const [hcaProfilesLoadError, setHcaProfilesLoadError] = useState("");
   const [loadingAppId,    setLoadingAppId]    = useState(null);
+  const [loadingHcaId,    setLoadingHcaId]    = useState(null);
   const [selectedAppIds,  setSelectedAppIds]  = useState([]);
   const [selectedHcaIds,  setSelectedHcaIds]  = useState([]);
   const [bulkDeleting,    setBulkDeleting]    = useState(false);
@@ -1620,7 +1623,8 @@ export default function AdminDashboard() {
     const [clients, apps, profiles, invoices, shifts, events, activity, rbac, anns, nls, cardex, pc, discounts, emailRows] = await Promise.all([
       getAllClients(),
       getAllHcaApplications().then(r => { setAppsLoadError(""); return r; }).catch(e => { setAppsLoadError(e.message || "Failed to load applications."); return []; }),
-      getAllHcaProfiles(), getAllInvoices(),
+      getAllHcaProfiles().then(r => { setHcaProfilesLoadError(""); return r; }).catch(e => { setHcaProfilesLoadError(e.message || "Failed to load HCA profiles."); return []; }),
+      getAllInvoices(),
       getAllShifts(), getAllCalendarEvents(), getActivityLog(), getRbacRules(),
       getAllAnnouncements(), getAllNewsletters(), getAllCardexEntries(), getPricingConfig(), getAllDiscountCodes(),
       getAllEmails().then(r => { setEmailsLoadError(""); return r; }).catch(e => { setEmailsLoadError(e.message || "Failed to load messages."); return []; }),
@@ -1661,6 +1665,20 @@ export default function AdminDashboard() {
       setHcaModal(app);
     }
     setLoadingAppId(null);
+  }
+
+  // HCA profile list rows omit photo/certifications to keep that query fast
+  // — fetch the full row on demand when opening the Edit modal so it has
+  // something to show/edit there.
+  async function openEditHcaModal(h) {
+    setLoadingHcaId(h.id);
+    try {
+      const full = await getHcaProfileById(h.id);
+      setEditHcaModal(full || h);
+    } catch (e) {
+      setEditHcaModal(h);
+    }
+    setLoadingHcaId(null);
   }
 
   function toggleAppSelect(id) {
@@ -2202,6 +2220,22 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
+                {hcaProfilesLoadError && (
+                  <div className="panel" style={{marginBottom:18,borderColor:"rgba(249,112,102,0.5)",background:"rgba(249,112,102,0.05)"}}>
+                    <div className="panel-body">
+                      <div style={{fontWeight:700,fontSize:14,color:"var(--coral)",marginBottom:6}}>⚠ Could not load HCA profiles</div>
+                      <div style={{fontSize:12,color:"var(--muted)",lineHeight:1.6}}>
+                        Error: <span style={{fontFamily:"var(--mono)"}}>{hcaProfilesLoadError}</span><br/>
+                        {hcaProfilesLoadError.toLowerCase().includes("timeout") ? (
+                          <>This is a database query timeout — the <code>hca_profiles</code> list query already excludes the <code>photo</code>/<code>certifications</code> columns to avoid this, so if it still times out the table likely needs an index on <code>approved_at</code>.</>
+                        ) : (
+                          <>This is often a Supabase Row-Level Security policy blocking reads on the <code>hca_profiles</code> table — check Table Editor → <code>hca_profiles</code> → RLS Policies for a SELECT policy covering the anon/public role.</>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {unstatusedApps.length > 0 && (
                   <div className="panel" style={{marginBottom:18,borderColor:"rgba(249,112,102,0.35)"}}>
                     <div className="panel-body" style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
@@ -2381,7 +2415,7 @@ export default function AdminDashboard() {
                             <td><span className={`badge ${h.status==="active"?"badge-mint":h.status==="suspended"?"badge-coral":"badge-dim"}`}>{h.status}</span></td>
                             <td>
                               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                                <button className="btn-p btn-sm" onClick={()=>setEditHcaModal(h)}>Edit</button>
+                                <button className="btn-p btn-sm" disabled={loadingHcaId===h.id} onClick={()=>openEditHcaModal(h)}>{loadingHcaId===h.id?"Loading…":"Edit"}</button>
                                 <button className="btn-o btn-sm" onClick={async ()=>{
                                   const newStatus = h.status === "active" ? "inactive" : "active";
                                   await updateHcaProfile(h.id, { status: newStatus });
