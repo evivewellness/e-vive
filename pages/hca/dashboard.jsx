@@ -18,6 +18,9 @@ import {
   getEnrollmentsForUser,
   enrollInCourse,
   createHcaRequest,
+  advanceHcaJourney,
+  HCA_JOURNEY_STAGES,
+  HCA_JOURNEY_LABELS,
 } from "../../lib/store";
 
 const CSS = `
@@ -76,6 +79,23 @@ const CSS = `
   .save-info { font-size:12px; color:var(--muted); font-family:var(--mono); }
   .save-info span { color:var(--mint); }
 
+  /* Journey bar */
+  .journey-bar { background:rgba(0,74,153,0.05); border:1px solid rgba(0,74,153,0.15); border-radius:18px; padding:22px 26px; margin-bottom:24px; overflow-x:auto; }
+  .jb-title { font-size:12px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; font-family:var(--mono); color:var(--muted); margin-bottom:16px; }
+  .jb-steps { display:flex; align-items:center; min-width:560px; }
+  .jb-step  { display:flex; flex-direction:column; align-items:center; gap:6px; flex:1; }
+  .jb-dot   { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; transition:all 0.3s; }
+  .jb-dot.done    { background:linear-gradient(135deg,var(--jade),var(--emerald)); color:#fff; box-shadow:0 0 12px rgba(0,74,153,0.25); }
+  .jb-dot.current { background:linear-gradient(135deg,rgba(14,165,233,0.5),rgba(14,165,233,0.3)); border:2px solid var(--sky); color:var(--sky); animation:pulse-dot 2s infinite; }
+  .jb-dot.pending { background:rgba(0,74,153,0.06); border:1px solid rgba(0,74,153,0.15); color:var(--muted); font-family:var(--mono); font-size:11px; }
+  .jb-conn { flex:1; height:2px; max-width:none; margin-bottom:28px; }
+  .jb-conn.done    { background:linear-gradient(90deg,var(--jade),var(--emerald)); }
+  .jb-conn.pending { background:rgba(0,74,153,0.1); }
+  .jb-lbl { font-size:10px; text-align:center; line-height:1.4; font-family:var(--mono); max-width:76px; }
+  .jb-lbl.done    { color:var(--mint); }
+  .jb-lbl.current { color:var(--sky); font-weight:700; }
+  .jb-lbl.pending { color:var(--muted); }
+
   /* Shift history */
   .shift-hist-row { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid rgba(0,74,153,0.1); }
   .shift-hist-row:last-child { border-bottom:none; }
@@ -120,6 +140,26 @@ const NAV_ITEMS = [
 ];
 
 const ROUTES_ADMIN = ["Kileleshwa","Karen","Kilimani","Westlands","Lavington","Langata","Upper Hill","Parklands"];
+
+function ageFromDob(dob) {
+  if (!dob) return null;
+  const d = new Date(dob);
+  if (isNaN(d)) return null;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age;
+}
+
+const HCA_JOURNEY_UI = {
+  application_submitted: { lbl:"Application\nSubmitted", icon:"📝" },
+  tc_accepted:            { lbl:"T&C\nAccepted",         icon:"📄" },
+  under_review:           { lbl:"Under\nReview",          icon:"🔍" },
+  approved:               { lbl:"Approved",                icon:"✅" },
+  account_activated:      { lbl:"Account\nActivated",     icon:"🔐" },
+  placement_assigned:     { lbl:"Placement\nAssigned",    icon:"🤝" },
+};
 
 function useTime() {
   const [time, setTime] = useState("");
@@ -221,6 +261,13 @@ export default function HCADashboard() {
               setFlags(needs.map(() => false));
             }
           }
+          // Journey milestones that only ever advance forward — safe to call
+          // on every load since advanceHcaJourney no-ops once a stage (or a
+          // later one) is already recorded.
+          advanceHcaJourney(profile.id, 'account_activated')
+            .then(p => linked ? advanceHcaJourney(p.id, 'placement_assigned') : p)
+            .then(setHcaProfile)
+            .catch(()=>{});
           return;
         }
         // Profile not found — fall back to legacy
@@ -602,6 +649,33 @@ export default function HCADashboard() {
             {/* ── TODAY ── */}
             {(tab==="today"||tab==="cardex") && (
               <>
+                {tab==="today" && hcaProfile && (
+                  <div className="journey-bar">
+                    <div className="jb-title">Your HCA Journey — {HCA_JOURNEY_LABELS[hcaProfile.journeyStage] || hcaProfile.journeyStage}</div>
+                    <div className="jb-steps">
+                      {HCA_JOURNEY_STAGES.map((stage,i)=>{
+                        const currentIdx = HCA_JOURNEY_STAGES.indexOf(hcaProfile.journeyStage);
+                        const status = i < currentIdx ? "done" : i === currentIdx ? "current" : "pending";
+                        const ui = HCA_JOURNEY_UI[stage];
+                        return (
+                          <div key={stage} style={{display:"contents"}}>
+                            <div className="jb-step">
+                              <div className={`jb-dot ${status}`}>{status==="done"?"✓":ui.icon}</div>
+                              <div className={`jb-lbl ${status}`} style={{whiteSpace:"pre-line"}}>{ui.lbl}</div>
+                              {hcaProfile.journeyDates?.[stage] && (
+                                <div style={{fontSize:9,color:"var(--muted)",fontFamily:"var(--mono)",marginTop:2}}>{new Date(hcaProfile.journeyDates[stage]).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</div>
+                              )}
+                            </div>
+                            {i < HCA_JOURNEY_STAGES.length-1 && (
+                              <div className={`jb-conn ${i<currentIdx?"done":"pending"}`} />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Clock-In Panel */}
                 <div className={`clockin-panel${clockState==="in"?" clocked":clockState==="submitted"?" clocked-out":""}`}>
                   <div className="clock-top">
@@ -958,25 +1032,68 @@ export default function HCADashboard() {
             {/* ── MY PROFILE ── */}
             {tab==="profile" && (
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,alignItems:"start"}}>
+                <div style={{display:"flex",flexDirection:"column",gap:18}}>
                 <div className="panel">
                   <div className="panel-head"><div className="panel-title">Profile Details</div></div>
                   <div className="panel-body">
+                    <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:16,paddingBottom:16,borderBottom:"1px solid rgba(0,74,153,0.08)"}}>
+                      {hcaProfile?.photo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={hcaProfile.photo} alt={hcaProfile.name} style={{width:64,height:64,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(0,74,153,0.2)",flexShrink:0}} />
+                      ) : (
+                        <div style={{width:64,height:64,borderRadius:"50%",background:"rgba(0,74,153,0.08)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,flexShrink:0}}>{(hcaProfile?.name||"?")[0]}</div>
+                      )}
+                      <div>
+                        <div style={{fontWeight:700,fontSize:15}}>{hcaProfile?.name || hcaId || "—"}</div>
+                        <div style={{fontSize:12,color:"var(--muted)",fontFamily:"var(--mono)"}}>{hcaProfile?.employeeId || "—"}</div>
+                      </div>
+                    </div>
                     {[
-                      ["Name",         hcaProfile?.name || hcaId || "—"],
-                      ["Employee ID",  hcaProfile?.employeeId || "—"],
+                      ["Age",          ageFromDob(hcaProfile?.dob) ? `${ageFromDob(hcaProfile.dob)} years` : (hcaProfile?.ageRange || "—")],
                       ["Email",        hcaProfile?.email || "—"],
                       ["Mobile",       hcaProfile?.mobile || "—"],
+                      ["Gender",       hcaProfile?.gender || "—"],
+                      ["Education",    hcaProfile?.education || "—"],
                       ["Certificate",  hcaProfile?.certLevel || "—"],
                       ["Experience",   hcaProfile?.yearsExp ? `${hcaProfile.yearsExp} years` : "—"],
+                      ["Smartphone",   hcaProfile?.smartphone || "—"],
                       ["Specialisations", (hcaProfile?.specialisations||[]).join(", ")||"General HCA"],
+                      ...(hcaProfile?.culturalExp ? [["Cultural Experience", hcaProfile.culturalExp]] : []),
                       ["Status",       hcaProfile?.status || "Active"],
                     ].map(([l,v])=>(
-                      <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"9px 0",borderBottom:"1px solid rgba(0,74,153,0.08)"}}>
-                        <span style={{fontSize:12,color:"var(--muted)",fontFamily:"var(--mono)"}}>{l}</span>
-                        <span style={{fontSize:13,fontWeight:600,maxWidth:200,textAlign:"right",wordBreak:"break-word"}}>{v}</span>
+                      <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"9px 0",borderBottom:"1px solid rgba(0,74,153,0.08)",gap:12}}>
+                        <span style={{fontSize:12,color:"var(--muted)",fontFamily:"var(--mono)",flexShrink:0}}>{l}</span>
+                        <span style={{fontSize:13,fontWeight:600,maxWidth:220,textAlign:"right",wordBreak:"break-word"}}>{v}</span>
                       </div>
                     ))}
                   </div>
+                </div>
+
+                <div className="panel">
+                  <div className="panel-head"><div className="panel-title">Certificates</div></div>
+                  <div className="panel-body">
+                    {(hcaProfile?.certifications||[]).length===0 ? (
+                      <div style={{fontSize:13,color:"var(--muted)"}}>No certificates on record.</div>
+                    ) : hcaProfile.certifications.map((c,i)=>{
+                      const isImage = c.fileType?.startsWith("image/");
+                      return (
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:i<hcaProfile.certifications.length-1?"1px solid rgba(0,74,153,0.08)":"none"}}>
+                          {c.fileDataUrl && isImage ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={c.fileDataUrl} alt={c.name} style={{width:44,height:44,borderRadius:8,objectFit:"cover",border:"1px solid rgba(0,74,153,0.15)",flexShrink:0}} />
+                          ) : (
+                            <div style={{width:44,height:44,borderRadius:8,background:"rgba(0,74,153,0.06)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>📄</div>
+                          )}
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontWeight:700,fontSize:13}}>{c.name || "Certificate"}</div>
+                            <div style={{fontSize:11,color:"var(--muted)",fontFamily:"var(--mono)"}}>{c.issuer||"—"}{c.year?` · ${c.year}`:""}</div>
+                          </div>
+                          {c.fileDataUrl && <a href={c.fileDataUrl} target="_blank" rel="noreferrer" className="btn-o btn-sm" style={{flexShrink:0}}>View</a>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
                 </div>
 
                 <div style={{display:"flex",flexDirection:"column",gap:18}}>

@@ -4,7 +4,17 @@ import Link from "next/link";
 import Nav from "../components/Nav";
 import Footer from "../components/Footer";
 import { BASE_CSS } from "../components/SharedStyles";
-import { getAllHcaProfiles, getAllCalendarEvents } from "../lib/store";
+import { useRouter } from "next/router";
+import { getAllHcaProfiles, getAllCalendarEvents, getClientSession } from "../lib/store";
+
+// Public browse cards only ever show "First L." — full names are private
+// until a client is authenticated and placed with that HCA.
+function maskName(fullName) {
+  const parts = (fullName || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "HCA";
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[1][0].toUpperCase()}.`;
+}
 
 const PAGE_CSS = `
   body { padding-top:72px; }
@@ -331,7 +341,7 @@ function profileToHca(p) {
     av: (p.name || '?')[0],
     bg: 'rgba(0,74,153,0.12)',
     photo: null,
-    name: p.name || 'HCA',
+    name: maskName(p.name),
     gender: p.gender || 'Not specified',
     age: p.ageRange || '',
     role: p.certLevel || 'Home Care Assistant',
@@ -445,7 +455,15 @@ function buildWeekRota(events) {
   return rotaMap;
 }
 
-function RotaDots({ rota, compact = false }) {
+function RotaDots({ rota, compact = false, locked = false }) {
+  if (locked) {
+    return (
+      <div className="rota-row">
+        <div className="rota-label">This week&apos;s availability</div>
+        <div style={{fontSize:11,color:"var(--muted)",fontFamily:"var(--mono)"}}>🔒 Sign in to view</div>
+      </div>
+    );
+  }
   if (compact) {
     return (
       <div className="rota-row">
@@ -484,6 +502,7 @@ function RotaDots({ rota, compact = false }) {
 
 // ── Page component ─────────────────────────────────────────────────────────
 export default function MatchPage() {
+  const router = useRouter();
   const [draft,        setDraft]        = useState(structuredClone(EMPTY));
   const [applied,      setApplied]      = useState(structuredClone(EMPTY));
   const [sort,         setSort]         = useState("distance");
@@ -492,6 +511,22 @@ export default function MatchPage() {
   const [mobileFilter, setMobileFilter] = useState(false);
   const [hcas,         setHcas]         = useState([]);
   const [loading,      setLoading]      = useState(true);
+  const [clientAuthed, setClientAuthed] = useState(false);
+
+  useEffect(() => {
+    setClientAuthed(!!getClientSession()?.id);
+  }, []);
+
+  // Gate: browsing is open to everyone, but a full profile view (which
+  // reveals detailed weekly availability) requires a client account so an
+  // HCA's schedule isn't scrapeable by anonymous visitors.
+  function handleViewProfile(h) {
+    if (!clientAuthed) {
+      router.push(`/client/register?redirect=${encodeURIComponent("/match")}`);
+      return;
+    }
+    setModal(h);
+  }
 
   useEffect(() => {
     Promise.all([getAllHcaProfiles(), getAllCalendarEvents()])
@@ -978,7 +1013,7 @@ export default function MatchPage() {
                       </div>
                     </div>
 
-                    <RotaDots rota={h.rota} compact />
+                    <RotaDots rota={h.rota} compact locked={!clientAuthed} />
 
                     <div className="hc-tags">
                       {h.care.slice(0,3).map(c => <span className="tag" key={c}>{c}</span>)}
@@ -1003,7 +1038,7 @@ export default function MatchPage() {
                           title={isSL?"Remove from shortlist":"Shortlist"}
                           onClick={() => setShortlist(p => isSL ? p.filter(x=>x!==h.id) : [...p, h.id])}
                         >{isSL?"★":"☆"}</button>
-                        <button className="view-btn" onClick={() => setModal(h)}>View Profile</button>
+                        <button className="view-btn" onClick={() => handleViewProfile(h)}>{clientAuthed ? "View Profile" : "🔒 Sign In to View"}</button>
                       </div>
                     </div>
                   </div>
@@ -1065,7 +1100,7 @@ export default function MatchPage() {
               </div>
 
               <div className="msec-title">Weekly Rota - This Week</div>
-              <RotaDots rota={modal.rota} compact={false} />
+              <RotaDots rota={modal.rota} compact={false} locked={!clientAuthed} />
 
               <div className="msec-title">Care Specialisations</div>
               <div style={{display:"flex",flexWrap:"wrap",gap:6}}>

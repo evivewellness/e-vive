@@ -182,6 +182,14 @@ const CSS = `
   .photo-preview { width:80px; height:80px; border-radius:50%; object-fit:cover; border:2px solid rgba(0,74,153,0.2); flex-shrink:0; }
   .photo-placeholder { width:80px; height:80px; border-radius:50%; background:rgba(0,74,153,0.07); display:flex; align-items:center; justify-content:center; font-size:32px; flex-shrink:0; }
 
+  /* Terms & Conditions */
+  .tc-box { background:rgba(0,74,153,0.03); border:1px solid rgba(0,74,153,0.1); border-radius:14px; padding:20px; max-height:220px; overflow-y:auto; font-size:13px; color:var(--muted); line-height:1.7; margin-bottom:16px; }
+  .tc-box h4 { color:var(--text); font-size:14px; margin-bottom:8px; }
+  .tc-box p  { margin-bottom:10px; }
+  .tc-accept { display:flex; align-items:flex-start; gap:10px; cursor:pointer; font-size:13px; color:var(--muted); margin-bottom:20px; }
+  .tc-accept input { accent-color:var(--jade); width:16px; height:16px; margin-top:1px; cursor:pointer; flex-shrink:0; }
+  .tc-accept span { line-height:1.5; }
+
   /* Success */
   .success-box { text-align:center; padding:12px 0; }
 
@@ -212,7 +220,7 @@ const TRAVEL_OPTS= ["Local Travel Only","International (with travel docs)"];
 const LOCATIONS  = ["Nairobi CBD","Westlands","Karen","Kilimani","Kileleshwa","Lavington","Langata","Eastlands","Kasarani","Thika Road","Mombasa","Kisumu","Nakuru","Eldoret","Nyeri","Other"];
 const RADIUS_OPTS= ["5 km","10 km","15 km","20 km","25 km","30 km","40 km+"];
 const LISTING_FEE = { price: 100, per: "/month", feats: ["Profile listed on E-Vive platform","Placement match notifications","Training Hub access","WhatsApp & email support","Certificate badge on profile"] };
-const STEP_LABELS = ["Personal","Professional","Skills","Review & Submit","Done"];
+const STEP_LABELS = ["Personal","Professional","Skills","Terms","Review & Submit","Done"];
 const MAX_DOB = new Date().toISOString().split("T")[0];
 
 function toggle(arr, v) { return arr.includes(v) ? arr.filter(x=>x!==v) : [...arr,v]; }
@@ -310,6 +318,9 @@ export default function HCAApply() {
   const [gpsCoords, setGpsCoords] = useState(null);
   const [gpsStatus, setGpsStatus] = useState("");
   const [gpsError, setGpsError]   = useState("");
+  const [tcAccepted, setTcAccepted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   function captureGps() {
     if (!navigator.geolocation) {
@@ -344,13 +355,20 @@ export default function HCAApply() {
   const can0 = !!(form.fname&&form.lname&&form.dob&&form.gender&&form.mobile&&form.email&&gpsCoords);
   const can1 = !!(form.education&&form.yearsExp&&form.smartphone&&certs[0]?.name&&certs[0]?.fileName&&profilePhoto.fileName);
   const can2 = !!(care.length>0&&langs.length>0&&shifts.length>0&&form.radius);
-  const can3 = true;
+  const can3 = tcAccepted;
+  const can4 = true;
 
-  const canCurrent = [can0,can1,can2,can3,true][step];
+  const canCurrent = [can0,can1,can2,can3,can4,true][step];
 
   async function next() {
     if (!canCurrent) return;
-    if (step===3) {
+    if (step===4) {
+      // Guard with a ref (not just state) so rapid double-clicks can't fire
+      // this twice before React re-renders the disabled button — a state
+      // check alone reads a stale closure value across those clicks.
+      if (submittingRef.current) return;
+      submittingRef.current = true;
+      setSubmitting(true);
       try {
         await createHcaApplication({
           fullName:       `${form.fname} ${form.lname}`,
@@ -386,12 +404,17 @@ export default function HCAApply() {
           culturalExp:    form.culturalExp,
           smartphone:     form.smartphone,
           plan:           "Review and Listing Fee",
+          tcAccepted:     true,
         });
         setApplyErr("");
       } catch(e) {
         setApplyErr(e?.message || "Application submission failed. Please try again.");
+        submittingRef.current = false;
+        setSubmitting(false);
         return;
       }
+      submittingRef.current = false;
+      setSubmitting(false);
     }
     setStep(s=>s+1);
   }
@@ -638,8 +661,31 @@ export default function HCAApply() {
             </>
           )}
 
-          {/* ── STEP 3: Review & Submit ── */}
+          {/* ── STEP 3: Terms & Conditions ── */}
           {step===3 && (
+            <>
+              <div className="step-title">Terms &amp; Conditions</div>
+              <div className="step-sub">Please read and accept the E-Vive HCA Terms of Service before submitting your application.</div>
+              <div className="tc-box">
+                <h4>E-Vive HomeCare — HCA Terms of Service</h4>
+                <p><strong>1. Platform Role.</strong> E-Vive Wellness Initiative (&quot;E-Vive&quot;) operates a placement platform matching Home Care Assistants (&quot;HCAs&quot;) with clients. E-Vive is not the HCA&apos;s employer; HCAs are independent contractors engaged per placement.</p>
+                <p><strong>2. Accuracy of Information.</strong> You confirm that all details, qualifications, certificates and identification submitted are true, current and belong to you. Falsified documents result in immediate disqualification.</p>
+                <p><strong>3. Application & Review Process.</strong> Your application is reviewed by E-Vive admin, which may include an interview and certificate/ID verification, before your profile is approved and listed.</p>
+                <p><strong>4. Review & Listing Fee.</strong> Approved HCAs are subject to the applicable Review &amp; Listing Fee (free for the first 6 months, then KSh 100/month) to remain listed and eligible for placement matching.</p>
+                <p><strong>5. Conduct on Placement.</strong> You agree to provide safe, respectful and professional care, follow client care plans, complete GPS-verified clock-in/out, and submit an accurate shift Cardex for every shift.</p>
+                <p><strong>6. Non-Solicitation (24 months).</strong> You agree not to arrange private care directly with any E-Vive client introduced to you through this platform, bypassing E-Vive, for 24 months after your last placement with that client. Violation may result in account termination and a penalty.</p>
+                <p><strong>7. Compliance & Suspension.</strong> E-Vive may suspend or deactivate your profile for non-compliance, expired certification, safety concerns, or client complaints until the matter is resolved.</p>
+                <p><strong>8. Data Protection.</strong> Your personal information is handled in accordance with Kenya&apos;s Data Protection Act 2019 and is not shared publicly beyond your first name and initial, certification, experience and availability.</p>
+              </div>
+              <label className="tc-accept">
+                <input type="checkbox" checked={tcAccepted} onChange={e=>setTcAccepted(e.target.checked)} />
+                <span>I have read and agree to the E-Vive HCA Terms of Service. I confirm that all information and documents submitted are accurate and genuine.</span>
+              </label>
+            </>
+          )}
+
+          {/* ── STEP 4: Review & Submit ── */}
+          {step===4 && (
             <>
               <div className="step-title">Review &amp; Submit Application</div>
               <div className="step-sub">Submit your application now. Our admin team will review it and contact you with payment instructions before your profile goes live.</div>
@@ -674,8 +720,8 @@ export default function HCAApply() {
             </>
           )}
 
-          {/* ── STEP 4: Success ── */}
-          {step===4 && (
+          {/* ── STEP 5: Success ── */}
+          {step===5 && (
             <div className="success-box">
               <div style={{fontSize:60,marginBottom:16}}>🩺</div>
               <div className="step-title">Application Received!</div>
@@ -709,28 +755,30 @@ export default function HCAApply() {
           )}
 
           {/* Navigation */}
-          {step < 4 && (
+          {step < 5 && (
             <div className="reg-nav">
               <div>
                 {step>0
-                  ? <button className="btn-o" onClick={()=>setStep(s=>s-1)}>← Back</button>
+                  ? <button className="btn-o" onClick={()=>setStep(s=>s-1)} disabled={submitting}>← Back</button>
                   : <Link href="/" className="btn-o">← Home</Link>}
               </div>
               <button
                 className="btn-sky"
                 onClick={next}
-                disabled={!canCurrent}
-                style={{opacity:canCurrent?1:0.45,cursor:canCurrent?"pointer":"not-allowed"}}
+                disabled={!canCurrent || submitting}
+                style={{opacity:(canCurrent&&!submitting)?1:0.45,cursor:(canCurrent&&!submitting)?"pointer":"not-allowed"}}
               >
-                {step===3 ? "Submit Application →" : "Continue →"}
+                {submitting ? "Submitting…" : step===4 ? "Submit Application →" : "Continue →"}
               </button>
             </div>
           )}
         </div>
 
-        <div style={{textAlign:"center",marginTop:22,fontSize:13,color:"var(--muted)"}}>
-          Already registered? <Link href="/hca/login" style={{color:"var(--jade)",textDecoration:"none",fontWeight:600}}>Sign In to Dashboard →</Link>
-        </div>
+        {step < 5 && (
+          <div style={{textAlign:"center",marginTop:22,fontSize:13,color:"var(--muted)"}}>
+            Already registered? <Link href="/hca/login" style={{color:"var(--jade)",textDecoration:"none",fontWeight:600}}>Sign In to Dashboard →</Link>
+          </div>
+        )}
       </div>
     </>
   );

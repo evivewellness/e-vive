@@ -172,9 +172,14 @@ export default function ClientRegister() {
   useEffect(() => {
     try {
       const session = JSON.parse(localStorage.getItem("evive_client_session") || "null");
-      if (session?.email) router.replace("/client/dashboard");
+      if (session?.email) router.replace(redirectTarget());
     } catch {}
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function redirectTarget() {
+    const r = router.query.redirect;
+    return typeof r === "string" && r.startsWith("/") ? r : "/client/dashboard";
+  }
 
   const upd    = (f, v) => setForm(p => ({ ...p, [f]: v }));
   const updPat = (i, f, v) => setPatients(p => p.map((pt, idx) => idx === i ? { ...pt, [f]: v } : pt));
@@ -197,7 +202,7 @@ export default function ClientRegister() {
       }
       if (client) {
         setClientSession(client);
-        router.push("/client/dashboard");
+        router.push(redirectTarget());
         return;
       }
       const registry = JSON.parse(localStorage.getItem("evive_client_registry") || "[]");
@@ -212,7 +217,7 @@ export default function ClientRegister() {
         localStorage.setItem("evive_client_session", JSON.stringify({
           name: user.name, email: user.email, mobile: user.mobile,
         }));
-        router.push("/client/dashboard");
+        router.push(redirectTarget());
       }
     } catch {
       setLoginErr("Something went wrong. Please try again.");
@@ -737,7 +742,7 @@ export default function ClientRegister() {
                     </div>
                   </div>
                   <div style={{display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap"}}>
-                    <Link href="/client/dashboard" className="btn-p">Go to My Dashboard →</Link>
+                    <Link href={redirectTarget()} className="btn-p">{router.query.redirect ? "Continue →" : "Go to My Dashboard →"}</Link>
                     <Link href="/" className="btn-o">Back to Home</Link>
                   </div>
                 </div>

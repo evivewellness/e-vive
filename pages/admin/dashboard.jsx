@@ -9,6 +9,7 @@ import {
   getAllClients,
   getAllHcaApplications,
   getHcaApplicationById,
+  advanceHcaApplicationJourney,
   getAllHcaProfiles,
   getAllInvoices,
   getAllShifts,
@@ -1608,6 +1609,9 @@ export default function AdminDashboard() {
     try {
       const full = await getHcaApplicationById(app.id);
       setHcaModal(full || app);
+      if (full && full.status === 'pending') {
+        advanceHcaApplicationJourney(full.id, 'under_review').catch(()=>{});
+      }
     } catch (e) {
       setHcaModal(app);
     }
