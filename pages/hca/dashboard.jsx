@@ -1059,6 +1059,8 @@ export default function HCADashboard() {
                       ["Smartphone",   hcaProfile?.smartphone || "—"],
                       ["Specialisations", (hcaProfile?.specialisations||[]).join(", ")||"General HCA"],
                       ...(hcaProfile?.culturalExp ? [["Cultural Experience", hcaProfile.culturalExp]] : []),
+                      ["Home Location", hcaProfile?.location || "—"],
+                      ["GPS Coordinates", (hcaProfile?.lat && hcaProfile?.lng) ? `${Number(hcaProfile.lat).toFixed(5)}, ${Number(hcaProfile.lng).toFixed(5)}` : "—"],
                       ["Status",       hcaProfile?.status || "Active"],
                     ].map(([l,v])=>(
                       <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"9px 0",borderBottom:"1px solid rgba(0,74,153,0.08)",gap:12}}>

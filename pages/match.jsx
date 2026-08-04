@@ -382,7 +382,7 @@ function profileToHca(p) {
     bio: p.bio || `Certified HCA with ${p.yearsExp || 0} year${(p.yearsExp||0)===1?'':'s'} of experience.${p.certLevel ? ' ' + p.certLevel + '.' : ''}`,
     cultural: '',
     rota: {},
-    county: p.county || '',
+    location: p.location || '',
     employeeId: p.employeeId || '',
   };
 }
@@ -403,7 +403,7 @@ const DAYS       = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const EMPTY = {
   care:[], langs:[], ages:[], shifts:[],
   period:"", urgency:"", startDate:"", travel:[],
-  gender:"Any", availOnly:false,
+  gender:"Any", availOnly:false, location:"",
 };
 
 function applyFilters(hcas, f) {
@@ -416,6 +416,7 @@ function applyFilters(hcas, f) {
     if (f.shifts.length && !f.shifts.some(s  => h.shifts.includes(s)))   return false;
     if (f.period        && h.period !== f.period)                         return false;
     if (f.travel.length && !f.travel.some(t  => h.travel.includes(t)))   return false;
+    if (f.location.trim() && !h.location.toLowerCase().includes(f.location.trim().toLowerCase())) return false;
     return true;
   });
 }
@@ -423,7 +424,7 @@ function applyFilters(hcas, f) {
 function countFilters(f) {
   return f.care.length + f.langs.length + f.ages.length + f.shifts.length
     + (f.period ? 1 : 0) + (f.urgency ? 1 : 0) + f.travel.length
-    + (f.gender !== "Any" ? 1 : 0) + (f.availOnly ? 1 : 0);
+    + (f.gender !== "Any" ? 1 : 0) + (f.availOnly ? 1 : 0) + (f.location.trim() ? 1 : 0);
 }
 
 function tog(arr, val) {
@@ -629,6 +630,7 @@ export default function MatchPage() {
     ...(applied.urgency   ? [{ label:applied.urgency, type:"gold", remove:() => { const n={...applied,urgency:"",startDate:""}; setApplied(n); setDraft(structuredClone(n)); } }] : []),
     ...(applied.gender!=="Any" ? [{ label:applied.gender, type:"mint", remove:() => { const n={...applied,gender:"Any"}; setApplied(n); setDraft(structuredClone(n)); } }] : []),
     ...(applied.availOnly ? [{ label:"Available Now", type:"gold", remove:() => { const n={...applied,availOnly:false}; setApplied(n); setDraft(structuredClone(n)); } }] : []),
+    ...(applied.location.trim() ? [{ label:`📍 ${applied.location}`, type:"sky", remove:() => { const n={...applied,location:""}; setApplied(n); setDraft(structuredClone(n)); } }] : []),
   ];
 
   // ── Filter panel (sidebar content) ──────────────────────────────────────
@@ -662,6 +664,20 @@ export default function MatchPage() {
       )}
 
       <div className="filter-body">
+
+        {/* Location search */}
+        <div className="filter-section">
+          <div className="fs-label">
+            <span className="fs-icon">📍</span>Location
+          </div>
+          <input
+            className="date-input"
+            style={{marginTop:0}}
+            placeholder="e.g. Kilimani, Karen, Westlands…"
+            value={draft.location}
+            onChange={e => setDraftField("location", e.target.value)}
+          />
+        </div>
 
         {/* Available Now toggle */}
         <div className="filter-section">
@@ -1027,7 +1043,7 @@ export default function MatchPage() {
                     </div>
 
                     <div className="hc-dist-avail">
-                      <div className="dist-badge">📍 {h.dist} km</div>
+                      <div className="dist-badge">📍 {h.location || "Location not set"}</div>
                       <div className={`avail-badge ${h.avail?"yes":"no"}`}>
                         <div className="dot" />
                         {h.avail ? "Available" : "On Placement"}
@@ -1102,7 +1118,7 @@ export default function MatchPage() {
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                     {modal.cert?<span className="badge badge-mint">✓ Certified</span>:<span className="badge badge-dim">Non-Certified</span>}
                     <span className="badge badge-gold">★ {modal.rat} ({modal.reviews})</span>
-                    <span className="badge badge-sky">📍 {modal.dist} km</span>
+                    <span className="badge badge-sky">📍 {modal.location || "Location not set"}</span>
                     {modal.avail?<span className="badge badge-mint">🟢 Available</span>:<span className="badge badge-coral">🔴 On Placement</span>}
                   </div>
                 </div>
