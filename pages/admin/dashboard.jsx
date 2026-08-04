@@ -24,6 +24,7 @@ import {
   updateHcaApplication,
   deleteHcaApplication,
   repairHcaApplicationStatuses,
+  backfillHcaProfilesFromApplications,
   updateHcaProfile,
   deleteHcaProfile,
   suspendHcaProfile,
@@ -819,6 +820,11 @@ function HcaEditModal({ hca, onClose, onRefresh }) {
     available:        hca.available !== false,
     lat:              hca.lat ? String(hca.lat) : '',
     lng:              hca.lng ? String(hca.lng) : '',
+    dob:              hca.dob || '',
+    education:        hca.education || '',
+    smartphone:       hca.smartphone || '',
+    culturalExp:      hca.culturalExp || '',
+    location:         hca.location || '',
   });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
@@ -840,6 +846,11 @@ function HcaEditModal({ hca, onClose, onRefresh }) {
         available: form.available,
         lat: form.lat ? Number(form.lat) : null,
         lng: form.lng ? Number(form.lng) : null,
+        dob: form.dob || null,
+        education: form.education,
+        smartphone: form.smartphone,
+        culturalExp: form.culturalExp,
+        location: form.location,
       });
       setMsg('✓ Saved.');
       setTimeout(() => { onRefresh(); onClose(); }, 700);
@@ -851,6 +862,29 @@ function HcaEditModal({ hca, onClose, onRefresh }) {
       <div className="modal-box" style={{maxWidth:580,maxHeight:'90vh',overflowY:'auto'}}>
         <div className="modal-title">Edit HCA — {hca.name}</div>
         <div style={{fontSize:11,fontFamily:'var(--mono)',color:'var(--muted)',marginBottom:16}}>ID: {hca.employeeId}</div>
+
+        <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:16,padding:'12px 14px',background:'rgba(0,74,153,0.03)',border:'1px solid rgba(0,74,153,0.1)',borderRadius:12}}>
+          {hca.photo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={hca.photo} alt={hca.name} style={{width:56,height:56,borderRadius:'50%',objectFit:'cover',border:'2px solid rgba(0,74,153,0.2)',flexShrink:0}} />
+          ) : (
+            <div style={{width:56,height:56,borderRadius:'50%',background:'rgba(0,74,153,0.08)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{(hca.name||'?')[0]}</div>
+          )}
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12,fontWeight:700,marginBottom:4}}>📎 Certificates ({(hca.certifications||[]).length})</div>
+            {(hca.certifications||[]).length === 0 ? (
+              <div style={{fontSize:12,color:'var(--muted)'}}>No certificates on record{hca.applicationId ? ' — try Backfill Submitted Info above.' : '.'}</div>
+            ) : (
+              <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                {hca.certifications.map((c,i)=>(
+                  c.fileDataUrl
+                    ? <a key={i} href={c.fileDataUrl} target="_blank" rel="noreferrer" style={{fontSize:11,fontFamily:'var(--mono)',color:'var(--jade)',textDecoration:'underline'}}>{c.name||`Cert ${i+1}`}</a>
+                    : <span key={i} style={{fontSize:11,fontFamily:'var(--mono)',color:'var(--muted)'}}>{c.name||`Cert ${i+1}`}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:4}}>
           <div className="modal-field"><label className="modal-label">Full Name *</label><input className="modal-input" value={form.name} onChange={e=>upd('name',e.target.value)} /></div>
@@ -869,6 +903,10 @@ function HcaEditModal({ hca, onClose, onRefresh }) {
               {['Not specified','Female','Male','Non-binary'].map(v=><option key={v}>{v}</option>)}
             </select>
           </div>
+          <div className="modal-field"><label className="modal-label">Date of Birth</label><input className="modal-input" type="date" value={form.dob} onChange={e=>upd('dob',e.target.value)} /></div>
+          <div className="modal-field"><label className="modal-label">Education</label><input className="modal-input" value={form.education} onChange={e=>upd('education',e.target.value)} /></div>
+          <div className="modal-field"><label className="modal-label">Smartphone</label><input className="modal-input" value={form.smartphone} onChange={e=>upd('smartphone',e.target.value)} /></div>
+          <div className="modal-field"><label className="modal-label">Home Location</label><input className="modal-input" value={form.location} onChange={e=>upd('location',e.target.value)} placeholder="e.g. Kilimani, Rose Ave" /></div>
           <div className="modal-field"><label className="modal-label">Age Range</label>
             <select className="modal-sel" value={form.ageRange} onChange={e=>upd('ageRange',e.target.value)}>
               {['','21–25','26–30','31–35','36–40','41–45','46–50','51+'].map(v=><option key={v} value={v}>{v||'Not specified'}</option>)}
@@ -884,6 +922,11 @@ function HcaEditModal({ hca, onClose, onRefresh }) {
         <div className="modal-field">
           <label className="modal-label">Bio / Profile Summary</label>
           <textarea className="modal-input" rows={3} value={form.bio} onChange={e=>upd('bio',e.target.value)} style={{resize:'vertical'}} placeholder="Short professional profile shown to clients…" />
+        </div>
+
+        <div className="modal-field">
+          <label className="modal-label">Cultural Experience</label>
+          <textarea className="modal-input" rows={2} value={form.culturalExp} onChange={e=>upd('culturalExp',e.target.value)} style={{resize:'vertical'}} />
         </div>
 
         <div className="modal-field">
@@ -1488,6 +1531,8 @@ export default function AdminDashboard() {
   const [appSearch,       setAppSearch]       = useState("");
   const [repairing,       setRepairing]       = useState(false);
   const [repairMsg,       setRepairMsg]       = useState("");
+  const [backfilling,     setBackfilling]     = useState(false);
+  const [backfillMsg,     setBackfillMsg]     = useState("");
   const [appsLoadError,   setAppsLoadError]   = useState("");
   const [loadingAppId,    setLoadingAppId]    = useState(null);
   const [selectedAppIds,  setSelectedAppIds]  = useState([]);
@@ -2177,6 +2222,25 @@ export default function AdminDashboard() {
                     {repairMsg && <div style={{padding:"0 16px 14px",fontSize:12,color:repairMsg.startsWith("✓")?"var(--mint)":"var(--coral)"}}>{repairMsg}</div>}
                   </div>
                 )}
+
+                <div className="panel" style={{marginBottom:18,borderColor:"rgba(0,74,153,0.25)"}}>
+                  <div className="panel-body" style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:14}}>🔄 Backfill Submitted Info</div>
+                      <div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>Copies date of birth, photo, certificates, education and location from each HCA&apos;s original application onto their profile — fixes HCAs approved before this was captured automatically. Only fills fields currently blank; nothing is overwritten.</div>
+                    </div>
+                    <button className="btn-p btn-sm" disabled={backfilling} onClick={async ()=>{
+                      setBackfilling(true);
+                      try {
+                        const n = await backfillHcaProfilesFromApplications();
+                        setBackfillMsg(`✓ Backfilled ${n} profile${n!==1?"s":""}.`);
+                        await refresh();
+                      } catch(e) { setBackfillMsg("⚠ " + (e.message||"Error")); }
+                      setBackfilling(false);
+                    }}>{backfilling ? "Backfilling…" : "🔄 Backfill Now"}</button>
+                  </div>
+                  {backfillMsg && <div style={{padding:"0 16px 14px",fontSize:12,color:backfillMsg.startsWith("✓")?"var(--mint)":"var(--coral)"}}>{backfillMsg}</div>}
+                </div>
 
                 <div className="stat-grid">
                   {[
