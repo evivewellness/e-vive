@@ -680,7 +680,7 @@ export default function HCAApply() {
               <div style={{fontSize:60,marginBottom:16}}>🩺</div>
               <div className="step-title">Application Received!</div>
               <div style={{fontSize:14,color:"var(--muted)",margin:"0 auto 24px",maxWidth:460,lineHeight:1.7,textAlign:"center"}}>
-                Thank you for applying to the E-Vive HCA network. Our team will review your application and contact you within <strong style={{color:"var(--jade)"}}>2 business days</strong> to schedule an interview.
+                Your application has been received. Please <strong style={{color:"var(--jade)"}}>await approval</strong> — our team will review it and contact you within <strong style={{color:"var(--jade)"}}>2 business days</strong> to schedule an interview.
               </div>
 
               <div style={{background:"rgba(0,74,153,0.04)",border:"1.5px solid rgba(0,74,153,0.12)",borderRadius:16,padding:"18px 22px",marginBottom:24,textAlign:"left"}}>

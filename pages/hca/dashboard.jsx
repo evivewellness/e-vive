@@ -13,6 +13,7 @@ import {
   requestHcaDeletion,
   clockInHca,
   clockOutHca,
+  updateHcaProfile,
 } from "../../lib/store";
 
 const CSS = `
@@ -157,6 +158,9 @@ export default function HCADashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletionSubmitted, setDeletionSubmitted]  = useState(false);
+  const [pwdForm, setPwdForm] = useState({ current:"", next:"", confirm:"" });
+  const [pwdMsg,  setPwdMsg]  = useState("");
+  const [pwdSaving, setPwdSaving] = useState(false);
   const [currentShiftId,   setCurrentShiftId]      = useState(null);
   const [gpsLat,     setGpsLat]     = useState(null);
   const [gpsLng,     setGpsLng]     = useState(null);
@@ -406,6 +410,22 @@ export default function HCADashboard() {
     }
     setDeletionSubmitted(true);
     setShowDeleteConfirm(false);
+  }
+
+  async function handleChangePassword() {
+    setPwdMsg("");
+    if (!pwdForm.current || !pwdForm.next || !pwdForm.confirm) { setPwdMsg("⚠ All fields are required."); return; }
+    if (pwdForm.current !== hcaProfile?.password) { setPwdMsg("⚠ Current password is incorrect."); return; }
+    if (pwdForm.next.length < 8) { setPwdMsg("⚠ New password must be at least 8 characters."); return; }
+    if (pwdForm.next !== pwdForm.confirm) { setPwdMsg("⚠ New password and confirmation do not match."); return; }
+    setPwdSaving(true);
+    try {
+      await updateHcaProfile(hcaProfile.id, { password: pwdForm.next });
+      setHcaProfile(p => ({ ...p, password: pwdForm.next }));
+      setPwdForm({ current:"", next:"", confirm:"" });
+      setPwdMsg("✓ Password changed successfully.");
+    } catch (e) { setPwdMsg("⚠ " + (e.message || "Failed to change password.")); }
+    setPwdSaving(false);
   }
 
   if (!authed) return null;
@@ -879,6 +899,27 @@ export default function HCADashboard() {
                           <a href={href} style={{fontSize:13,fontWeight:600,color:"var(--jade)",textDecoration:"none"}}>{val}</a>
                         </div>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* Change Password */}
+                  <div className="panel">
+                    <div className="panel-head"><div className="panel-title">🔒 Change Password</div></div>
+                    <div className="panel-body">
+                      <div style={{marginBottom:10}}>
+                        <label style={{fontSize:11,color:"var(--muted)",fontFamily:"var(--mono)",display:"block",marginBottom:4}}>Current Password</label>
+                        <input type="password" value={pwdForm.current} onChange={e=>setPwdForm(p=>({...p,current:e.target.value}))} style={{width:"100%",background:"rgba(0,74,153,0.04)",border:"1px solid rgba(0,74,153,0.15)",borderRadius:8,padding:"9px 12px",fontSize:13,color:"var(--text)"}} />
+                      </div>
+                      <div style={{marginBottom:10}}>
+                        <label style={{fontSize:11,color:"var(--muted)",fontFamily:"var(--mono)",display:"block",marginBottom:4}}>New Password</label>
+                        <input type="password" value={pwdForm.next} onChange={e=>setPwdForm(p=>({...p,next:e.target.value}))} style={{width:"100%",background:"rgba(0,74,153,0.04)",border:"1px solid rgba(0,74,153,0.15)",borderRadius:8,padding:"9px 12px",fontSize:13,color:"var(--text)"}} />
+                      </div>
+                      <div style={{marginBottom:14}}>
+                        <label style={{fontSize:11,color:"var(--muted)",fontFamily:"var(--mono)",display:"block",marginBottom:4}}>Confirm New Password</label>
+                        <input type="password" value={pwdForm.confirm} onChange={e=>setPwdForm(p=>({...p,confirm:e.target.value}))} style={{width:"100%",background:"rgba(0,74,153,0.04)",border:"1px solid rgba(0,74,153,0.15)",borderRadius:8,padding:"9px 12px",fontSize:13,color:"var(--text)"}} />
+                      </div>
+                      {pwdMsg && <div style={{fontSize:12,marginBottom:10,color:pwdMsg.startsWith("✓")?"var(--mint)":"var(--coral)"}}>{pwdMsg}</div>}
+                      <button className="btn-p btn-sm" onClick={handleChangePassword} disabled={pwdSaving}>{pwdSaving?"Saving…":"Update Password"}</button>
                     </div>
                   </div>
 
