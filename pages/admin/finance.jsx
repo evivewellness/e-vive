@@ -11,6 +11,7 @@ import {
   getAllExpenses, createExpense, deleteExpense,
   getPayrollPayments, createPayrollPayment,
 } from "../../lib/store";
+import { todayIso } from "../../lib/scheduling";
 
 const CSS = `
   .rev-bar  { height:6px; border-radius:100px; background:rgba(255,255,255,0.08); overflow:hidden; margin-top:5px; }
@@ -129,7 +130,7 @@ export default function AdminFinance() {
   const [paidThisMonth, setPaidThisMonth] = useState([]); // payroll_payments records
   const [expenses,   setExpenses]   = useState([]);
   const [expMsg,     setExpMsg]     = useState("");
-  const [newExp,     setNewExp]     = useState({ icon:"💳", category:"", description:"", date:now.toISOString().slice(0,10), amount:"" });
+  const [newExp,     setNewExp]     = useState({ icon:"💳", category:"", description:"", date:todayIso(), amount:"" });
   const [showNewInv, setShowNewInv] = useState(false);
   const [payFilter,  setPayFilter]  = useState("All");
 
@@ -621,7 +622,7 @@ export default function AdminFinance() {
                         <button className="btn-p btn-sm" disabled={!newExp.category||!newExp.description||!newExp.amount} onClick={async ()=>{
                           try {
                             await createExpense(newExp);
-                            setNewExp({icon:"💳",category:"",description:"",date:now.toISOString().slice(0,10),amount:""});
+                            setNewExp({icon:"💳",category:"",description:"",date:todayIso(),amount:""});
                             setExpenses(await getAllExpenses());
                             setExpMsg("✓ Expense added.");setTimeout(()=>setExpMsg(""),2500);
                           } catch(e){setExpMsg("⚠ "+e.message);}

@@ -6,6 +6,7 @@ import Footer from "../components/Footer";
 import { BASE_CSS } from "../components/SharedStyles";
 import { useRouter } from "next/router";
 import { getAllHcaProfiles, getAllCalendarEvents, getClientSession } from "../lib/store";
+import { toIso } from "../lib/scheduling";
 
 // Public browse cards only ever show "First L." — full names are private
 // until a client is authenticated and placed with that HCA.
@@ -440,7 +441,7 @@ function buildWeekRota(events) {
   const dayNames = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
   const weekDates = dayNames.map((_, i) => {
     const d = new Date(mon); d.setDate(mon.getDate() + i);
-    return d.toISOString().slice(0,10);
+    return toIso(d);
   });
 
   const rotaMap = {}; // { hcaId: { Mon: 'day', ... } }

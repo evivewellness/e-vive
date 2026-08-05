@@ -31,6 +31,7 @@ import {
   JOURNEY_STAGES,
   JOURNEY_LABELS,
 } from "../../lib/store";
+import { todayIso } from "../../lib/scheduling";
 
 const CSS = `
   /* Journey tracker */
@@ -736,7 +737,7 @@ export default function ClientDashboard() {
   // Placements are per-patient, so "is this patient covered?" is a question
   // about their own placements — not the client-level assignedHcaId, which
   // only reflects whichever HCA was placed most recently.
-  const todayIsoStr = new Date().toISOString().slice(0,10);
+  const todayIsoStr = todayIso();
   const activePlacements = placements.filter(p => p.status === "active" && p.endDate >= todayIsoStr);
   function patientIsCovered(patientId) {
     return activePlacements.some(p => !p.patientId || p.patientId === patientId);
@@ -1164,9 +1165,9 @@ export default function ClientDashboard() {
 
             {/* ── YOUR CARE TEAM ── */}
             {tab==="careteam" && (() => {
-              const todayIso = new Date().toISOString().slice(0,10);
-              const active = placements.filter(p => p.status === "active" && p.endDate >= todayIso);
-              const past   = placements.filter(p => !(p.status === "active" && p.endDate >= todayIso));
+              // todayIsoStr comes from the component scope (see activePlacements).
+              const active = placements.filter(p => p.status === "active" && p.endDate >= todayIsoStr);
+              const past   = placements.filter(p => !(p.status === "active" && p.endDate >= todayIsoStr));
 
               function renderPlacement(p, isActive) {
                 const hca = teamHcas[p.hcaId] || hcaProfiles.find(h => h.id === p.hcaId);
@@ -1174,7 +1175,7 @@ export default function ClientDashboard() {
                 const pShifts = shifts.filter(s => s.placementId === p.id);
                 const completed = pShifts.filter(s => s.status === "completed").length;
                 const nextShift = pShifts
-                  .filter(s => s.status === "scheduled" && s.date >= todayIso)
+                  .filter(s => s.status === "scheduled" && s.date >= todayIsoStr)
                   .sort((a,b) => a.date < b.date ? -1 : 1)[0];
                 return (
                   <div key={p.id} className={`ct-card${isActive ? "" : " ended"}`}>

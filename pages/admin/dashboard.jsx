@@ -98,6 +98,7 @@ import {
   approveOffDayRequest,
   declineOffDayRequest,
 } from "../../lib/store";
+import { toIso, todayIso } from "../../lib/scheduling";
 
 const CSS = `
   .quality-bar { height:8px; border-radius:100px; background:rgba(255,255,255,0.08); overflow:hidden; margin-top:6px; }
@@ -1238,7 +1239,7 @@ function EmailDetailModal({ email, onClose, onReply, onTrash }) {
 // ─── Add calendar event modal ──────────────────────────────────────────────────
 function AddEventModal({ defaultDate, clients, hcaProfiles, onClose, onRefresh }) {
   const [title,    setTitle]    = useState("");
-  const [date,     setDate]     = useState(defaultDate || new Date().toISOString().slice(0,10));
+  const [date,     setDate]     = useState(defaultDate || todayIso());
   const [time,     setTime]     = useState("09:00");
   const [type,     setType]     = useState("other");
   const [clientId, setClientId] = useState("");
@@ -1312,7 +1313,7 @@ function ScheduleShiftModal({ clients, hcaProfiles, defaultDate, onClose, onRefr
   const [hcaId,    setHcaId]    = useState("");
   const [clientId, setClientId] = useState("");
   const [patId,    setPatId]    = useState("");
-  const [date,     setDate]     = useState(defaultDate || new Date().toISOString().slice(0,10));
+  const [date,     setDate]     = useState(defaultDate || todayIso());
   const [startTime,setStartTime]= useState("07:00");
   const [type,     setType]     = useState("day");
   const [notes,    setNotes]    = useState("");
@@ -1405,8 +1406,8 @@ function CreatePlacementModal({ clients, hcaProfiles, prefill, onClose, onRefres
   const [clientId,  setClientId]  = useState(prefill?.clientId || "");
   const [patientId, setPatientId] = useState(prefill?.patientId || "");
   const [hcaId,     setHcaId]     = useState(prefill?.hcaId || "");
-  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0,10));
-  const [endDate,   setEndDate]   = useState(new Date().toISOString().slice(0,10));
+  const [startDate, setStartDate] = useState(todayIso());
+  const [endDate,   setEndDate]   = useState(todayIso());
   const [shiftType, setShiftType] = useState("day");
   const [rate,      setRate]      = useState(2000);
   const [notes,     setNotes]     = useState(prefill?.notes || "");
@@ -2055,7 +2056,7 @@ export default function AdminDashboard() {
     const last = calCells[calCells.length-1].date;
     calCells.push({ date: new Date(last.getFullYear(), last.getMonth(), last.getDate()+1), otherMonth: true });
   }
-  const isoDate = d => d.toISOString().slice(0,10);
+  const isoDate = toIso;
   const todayIso = isoDate(today);
 
   // Block render until auth check passes
