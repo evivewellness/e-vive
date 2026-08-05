@@ -1604,6 +1604,120 @@ function PlacementDetailModal({ placement, clients, hcaProfiles, onClose, onRefr
   );
 }
 
+// ─── One HCA's full schedule for a month ──────────────────────────────────────
+function HcaScheduleModal({ hca, year, month, shifts, events, placements, clients, onClose, onOpenPlacement }) {
+  const monthPrefix = `${year}-${String(month+1).padStart(2,"0")}`;
+  const monthLabel  = new Date(year, month).toLocaleDateString("en-GB",{month:"long",year:"numeric"});
+
+  const monthShifts = shifts
+    .filter(s => s.hcaId === hca.id && s.date?.slice(0,7) === monthPrefix)
+    .sort((a,b) => a.date < b.date ? -1 : 1);
+  const offDays = events
+    .filter(e => e.hcaId === hca.id && e.type === "offday" && e.date?.slice(0,7) === monthPrefix)
+    .sort((a,b) => a.date < b.date ? -1 : 1);
+  const hcaPlacements = placements.filter(p => p.hcaId === hca.id);
+  const activePlacements = hcaPlacements.filter(p => p.status === "active");
+
+  const done      = monthShifts.filter(s => s.status === "completed").length;
+  const upcoming  = monthShifts.filter(s => s.status === "scheduled").length;
+  const missed    = monthShifts.filter(s => s.status === "missed").length;
+  const cancelled = monthShifts.filter(s => s.status === "cancelled").length;
+
+  const nameFor = (s) => {
+    const c = clients.find(x => x.id === s.clientId);
+    const p = c?.patients?.find(x => x.id === s.patientId);
+    return p?.name ? `${c?.name || "Client"} · ${p.name}` : (c?.name || "—");
+  };
+  const statusCls = (st) =>
+    st === "completed" ? "badge-mint" : st === "in-progress" ? "badge-sky"
+    : (st === "missed" || st === "cancelled") ? "badge-coral" : "badge-dim";
+
+  return (
+    <div className="modal-bg" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-box" style={{maxWidth:640,maxHeight:"90vh",overflowY:"auto"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,marginBottom:6}}>
+          <div>
+            <div className="modal-title" style={{marginBottom:2}}>🗓 {hca.name} — {monthLabel}</div>
+            <div style={{fontSize:11,fontFamily:"var(--mono)",color:"#5A7080"}}>{hca.employeeId} · {hca.certLevel||"HCA"}{hca.location?` · ${hca.location}`:""}</div>
+          </div>
+          <button className="btn-o btn-sm" onClick={onClose}>✕ Close</button>
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(96px,1fr))",gap:8,margin:"16px 0"}}>
+          {[
+            ["Shifts", monthShifts.length, "badge-dim"],
+            ["Done", done, "badge-mint"],
+            ["Upcoming", upcoming, "badge-sky"],
+            ...(missed ? [["Missed", missed, "badge-coral"]] : []),
+            ...(cancelled ? [["Cancelled", cancelled, "badge-coral"]] : []),
+            ["Off-days", offDays.length, "badge-gold"],
+          ].map(([lbl,val,cls]) => (
+            <div key={lbl} style={{background:"#f4f7fb",border:"1px solid rgba(0,74,153,0.12)",borderRadius:12,padding:"10px 12px",textAlign:"center"}}>
+              <div style={{fontSize:20,fontWeight:700,color:"#0F2035"}}>{val}</div>
+              <div style={{fontSize:10,fontFamily:"var(--mono)",color:"#5A7080",textTransform:"uppercase",letterSpacing:"0.05em",marginTop:2}}>{lbl}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{fontSize:11,fontFamily:"var(--mono)",color:"#5A7080",letterSpacing:"0.05em",margin:"18px 0 8px"}}>
+          ACTIVE PLACEMENTS ({activePlacements.length})
+        </div>
+        {activePlacements.length === 0 ? (
+          <div style={{fontSize:13,color:"#5A7080",padding:"6px 0"}}>No active placement. This HCA&apos;s shifts may have been scheduled individually.</div>
+        ) : activePlacements.map(p => {
+          const c = clients.find(x => x.id === p.clientId);
+          const pat = c?.patients?.find(x => x.id === p.patientId);
+          return (
+            <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:"1px solid rgba(0,74,153,0.08)",flexWrap:"wrap"}}>
+              <div style={{flex:1,minWidth:180}}>
+                <div style={{fontSize:13,fontWeight:600}}>{c?.name||"Client"}{pat?` · ${pat.name}`:""}</div>
+                <div style={{fontSize:11,color:"#5A7080",fontFamily:"var(--mono)",marginTop:2}}>{p.startDate} → {p.endDate}</div>
+              </div>
+              <span className="badge badge-gold">{p.shiftType}</span>
+              <button className="btn-o btn-sm" onClick={()=>{ onClose(); onOpenPlacement(p); }}>Manage</button>
+            </div>
+          );
+        })}
+
+        {offDays.length > 0 && (
+          <>
+            <div style={{fontSize:11,fontFamily:"var(--mono)",color:"#5A7080",letterSpacing:"0.05em",margin:"18px 0 8px"}}>
+              APPROVED OFF-DAYS ({offDays.length})
+            </div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {offDays.map(e => <span key={e.id} className="badge badge-gold">{fmtShort(e.date)}</span>)}
+            </div>
+          </>
+        )}
+
+        <div style={{fontSize:11,fontFamily:"var(--mono)",color:"#5A7080",letterSpacing:"0.05em",margin:"18px 0 8px"}}>
+          SHIFTS THIS MONTH ({monthShifts.length})
+        </div>
+        {monthShifts.length === 0 ? (
+          <div style={{fontSize:13,color:"#5A7080",padding:"6px 0"}}>No shifts scheduled for {monthLabel}.</div>
+        ) : (
+          <div className="dash-table-wrap">
+            <table className="dash-table">
+              <thead><tr><th>Date</th><th>Client / Patient</th><th>Type</th><th>Start</th><th>Status</th></tr></thead>
+              <tbody>
+                {monthShifts.map(s => (
+                  <tr key={s.id}>
+                    <td style={{fontFamily:"var(--mono)",fontSize:12}}>{fmtShort(s.date)}</td>
+                    <td>{nameFor(s)}</td>
+                    <td><span className="badge badge-gold">{s.type}</span></td>
+                    <td style={{fontFamily:"var(--mono)",fontSize:12}}>{s.startTime||"—"}</td>
+                    <td><span className={`badge ${statusCls(s.status)}`}>{s.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Edit client location form (used inside modal) ────────────────────────────
 function EditClientLocForm({ client, onClose, onRefresh }) {
   const [addr, setAddr] = useState(client.address || client.location || "");
@@ -1771,6 +1885,7 @@ export default function AdminDashboard() {
   const [calHcaFilter, setCalHcaFilter] = useState("");
   const [calSubTab,    setCalSubTab]    = useState("placements"); // placements|calendar
   const [calLoadError, setCalLoadError] = useState("");
+  const [hcaScheduleModal, setHcaScheduleModal] = useState(null); // hca profile
   const [placements,   setPlacements]   = useState([]);
 
   // RBAC state
@@ -2137,6 +2252,19 @@ export default function AdminDashboard() {
           prefill={placementModal}
           onClose={() => setPlacementModal(null)}
           onRefresh={refresh}
+        />
+      )}
+      {hcaScheduleModal && (
+        <HcaScheduleModal
+          hca={hcaScheduleModal}
+          year={calYear}
+          month={calMonth}
+          shifts={shifts}
+          events={events}
+          placements={placements}
+          clients={clients}
+          onClose={() => setHcaScheduleModal(null)}
+          onOpenPlacement={(p) => setPlacementDetail(p)}
         />
       )}
       {placementDetail && (
@@ -3204,13 +3332,14 @@ export default function AdminDashboard() {
                                   {done>0&&<span className="badge badge-mint">{done} done</span>}
                                   {scheduled>0&&<span className="badge badge-sky">{scheduled} upcoming</span>}
                                 </div>
-                                <button className="btn-o btn-sm" onClick={()=>{
+                                <button className="btn-p btn-sm" onClick={()=>setHcaScheduleModal(hca)}>View Schedule</button>
+                                <button className="btn-o btn-sm" title="Filter the month grid above to this HCA" onClick={()=>{
                                   setCalHcaFilter(hca.id);
                                   setCalFilter("all");
                                   // The calendar sits above this summary, so without
                                   // scrolling the filter appears to do nothing at all.
                                   document.getElementById("admin-calendar-panel")?.scrollIntoView({ behavior:"smooth", block:"start" });
-                                }}>View</button>
+                                }}>Filter Grid</button>
                               </div>
                             );
                           })}
