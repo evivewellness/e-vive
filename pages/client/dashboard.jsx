@@ -11,7 +11,6 @@ import {
   updateClient,
   getInvoicesByClient,
   getShiftsByClient,
-  getActivityLog,
   advanceClientJourney,
   addPatientToClient,
   updatePatient,
@@ -72,13 +71,6 @@ const CSS = `
   .inv-amt    { font-family:var(--serif); font-size:15px; font-weight:700; color:var(--gold); min-width:110px; text-align:right; }
   .inv-status { min-width:80px; text-align:right; }
 
-  /* Activity feed */
-  .activity-item { display:flex; gap:12px; padding:12px 0; border-bottom:1px solid rgba(0,74,153,0.07); }
-  .activity-item:last-child { border-bottom:none; }
-  .act-dot  { width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-top:5px; }
-  .act-txt  { font-size:13px; color:var(--muted); line-height:1.5; flex:1; }
-  .act-txt strong { color:var(--text); }
-  .act-time { font-size:11px; color:var(--muted); font-family:var(--mono); margin-top:3px; }
 
   /* HCA cards */
   /* Care team */
@@ -630,7 +622,6 @@ export default function ClientDashboard() {
   const [client,    setClient]   = useState(null);
   const [invoices,  setInvoices] = useState([]);
   const [shifts,    setShifts]   = useState([]);
-  const [activity,  setActivity] = useState([]);
   const [hcaProfiles, setHcaProfiles] = useState([]);
   const [placements,  setPlacements]  = useState([]);
   const [teamHcas,    setTeamHcas]    = useState({}); // id → full profile (with photo)
@@ -696,8 +687,6 @@ export default function ClientDashboard() {
         const teamRows = await Promise.all(teamIds.map(id => getHcaProfileById(id).catch(() => null)));
         setTeamHcas(Object.fromEntries(teamRows.filter(Boolean).map(h => [h.id, h])));
       }
-      const log = await getActivityLog();
-      setActivity(log.filter(a => !a.clientId || a.clientId === full.id).slice(0, 12));
       const hcas = await getAllHcaProfiles().catch(() => []);
       setHcaProfiles(hcas.filter(h => h.status === "active"));
     }
@@ -1023,7 +1012,7 @@ export default function ClientDashboard() {
                   </div>
                 )}
 
-                <div style={{display:"grid",gridTemplateColumns:"1.4fr 1fr",gap:18}}>
+                <div>
                   <div className="panel">
                     <div className="panel-head">
                       <div className="panel-title">Patient Accounts</div>
@@ -1051,30 +1040,6 @@ export default function ClientDashboard() {
                             <span className={`badge ${patientIsCovered(p.id)?"badge-mint":"badge-gold"}`}>
                               {patientIsCovered(p.id)?"HCA Placed":"Pending"}
                             </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="panel">
-                    <div className="panel-head">
-                      <div className="panel-title">Recent Activity</div>
-                      {unreadCount > 0 && (
-                        <button className="btn-o btn-sm" onClick={()=>setShowNotifPanel(true)}>🔔 {unreadCount} new</button>
-                      )}
-                    </div>
-                    <div className="panel-body">
-                      {activity.length===0 && <div style={{textAlign:"center",padding:"24px 0",color:"var(--muted)",fontSize:13}}>No activity yet.</div>}
-                      {activity.map((a,i)=>(
-                        <div key={a.id||i} className="activity-item">
-                          <div className="act-dot" style={{background:"var(--jade)"}} />
-                          <div>
-                            <div className="act-txt">
-                              <strong>{JOURNEY_LABELS[a.type?.replace("journey_","")]||a.type?.replace(/_/g," ")}</strong>
-                              {a.clientName?` — ${a.clientName}`:""}
-                            </div>
-                            <div className="act-time">{relTime(a.timestamp)}</div>
                           </div>
                         </div>
                       ))}
