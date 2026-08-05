@@ -19,6 +19,8 @@ import {
   toggleHcaShortlist,
   requestHcaMatch,
   getAllHcaProfiles,
+  getHcaProfileById,
+  getPlacementsByClient,
   getNotificationsForClient,
   markNotificationRead,
   markAllNotificationsRead,
@@ -78,6 +80,19 @@ const CSS = `
   .act-time { font-size:11px; color:var(--muted); font-family:var(--mono); margin-top:3px; }
 
   /* HCA cards */
+  /* Care team */
+  .ct-card { background:rgba(255,255,255,0.06); border:1px solid rgba(0,74,153,0.15); border-radius:18px; padding:20px; margin-bottom:14px; }
+  .ct-card.ended { opacity:0.72; }
+  .ct-top { display:flex; align-items:flex-start; gap:16px; flex-wrap:wrap; }
+  .ct-photo { width:64px; height:64px; border-radius:50%; object-fit:cover; border:2px solid rgba(0,74,153,0.2); flex-shrink:0; }
+  .ct-photo-ph { width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,var(--jade),var(--emerald)); display:flex; align-items:center; justify-content:center; font-size:26px; flex-shrink:0; }
+  .ct-name { font-weight:700; font-size:16px; margin-bottom:2px; }
+  .ct-sub  { font-size:11px; color:var(--jade); font-family:var(--mono); margin-bottom:8px; }
+  .ct-meta { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-top:16px; padding-top:16px; border-top:1px solid rgba(0,74,153,0.08); }
+  .ct-meta-lbl { font-size:10px; color:var(--muted); font-family:var(--mono); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:3px; }
+  .ct-meta-val { font-size:13px; font-weight:600; }
+  .ct-next { background:rgba(0,74,153,0.05); border:1px solid rgba(0,74,153,0.12); border-radius:12px; padding:12px 16px; margin-top:14px; font-size:13px; }
+
   .hca-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; }
   .hca-card { background:rgba(255,255,255,0.06); border:1px solid rgba(0,74,153,0.15); border-radius:18px; padding:18px; transition:all 0.25s; }
   .hca-card:hover { border-color:rgba(0,74,153,0.3); transform:translateY(-2px); }
@@ -171,12 +186,22 @@ const LOCATIONS  = ["Nairobi CBD","Westlands","Karen","Kilimani","Kileleshwa","L
 const NAV_ITEMS = [
   { icon:"📊", label:"Overview",      key:"overview"   },
   { icon:"👥", label:"Patients",      key:"patients"   },
+  { icon:"🤝", label:"Your Care Team",key:"careteam"   },
   { icon:"🩺", label:"Find a HCA",   key:"hcas"       },
   { icon:"💳", label:"Billing",       key:"billing"    },
   { icon:"📅", label:"Shift History", key:"shifts"     },
   { icon:"📄", label:"Documents",     key:"documents"  },
   { icon:"⚙️", label:"Account",       key:"account"    },
 ];
+
+// Shift type → the hours it actually covers, matching the intervals the
+// placement conflict checker uses in lib/store.js.
+const SHIFT_WINDOW_LABEL = {
+  "day":     "Day · 07:00–19:00",
+  "night":   "Night · 19:00–07:00",
+  "live-in": "Live-In · 24 hours",
+  "24-hour": "Live-In · 24 hours",
+};
 
 function fmt(iso) {
   if (!iso) return "—";
@@ -606,6 +631,8 @@ export default function ClientDashboard() {
   const [shifts,    setShifts]   = useState([]);
   const [activity,  setActivity] = useState([]);
   const [hcaProfiles, setHcaProfiles] = useState([]);
+  const [placements,  setPlacements]  = useState([]);
+  const [teamHcas,    setTeamHcas]    = useState({}); // id → full profile (with photo)
   const [notifications, setNotifications] = useState([]);
   const [unreadCount,   setUnreadCount]   = useState(0);
 
@@ -648,16 +675,25 @@ export default function ClientDashboard() {
       setClient(full);
       setDeletionSubmitted(!!full.deletionRequested);
       if (full.id) {
-        const [invs, shfs, notifs, count] = await Promise.all([
+        const [invs, shfs, notifs, count, placs] = await Promise.all([
           getInvoicesByClient(full.id),
           getShiftsByClient(full.id),
           getNotificationsForClient(full.id),
           getUnreadCount(full.id),
+          getPlacementsByClient(full.id).catch(() => []),
         ]);
         setInvoices(invs);
         setShifts(shfs);
         setNotifications(notifs);
         setUnreadCount(count);
+        setPlacements(placs);
+
+        // The bulk HCA list deliberately omits photos (they're multi-MB
+        // base64), so fetch full rows for just this client's own care team —
+        // a handful of profiles at most, and only these ones show a photo.
+        const teamIds = [...new Set(placs.map(p => p.hcaId).filter(Boolean))];
+        const teamRows = await Promise.all(teamIds.map(id => getHcaProfileById(id).catch(() => null)));
+        setTeamHcas(Object.fromEntries(teamRows.filter(Boolean).map(h => [h.id, h])));
       }
       const log = await getActivityLog();
       setActivity(log.filter(a => !a.clientId || a.clientId === full.id).slice(0, 12));
@@ -696,6 +732,15 @@ export default function ClientDashboard() {
   const hasTcPending = client.journeyStage === "account_created";
   const shortlistedHcas = client.shortlistedHcas || [];
   const requestedHcaId  = client.requestedHcaId;
+
+  // Placements are per-patient, so "is this patient covered?" is a question
+  // about their own placements — not the client-level assignedHcaId, which
+  // only reflects whichever HCA was placed most recently.
+  const todayIsoStr = new Date().toISOString().slice(0,10);
+  const activePlacements = placements.filter(p => p.status === "active" && p.endDate >= todayIsoStr);
+  function patientIsCovered(patientId) {
+    return activePlacements.some(p => !p.patientId || p.patientId === patientId);
+  }
 
   const displayStages = ["account_created","tc_accepted","acknowledged","call_made","visit_scheduled","visit_done","hca_matched","payment_pending","payment_confirmed","placement_active"];
   const totalInvoiced  = invoices.reduce((s,i) => s+(i.total||0), 0);
@@ -945,6 +990,38 @@ export default function ClientDashboard() {
                   ))}
                 </div>
 
+                {activePlacements.length > 0 && (
+                  <div className="panel" style={{marginBottom:18}}>
+                    <div className="panel-head">
+                      <div className="panel-title">🤝 Your Care Team</div>
+                      <button className="btn-o btn-sm" onClick={()=>setTab("careteam")}>View All →</button>
+                    </div>
+                    <div className="panel-body" style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+                      {activePlacements.map(p=>{
+                        const h = teamHcas[p.hcaId] || hcaProfiles.find(x=>x.id===p.hcaId);
+                        const patient = patients.find(x=>x.id===p.patientId);
+                        return (
+                          <div key={p.id} style={{display:"flex",alignItems:"center",gap:12,minWidth:220}}>
+                            {h?.photo ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={h.photo} alt={h.name} style={{width:44,height:44,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(0,74,153,0.2)",flexShrink:0}} />
+                            ) : (
+                              <div style={{width:44,height:44,borderRadius:"50%",background:"linear-gradient(135deg,var(--jade),var(--emerald))",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,flexShrink:0}}>🩺</div>
+                            )}
+                            <div style={{minWidth:0}}>
+                              <div style={{fontWeight:700,fontSize:13}}>{h?.name||"HCA"}</div>
+                              <div style={{fontSize:11,color:"var(--muted)",fontFamily:"var(--mono)",marginTop:2}}>
+                                {SHIFT_WINDOW_LABEL[p.shiftType]?.split(" · ")[0] || p.shiftType}
+                                {patient ? ` · ${patient.name}` : ""}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div style={{display:"grid",gridTemplateColumns:"1.4fr 1fr",gap:18}}>
                   <div className="panel">
                     <div className="panel-head">
@@ -970,8 +1047,8 @@ export default function ClientDashboard() {
                               <div style={{fontSize:11,color:"var(--mint)",fontFamily:"var(--mono)",margin:"2px 0"}}>{p.careType||p.conditions||"Care"}{p.relationship?` · ${p.relationship}`:""}</div>
                               <div style={{fontSize:12,color:"var(--muted)"}}>{p.gender}{p.age?`, ${p.age}y`:""}</div>
                             </div>
-                            <span className={`badge ${client.assignedHcaId?"badge-mint":"badge-gold"}`}>
-                              {client.assignedHcaId?"HCA Placed":"Pending"}
+                            <span className={`badge ${patientIsCovered(p.id)?"badge-mint":"badge-gold"}`}>
+                              {patientIsCovered(p.id)?"HCA Placed":"Pending"}
                             </span>
                           </div>
                         </div>
@@ -1036,7 +1113,7 @@ export default function ClientDashboard() {
                             {pat.relationship && <div style={{fontSize:11,color:"var(--muted)",fontFamily:"var(--mono)",marginTop:2}}>{pat.relationship}</div>}
                           </div>
                           <div style={{display:"flex",gap:8}}>
-                            <span className={`badge ${client.assignedHcaId?"badge-mint":"badge-gold"}`}>{client.assignedHcaId?"HCA Placed":"Pending"}</span>
+                            <span className={`badge ${patientIsCovered(pat.id)?"badge-mint":"badge-gold"}`}>{patientIsCovered(pat.id)?"HCA Placed":"Pending"}</span>
                             {client.id && pat.id && (
                               <>
                                 <button className="btn-o btn-sm" onClick={()=>setEditPatient(pat)}>Edit</button>
@@ -1064,7 +1141,13 @@ export default function ClientDashboard() {
                               <strong style={{color:"var(--text)"}}>Special Notes:</strong> {pat.notes}
                             </div>
                           )}
-                          {!client.assignedHcaId && (
+                          {patientIsCovered(pat.id) ? (
+                            <div style={{textAlign:"center",padding:"22px 0 8px",color:"var(--muted)"}}>
+                              <div style={{fontSize:30,marginBottom:8}}>🤝</div>
+                              <div style={{fontSize:13,marginBottom:12}}>An HCA is placed with {pat.name}.</div>
+                              <button className="btn-p btn-sm" onClick={()=>setTab("careteam")}>View Care Team →</button>
+                            </div>
+                          ) : (
                             <div style={{textAlign:"center",padding:"22px 0 8px",color:"var(--muted)"}}>
                               <div style={{fontSize:30,marginBottom:8}}>⏳</div>
                               <div style={{fontSize:13,marginBottom:12}}>HCA placement pending — complete onboarding steps to get matched.</div>
@@ -1078,6 +1161,121 @@ export default function ClientDashboard() {
                 )}
               </>
             )}
+
+            {/* ── YOUR CARE TEAM ── */}
+            {tab==="careteam" && (() => {
+              const todayIso = new Date().toISOString().slice(0,10);
+              const active = placements.filter(p => p.status === "active" && p.endDate >= todayIso);
+              const past   = placements.filter(p => !(p.status === "active" && p.endDate >= todayIso));
+
+              function renderPlacement(p, isActive) {
+                const hca = teamHcas[p.hcaId] || hcaProfiles.find(h => h.id === p.hcaId);
+                const patient = (client.patients||[]).find(x => x.id === p.patientId);
+                const pShifts = shifts.filter(s => s.placementId === p.id);
+                const completed = pShifts.filter(s => s.status === "completed").length;
+                const nextShift = pShifts
+                  .filter(s => s.status === "scheduled" && s.date >= todayIso)
+                  .sort((a,b) => a.date < b.date ? -1 : 1)[0];
+                return (
+                  <div key={p.id} className={`ct-card${isActive ? "" : " ended"}`}>
+                    <div className="ct-top">
+                      {hca?.photo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={hca.photo} alt={hca.name} className="ct-photo" />
+                      ) : (
+                        <div className="ct-photo-ph">🩺</div>
+                      )}
+                      <div style={{flex:1,minWidth:180}}>
+                        <div className="ct-name">{hca?.name || "HCA"}</div>
+                        <div className="ct-sub">{hca?.employeeId || "—"} · {hca?.certLevel || "HCA"}{hca?.yearsExp ? ` · ${hca.yearsExp}y exp` : ""}</div>
+                        {(hca?.specialisations||[]).length > 0 && (
+                          <div className="hca-tags">
+                            {hca.specialisations.slice(0,4).map(s => <span key={s} className="hca-tag">{s}</span>)}
+                          </div>
+                        )}
+                      </div>
+                      <span className={`badge ${isActive ? "badge-mint" : p.status === "cancelled" ? "badge-coral" : "badge-dim"}`}>
+                        {isActive ? "Active" : p.status === "cancelled" ? "Cancelled" : "Ended"}
+                      </span>
+                    </div>
+
+                    <div className="ct-meta">
+                      <div>
+                        <div className="ct-meta-lbl">Caring For</div>
+                        <div className="ct-meta-val">{patient?.name || "All patients"}</div>
+                      </div>
+                      <div>
+                        <div className="ct-meta-lbl">Shift Pattern</div>
+                        <div className="ct-meta-val">{SHIFT_WINDOW_LABEL[p.shiftType] || p.shiftType}</div>
+                      </div>
+                      <div>
+                        <div className="ct-meta-lbl">Placement Period</div>
+                        <div className="ct-meta-val" style={{fontFamily:"var(--mono)",fontSize:12}}>{fmt(p.startDate)} → {fmt(p.endDate)}</div>
+                      </div>
+                      <div>
+                        <div className="ct-meta-lbl">Shifts Completed</div>
+                        <div className="ct-meta-val">{completed} of {pShifts.length}</div>
+                      </div>
+                    </div>
+
+                    {isActive && (
+                      <div className="ct-next">
+                        {nextShift ? (
+                          <>📅 <strong>Next shift:</strong> {fmt(nextShift.date)} from {nextShift.startTime || "07:00"}</>
+                        ) : (
+                          <>📅 No further shifts scheduled in this placement.</>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              return (
+                <>
+                  <div style={{marginBottom:18}}>
+                    <div style={{fontWeight:700,fontSize:16}}>Your Care Team</div>
+                    <div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>The HomeCare Assistants placed with you, their schedule and coverage.</div>
+                  </div>
+
+                  {placements.length === 0 ? (
+                    <div className="panel">
+                      <div className="panel-body" style={{textAlign:"center",padding:"44px 20px"}}>
+                        <div style={{fontSize:40,marginBottom:12}}>🤝</div>
+                        <div style={{fontSize:14,color:"var(--muted)",marginBottom:16,lineHeight:1.6}}>
+                          No HCA has been placed with you yet. Once E-Vive admin confirms a placement after your home visit, your care team and their full schedule will appear here.
+                        </div>
+                        <button className="btn-p btn-sm" onClick={()=>setTab("hcas")}>Browse Available HCAs →</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {active.length > 0 && active.map(p => renderPlacement(p, true))}
+                      {active.length === 0 && (
+                        <div className="panel" style={{marginBottom:14}}>
+                          <div className="panel-body" style={{textAlign:"center",padding:"28px 20px",color:"var(--muted)",fontSize:13}}>
+                            No active placement right now. Your previous care team is listed below.
+                          </div>
+                        </div>
+                      )}
+
+                      {past.length > 0 && (
+                        <>
+                          <div style={{fontSize:12,fontFamily:"var(--mono)",color:"var(--muted)",letterSpacing:"0.05em",margin:"22px 0 10px"}}>
+                            PREVIOUS PLACEMENTS ({past.length})
+                          </div>
+                          {past.map(p => renderPlacement(p, false))}
+                        </>
+                      )}
+                    </>
+                  )}
+
+                  <div style={{marginTop:18,padding:"12px 16px",background:"rgba(200,149,42,0.08)",border:"1px solid rgba(200,149,42,0.22)",borderRadius:12,fontSize:12,color:"var(--muted)",lineHeight:1.65}}>
+                    ℹ️ To request a change to your care team, a different shift pattern, or additional cover, contact E-Vive at <a href="mailto:hello@e-vive.co.ke" style={{color:"var(--jade)"}}>hello@e-vive.co.ke</a> or <a href="tel:+254141888340" style={{color:"var(--jade)"}}>+254 141 888 340</a>. All placement changes are arranged through E-Vive.
+                  </div>
+                </>
+              );
+            })()}
 
             {/* ── FIND A HCA ── */}
             {tab==="hcas" && (
@@ -1232,14 +1430,17 @@ export default function ClientDashboard() {
                       <table className="dash-table">
                         <thead><tr><th>Date</th><th>HCA</th><th>Type</th><th>Status</th></tr></thead>
                         <tbody>
-                          {shifts.map(s=>(
+                          {shifts.map(s=>{
+                            const shiftHca = teamHcas[s.hcaId] || hcaProfiles.find(h=>h.id===s.hcaId);
+                            return (
                             <tr key={s.id}>
                               <td style={{fontFamily:"var(--mono)",fontSize:12}}>{s.date}</td>
-                              <td>{s.hcaId||"—"}</td>
+                              <td>{shiftHca?.name || "—"}</td>
                               <td><span className="badge badge-gold">{s.type}</span></td>
-                              <td><span className={`badge ${s.status==="completed"?"badge-mint":s.status==="missed"?"badge-coral":"badge-gold"}`}>{s.status}</span></td>
+                              <td><span className={`badge ${s.status==="completed"?"badge-mint":(s.status==="missed"||s.status==="cancelled")?"badge-coral":"badge-gold"}`}>{s.status}</span></td>
                             </tr>
-                          ))}
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
