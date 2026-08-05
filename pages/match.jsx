@@ -5,17 +5,8 @@ import Nav from "../components/Nav";
 import Footer from "../components/Footer";
 import { BASE_CSS } from "../components/SharedStyles";
 import { useRouter } from "next/router";
-import { getAllHcaProfiles, getAllCalendarEvents, getClientSession } from "../lib/store";
+import { getAllHcaProfiles, getAllCalendarEvents, getClientSession, maskHcaName } from "../lib/store";
 import { toIso } from "../lib/scheduling";
-
-// Public browse cards only ever show "First L." — full names are private
-// until a client is authenticated and placed with that HCA.
-function maskName(fullName) {
-  const parts = (fullName || "").trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "HCA";
-  if (parts.length === 1) return parts[0];
-  return `${parts[0]} ${parts[1][0].toUpperCase()}.`;
-}
 
 const PAGE_CSS = `
   body { padding-top:72px; }
@@ -363,7 +354,7 @@ function profileToHca(p) {
     av: (p.name || '?')[0],
     bg: 'rgba(0,74,153,0.12)',
     photo: null,
-    name: maskName(p.name),
+    name: maskHcaName(p.name),
     gender: p.gender || 'Not specified',
     age: ageRangeFromDob(p.dob) || p.ageRange || '',
     role: p.certLevel || 'Home Care Assistant',

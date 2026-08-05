@@ -4,6 +4,7 @@ import Link from "next/link";
 import Nav from "../components/Nav";
 import Footer from "../components/Footer";
 import { BASE_CSS } from "../components/SharedStyles";
+import { getAllHcaProfiles, getClientSession, maskHcaName } from "../lib/store";
 
 const PAGE_CSS = `
   body { padding-top: 72px; }
@@ -211,11 +212,23 @@ const PORTALS = [
   // { cls:"soon",   icon:"🛒",  iconCls:"grey",  tagCls:"grey",  tag:"Coming Soon",     title:"Homecare Products",          desc:"Medical equipment, mobility aids, consumables - curated by our clinical team, delivered to your door.",                         href:"/products",     linkCls:"green", link:"Join Waitlist →", soon:true },  // Coming soon
 ];
 
-const HCA_SAMPLES = [
-  { av:"👩🏾", photo:"/images/portraits/hca-amina-njeri.svg",  bg:"rgba(0,74,153,0.12)",    name:"Amina Njeri",    role:"CNA · Certified",          rat:"★★★★★ 4.9 (42)", dist:"1.2 km", tags:["Elderly","Post-Op","Palliative"], langs:["English","Swahili","Kikuyu"], rate:"KES 800", per:"/hr", avail:true },
-  { av:"👨🏿", photo:"/images/portraits/hca-john-omondi.svg",  bg:"rgba(14,165,233,0.14)",  name:"John Mwangi",    role:"Home Care Specialist",     rat:"★★★★★ 4.8 (31)", dist:"2.7 km", tags:["Dementia","Critical Care"],       langs:["English","Luo","Swahili"],   rate:"KES 650", per:"/hr", avail:true },
-  { av:"👩🏽", photo:"/images/portraits/hca-grace-otieno.svg", bg:"rgba(132,189,96,0.16)",  name:"Grace Otieno",   role:"Palliative Care Aide",     rat:"★★★★☆ 4.6 (18)", dist:"3.4 km", tags:["Palliative","Child Care"],        langs:["Luhya","Swahili","English"], rate:"KES 700", per:"/hr", avail:false },
+// Rotating avatar tints so a set of four reads as distinct cards without
+// exposing real photos on a public page (see the privacy note in the fetch).
+const HCA_CARD_TINTS = [
+  "rgba(0,74,153,0.12)", "rgba(14,165,233,0.14)",
+  "rgba(132,189,96,0.16)", "rgba(240,169,139,0.16)",
 ];
+
+// Fisher-Yates. Runs client-side only (inside an effect), so server and
+// client markup cannot disagree - shuffling during render breaks hydration.
+function pickRandom(arr, n) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a.slice(0, n);
+}
 
 const STEPS_FAM = [
   { n:"01", icon:"📍", title:"Enter Your Location",   desc:"Share your area to see matching HCAs within your preferred radius - no travel hassle." },
@@ -239,6 +252,22 @@ export default function Home() {
   const [filterApplied, setFilterApplied] = useState({});
   const [filterOpen, setFilterOpen] = useState(false);
 
+  // Featured Assistants — a random four of the live, active, available HCAs.
+  const [featured,     setFeatured]     = useState([]);
+  const [featLoading,  setFeatLoading]  = useState(true);
+  const [clientAuthed, setClientAuthed] = useState(false);
+
+  useEffect(() => {
+    setClientAuthed(!!getClientSession()?.id);
+    getAllHcaProfiles()
+      .then(all => {
+        const eligible = all.filter(h => h.status === "active" && h.available !== false);
+        setFeatured(pickRandom(eligible, 4));
+      })
+      .catch(() => setFeatured([]))
+      .finally(() => setFeatLoading(false));
+  }, []);
+
   useEffect(() => {
     const obs = new IntersectionObserver(entries =>
       entries.forEach(e => { if (e.isIntersecting) e.target.classList.add("visible"); }),
@@ -246,7 +275,10 @@ export default function Home() {
     );
     document.querySelectorAll(".fade-in").forEach(el => obs.observe(el));
     return () => obs.disconnect();
-  }, []);
+    // Re-runs once the featured cards arrive: .fade-in starts at opacity:0 and
+    // is only revealed when observed, so cards rendered after this effect first
+    // ran would otherwise stay permanently invisible.
+  }, [featured]);
 
   return (
     <>
@@ -405,30 +437,54 @@ export default function Home() {
             </div>
             <Link href="/match" className="btn-o fade-in">View All Assistants →</Link>
           </div>
+          {featLoading ? (
+            <div style={{textAlign:"center",padding:"40px 0",color:"var(--muted)",fontSize:14}}>Loading assistants…</div>
+          ) : featured.length === 0 ? (
+            <div style={{textAlign:"center",padding:"40px 0",color:"var(--muted)",fontSize:14}}>
+              No assistants are listed yet. <Link href="/match" style={{color:"var(--jade)"}}>Browse all assistants →</Link>
+            </div>
+          ) : (
           <div className="hca-grid">
-            {HCA_SAMPLES.map((h,i) => (
-              <div className="hca-card fade-in" key={i} style={{transitionDelay:`${i*90}ms`}}>
-                <div className="hca-top">
-                  <div className="hca-av" style={{background:h.photo ? 'transparent' : h.bg}}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    {h.photo ? <img src={h.photo} alt={h.name} /> : h.av}
+            {featured.map((h,i) => {
+              // Public page: first name + initial only, and no photo — a photo
+              // identifies far more completely than the name being masked.
+              const tags = [...(h.specialisations||[]).slice(0,3), ...(h.languages||[]).slice(0,3)];
+              const reviews = h.reviewCount || 0;
+              const rating  = Number(h.rating) || 0;
+              return (
+                <div className="hca-card fade-in" key={h.id} style={{transitionDelay:`${i*90}ms`}}>
+                  <div className="hca-top">
+                    <div className="hca-av" style={{background:HCA_CARD_TINTS[i % HCA_CARD_TINTS.length]}}>
+                      {(h.name || "?").trim()[0]?.toUpperCase() || "?"}
+                    </div>
+                    <div>
+                      <div className="hca-name">{maskHcaName(h.name)}</div>
+                      <div className="hca-role">{h.certLevel || "HomeCare Assistant"}{h.yearsExp ? ` · ${h.yearsExp}y exp` : ""}</div>
+                      <div className="hca-rat">
+                        {reviews > 0
+                          ? `${"★".repeat(Math.max(1,Math.round(rating)))} ${rating.toFixed(1)} (${reviews})`
+                          : "New to E-Vive"}
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="hca-name">{h.name}</div>
-                    <div className="hca-role">{h.role}</div>
-                    <div className="hca-rat">{h.rat}</div>
+                  <div className="hca-dist">📍 {h.location || h.county || "Location on request"}</div>
+                  {tags.length > 0 && (
+                    <div className="hca-tags">
+                      {tags.map(t=><span className="tag" key={t}>{t}</span>)}
+                    </div>
+                  )}
+                  <div className="hca-foot">
+                    {clientAuthed ? (
+                      <div className={`avail-pill ${h.available!==false?"avail-yes":"avail-no"}`}>{h.available!==false?"Available":"Engaged"}</div>
+                    ) : (
+                      <Link href="/client/register" className="avail-pill" style={{textDecoration:"none"}}>🔒 Sign in for availability</Link>
+                    )}
                   </div>
                 </div>
-                <div className="hca-dist">📍 {h.dist} from Westlands</div>
-                <div className="hca-tags">
-                  {[...h.tags,...h.langs].map(t=><span className="tag" key={t}>{t}</span>)}
-                </div>
-                <div className="hca-foot">
-                  <div className={`avail-pill ${h.avail?"avail-yes":"avail-no"}`}>{h.avail?"Available":"Engaged"}</div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
+          )}
           <div style={{textAlign:"center",marginTop:32}}>
             <Link href="/match" className="btn-p">Browse All Assistants → Apply Filters</Link>
           </div>
