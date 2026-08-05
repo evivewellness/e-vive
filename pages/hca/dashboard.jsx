@@ -21,6 +21,7 @@ import {
   advanceHcaJourney,
   HCA_JOURNEY_STAGES,
   HCA_JOURNEY_LABELS,
+  getCalendarEventsByHca,
 } from "../../lib/store";
 
 const CSS = `
@@ -212,6 +213,7 @@ export default function HCADashboard() {
   const [offDay, setOffDay] = useState({ from:"", to:"", reason:"" });
   const [offDayMsg, setOffDayMsg] = useState("");
   const [offDaySaving, setOffDaySaving] = useState(false);
+  const [offDays, setOffDays] = useState([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletionSubmitted, setDeletionSubmitted]  = useState(false);
@@ -231,13 +233,14 @@ export default function HCADashboard() {
     const session = getHcaSession();
     if (session?.id) {
       async function loadData() {
-        const [profile, shifts, cardex, clients, courses, enrollments] = await Promise.all([
+        const [profile, shifts, cardex, clients, courses, enrollments, calEvents] = await Promise.all([
           getHcaProfileById(session.id),
           getShiftsByHca(session.id),
           getCardexByHca(session.id),
           getAllClients(),
           getLmsCourses('hca'),
           getEnrollmentsForUser(session.id, 'hca'),
+          getCalendarEventsByHca(session.id),
         ]);
         if (profile) {
           setHcaProfile(profile);
@@ -248,6 +251,7 @@ export default function HCADashboard() {
           setClients(clients);
           setCourses(courses);
           setEnrollments(enrollments);
+          setOffDays(calEvents.filter(e => e.type === 'offday'));
           const linked = clients.find(c => c.assignedHcaId === profile.id);
           if (linked) {
             setAssignedClient(linked);
@@ -314,6 +318,7 @@ export default function HCADashboard() {
   // Computed stats from real store data
   const now = new Date();
   const thisMonthShifts = liveShifts.filter(s => {
+    if (s.status === "cancelled") return false;
     const d = new Date(s.date || s.clockIn || "");
     return !isNaN(d) && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
@@ -557,6 +562,7 @@ export default function HCADashboard() {
         origin: 'hca_off_day_request',
         subject: `Off-day request from ${hcaProfile?.name || hcaId}`,
         message: `From: ${offDay.from}\nTo: ${offDay.to}\nReason: ${offDay.reason || "—"}`,
+        metadata: { fromDate: offDay.from, toDate: offDay.to, reason: offDay.reason || "" },
       });
       setOffDay({ from:"", to:"", reason:"" });
       setOffDayMsg("✓ Off-day request submitted. Your coordinator will confirm shortly.");
@@ -796,7 +802,7 @@ export default function HCADashboard() {
                           <div style={{textAlign:"center",padding:"24px 0",color:"var(--muted)",fontSize:13}}>No shifts on record yet. Your schedule will appear here once a placement is confirmed.</div>
                         ) : liveShifts.slice().sort((a,b)=>new Date(b.date||b.clockIn||0)-new Date(a.date||a.clockIn||0)).slice(0,7).map(s=>{
                           const typeLabel = s.type==="day"?"Day Shift":s.type==="night"?"Night Shift":"Live-In";
-                          const [stLabel,stCls] = s.status==="completed"?["Completed","badge-mint"]:s.status==="in-progress"?["In Progress","badge-gold"]:s.status==="missed"?["Missed","badge-coral"]:["Scheduled","badge-dim"];
+                          const [stLabel,stCls] = s.status==="completed"?["Completed","badge-mint"]:s.status==="in-progress"?["In Progress","badge-gold"]:s.status==="missed"?["Missed","badge-coral"]:s.status==="cancelled"?["Cancelled","badge-coral"]:["Scheduled","badge-dim"];
                           const dur = s.clockIn&&s.clockOut?`${Math.round((new Date(s.clockOut)-new Date(s.clockIn))/3600000)}h`:s.status==="in-progress"?"Active":"—";
                           const dateDisplay = s.date?new Date(s.date).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"}):"—";
                           const shiftCardex = cardexLog.find(c => c.shiftId === s.id);
@@ -1167,7 +1173,18 @@ export default function HCADashboard() {
 
             {/* ── CALENDAR ── */}
             {tab==="calendar" && (
-              <div className="panel">
+              <>
+                {offDays.length > 0 && (
+                  <div className="panel" style={{marginBottom:16}}>
+                    <div className="panel-head"><div className="panel-title">✅ Approved Off-Days</div></div>
+                    <div className="panel-body" style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                      {offDays.map(e=>(
+                        <span key={e.id} className="badge badge-mint">{new Date(e.date).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"})}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="panel">
                 <div className="panel-head"><div className="panel-title">My Schedule</div></div>
                 <div className="panel-body">
                   {liveShifts.length === 0 ? (
@@ -1185,7 +1202,7 @@ export default function HCADashboard() {
                               <td style={{fontFamily:"var(--mono)",fontSize:12}}>{s.date}</td>
                               <td>{clientNameById(s.clientId)||"—"}</td>
                               <td><span className="badge badge-gold">{s.type}</span></td>
-                              <td><span className={`badge ${s.status==="completed"?"badge-mint":s.status==="missed"?"badge-coral":"badge-dim"}`}>{s.status}</span></td>
+                              <td><span className={`badge ${s.status==="completed"?"badge-mint":(s.status==="missed"||s.status==="cancelled")?"badge-coral":"badge-dim"}`}>{s.status}</span></td>
                             </tr>
                           ))}
                         </tbody>
@@ -1193,7 +1210,8 @@ export default function HCADashboard() {
                     </div>
                   )}
                 </div>
-              </div>
+                </div>
+              </>
             )}
 
             {/* ── TRAINING ── */}

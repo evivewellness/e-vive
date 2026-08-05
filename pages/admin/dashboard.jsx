@@ -87,6 +87,16 @@ import {
   restoreEmailFromTrash,
   deleteEmailPermanently,
   sendAdminEmail,
+  getAllPlacements,
+  getPlacementById,
+  createPlacement,
+  extendPlacement,
+  reassignPlacement,
+  endPlacement,
+  cancelPlacement,
+  getHcaScheduleConflicts,
+  approveOffDayRequest,
+  declineOffDayRequest,
 } from "../../lib/store";
 
 const CSS = `
@@ -270,11 +280,10 @@ const TRAVEL_OPTS = ["Local Travel","International"];
 function tog(arr, v) { return arr.includes(v) ? arr.filter(x=>x!==v) : [...arr,v]; }
 
 // ─── Client action modal ───────────────────────────────────────────────────────
-function ClientModal({ client, hcaProfiles, onClose, onRefresh }) {
-  const [action,     setAction]     = useState(""); // "call"|"visit"|"match"|"invoice"
+function ClientModal({ client, hcaProfiles, onClose, onRefresh, onOpenPlacement }) {
+  const [action,     setAction]     = useState(""); // "call"|"visit"|"invoice"
   const [visitDate,  setVisitDate]  = useState("");
   const [visitTime,  setVisitTime]  = useState("10:00");
-  const [hcaId,      setHcaId]      = useState("");
   const [invDesc,    setInvDesc]    = useState("Placement & Assessment Fee");
   const [invAmount,  setInvAmount]  = useState(3500);
   const [invDue,     setInvDue]     = useState("");
@@ -286,7 +295,7 @@ function ClientModal({ client, hcaProfiles, onClose, onRefresh }) {
   function canDo(act) {
     if (act === "call")    return stageIdx >= 2 && stageIdx < 4;  // acknowledged → call_made
     if (act === "visit")   return stageIdx >= 3 && stageIdx < 5;  // call_made → visit_scheduled
-    if (act === "match")   return stageIdx >= 5 && stageIdx < 7;  // visit_done → hca_matched
+    if (act === "match")   return stageIdx >= 5;  // visit_done onward — placements can be created/extended any time after
     if (act === "invoice") return stageIdx >= 0;
     return true;
   }
@@ -310,11 +319,6 @@ function ClientModal({ client, hcaProfiles, onClose, onRefresh }) {
           createdBy: "admin",
         });
         setMsg(`✓ Visit scheduled for ${visitDate} at ${visitTime}.`);
-      } else if (action === "match") {
-        if (!hcaId) { setMsg("Please select a HCA."); setSaving(false); return; }
-        await advanceClientJourney(client.id, "hca_matched", { assignedHcaId: hcaId });
-        await logActivity({ type: "hca_matched", clientId: client.id, clientName: client.name, hcaId });
-        setMsg("✓ HCA matched to client.");
       } else if (action === "invoice") {
         if (!invDesc || !invAmount || !invDue) { setMsg("Fill all invoice fields."); setSaving(false); return; }
         await createInvoice({
@@ -361,7 +365,7 @@ function ClientModal({ client, hcaProfiles, onClose, onRefresh }) {
           ].map(b => (
             <button
               key={b.act}
-              onClick={() => setAction(action === b.act ? "" : b.act)}
+              onClick={() => b.act === "match" ? (onOpenPlacement(client), onClose()) : setAction(action === b.act ? "" : b.act)}
               disabled={b.disabled}
               style={{
                 padding:"10px 14px", borderRadius:10, border:"1px solid",
@@ -387,18 +391,6 @@ function ClientModal({ client, hcaProfiles, onClose, onRefresh }) {
               <label className="modal-label">Visit Time</label>
               <input type="time" className="modal-input" value={visitTime} onChange={e=>setVisitTime(e.target.value)} />
             </div>
-          </div>
-        )}
-
-        {action === "match" && (
-          <div className="modal-field">
-            <label className="modal-label">Select HCA</label>
-            <select className="modal-sel" value={hcaId} onChange={e=>setHcaId(e.target.value)}>
-              <option value="">Choose a HCA...</option>
-              {hcaProfiles.filter(h=>h.status==="active").map(h=>(
-                <option key={h.id} value={h.id}>{h.name} — {h.employeeId} ({h.certLevel||"HCA"})</option>
-              ))}
-            </select>
           </div>
         )}
 
@@ -1334,6 +1326,13 @@ function ScheduleShiftModal({ clients, hcaProfiles, defaultDate, onClose, onRefr
     if (!hcaId || !clientId || !date) { setMsg("HCA, client and date are required."); return; }
     setSaving(true);
     try {
+      const conflicts = await getHcaScheduleConflicts(hcaId, date, date, type);
+      if (Object.keys(conflicts).length) {
+        const c = conflicts[date][0];
+        setMsg(`⚠ This HCA already has ${c.kind==="offday"?"an approved off-day":`a ${c.type} shift`} on ${date}. Pick a different date, shift type, or HCA.`);
+        setSaving(false);
+        return;
+      }
       await createShiftWithEvent({ hcaId, clientId, patientId: patId||undefined, date, startTime, type, notes, status:"scheduled" });
       setMsg("✓ Shift scheduled and added to calendar.");
       setTimeout(() => { onRefresh(); onClose(); }, 800);
@@ -1396,6 +1395,209 @@ function ScheduleShiftModal({ clients, hcaProfiles, defaultDate, onClose, onRefr
           <button className="btn-o btn-sm" onClick={onClose}>Cancel</button>
           <button className="btn-p btn-sm" onClick={save} disabled={saving||!hcaId||!clientId||!date}>{saving?"Saving…":"Schedule Shift"}</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Create / place an HCA with a Client (+ specific Patient) ─────────────────
+function CreatePlacementModal({ clients, hcaProfiles, prefill, onClose, onRefresh }) {
+  const [clientId,  setClientId]  = useState(prefill?.clientId || "");
+  const [patientId, setPatientId] = useState(prefill?.patientId || "");
+  const [hcaId,     setHcaId]     = useState(prefill?.hcaId || "");
+  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0,10));
+  const [endDate,   setEndDate]   = useState(new Date().toISOString().slice(0,10));
+  const [shiftType, setShiftType] = useState("day");
+  const [rate,      setRate]      = useState(2000);
+  const [notes,     setNotes]     = useState(prefill?.notes || "");
+  const [checking,  setChecking]  = useState(false);
+  const [conflicts, setConflicts] = useState(null); // null=not checked, {}=free, {date:[...]}=conflicts
+  const [saving,    setSaving]    = useState(false);
+  const [msg,       setMsg]       = useState("");
+
+  const selectedClient = clients.find(c=>c.id===clientId);
+  const patients = selectedClient?.patients || [];
+  const selectedHca = hcaProfiles.find(h=>h.id===hcaId);
+
+  useEffect(() => {
+    setConflicts(null);
+    if (!hcaId || !startDate || !endDate || new Date(endDate) < new Date(startDate)) return;
+    let cancelled = false;
+    setChecking(true);
+    getHcaScheduleConflicts(hcaId, startDate, endDate, shiftType)
+      .then(c => { if (!cancelled) setConflicts(c); })
+      .finally(() => { if (!cancelled) setChecking(false); });
+    return () => { cancelled = true; };
+  }, [hcaId, startDate, endDate, shiftType]);
+
+  const conflictDays = conflicts ? Object.keys(conflicts) : [];
+
+  async function save() {
+    if (!clientId || !hcaId || !startDate || !endDate) { setMsg("Client, HCA and dates are required."); return; }
+    setSaving(true);
+    try {
+      await createPlacement({ clientId, patientId: patientId || null, hcaId, startDate, endDate, shiftType, ratePerShift: Number(rate), notes });
+      if (selectedClient?.email) {
+        sendHcaMatchedNotification(selectedClient, selectedHca?.name || "Your HCA").catch(()=>{});
+      }
+      setMsg(`✓ Placement created — ${dateCount(startDate,endDate)} shift(s) scheduled.`);
+      setTimeout(() => { onRefresh(); onClose(); }, 900);
+    } catch(e) { setMsg("⚠ " + (e.message||"Error")); setSaving(false); }
+  }
+
+  return (
+    <div className="modal-bg" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal-box" style={{maxWidth:560}}>
+        <div className="modal-title">🤝 New Placement</div>
+        <div style={{fontSize:12,color:"#5A7080",marginBottom:16}}>Assign an HCA to a client (and optionally a specific patient) for a date range. Availability is checked automatically — an HCA can hold other placements at the same time as long as the shifts don&apos;t overlap.</div>
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div className="modal-field">
+            <label className="modal-label">Client *</label>
+            <select className="modal-sel" value={clientId} onChange={e=>{setClientId(e.target.value);setPatientId("");}} disabled={!!prefill?.clientId}>
+              <option value="">Select client…</option>
+              {clients.filter(c=>c.status==="active").map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div className="modal-field">
+            <label className="modal-label">Patient</label>
+            <select className="modal-sel" value={patientId} onChange={e=>setPatientId(e.target.value)} disabled={patients.length===0}>
+              <option value="">General / not patient-specific</option>
+              {patients.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div className="modal-field">
+          <label className="modal-label">HCA *</label>
+          <select className="modal-sel" value={hcaId} onChange={e=>setHcaId(e.target.value)}>
+            <option value="">Select HCA…</option>
+            {hcaProfiles.filter(h=>h.status==="active").map(h=><option key={h.id} value={h.id}>{h.name} ({h.employeeId})</option>)}
+          </select>
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div className="modal-field">
+            <label className="modal-label">Start Date *</label>
+            <input type="date" className="modal-input" value={startDate} onChange={e=>setStartDate(e.target.value)} />
+          </div>
+          <div className="modal-field">
+            <label className="modal-label">End Date *</label>
+            <input type="date" className="modal-input" value={endDate} min={startDate} onChange={e=>setEndDate(e.target.value)} />
+          </div>
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div className="modal-field">
+            <label className="modal-label">Shift Type</label>
+            <select className="modal-sel" value={shiftType} onChange={e=>setShiftType(e.target.value)}>
+              <option value="day">Day Shift (07:00–19:00)</option>
+              <option value="night">Night Shift (19:00–07:00)</option>
+              <option value="live-in">Live-In / 24-Hour</option>
+            </select>
+          </div>
+          <div className="modal-field">
+            <label className="modal-label">Rate (KES/shift)</label>
+            <input className="modal-input" type="number" min={0} value={rate} onChange={e=>setRate(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="modal-field">
+          <label className="modal-label">Notes</label>
+          <textarea className="modal-input" rows={2} value={notes} onChange={e=>setNotes(e.target.value)} style={{resize:"vertical"}} placeholder="Care instructions or context for this placement…" />
+        </div>
+
+        {hcaId && startDate && endDate && (
+          checking ? (
+            <div style={{padding:"10px 14px",borderRadius:10,fontSize:12,marginBottom:12,background:"#f4f7fb",color:"#5A7080"}}>Checking availability…</div>
+          ) : conflictDays.length > 0 ? (
+            <div style={{padding:"10px 14px",borderRadius:10,fontSize:12,marginBottom:12,background:"rgba(249,112,102,0.08)",border:"1px solid rgba(249,112,102,0.25)",color:"#c0392b"}}>
+              ⚠ Conflict on {conflictDays.length} day(s), starting {conflictDays[0]} — {conflicts[conflictDays[0]][0].kind==="offday"?"HCA has an approved off-day":`HCA already has a ${conflicts[conflictDays[0]][0].type} shift`}.
+            </div>
+          ) : conflicts !== null ? (
+            <div style={{padding:"10px 14px",borderRadius:10,fontSize:12,marginBottom:12,background:"rgba(132,189,96,0.1)",color:"#3a7d1c"}}>✓ HCA is free for this entire range.</div>
+          ) : null
+        )}
+
+        {msg && <div style={{padding:"10px 14px",borderRadius:10,fontSize:13,marginBottom:12,background:msg.startsWith("✓")?"rgba(0,74,153,0.08)":"rgba(249,112,102,0.08)",border:msg.startsWith("✓")?"1px solid rgba(0,74,153,0.2)":"1px solid rgba(249,112,102,0.25)",color:msg.startsWith("✓")?"var(--mint)":"var(--coral)"}}>{msg}</div>}
+
+        <div className="modal-actions">
+          <button className="btn-o btn-sm" onClick={onClose}>Cancel</button>
+          <button className="btn-p btn-sm" onClick={save} disabled={saving||!clientId||!hcaId||!startDate||!endDate||conflictDays.length>0}>{saving?"Placing…":"Create Placement"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function dateCount(startDate, endDate) {
+  const s = new Date(startDate+"T00:00:00"), e = new Date(endDate+"T00:00:00");
+  return Math.round((e-s)/86400000) + 1;
+}
+
+// ─── Vary / end an existing placement ──────────────────────────────────────────
+function PlacementDetailModal({ placement, clients, hcaProfiles, onClose, onRefresh }) {
+  const client = clients.find(c=>c.id===placement.clientId);
+  const patient = client?.patients?.find(p=>p.id===placement.patientId);
+  const hca = hcaProfiles.find(h=>h.id===placement.hcaId);
+  const [newEndDate, setNewEndDate] = useState(placement.endDate);
+  const [newHcaId,   setNewHcaId]   = useState(placement.hcaId);
+  const [saving,     setSaving]     = useState(false);
+  const [msg,        setMsg]        = useState("");
+
+  async function run(fn) {
+    setSaving(true); setMsg("");
+    try { await fn(); setMsg("✓ Done."); setTimeout(()=>{onRefresh();onClose();},700); }
+    catch(e) { setMsg("⚠ " + (e.message||"Error")); setSaving(false); }
+  }
+
+  const isActive = placement.status === "active";
+
+  return (
+    <div className="modal-bg" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal-box" style={{maxWidth:520}}>
+        <div className="modal-title">Placement — {client?.name||"Client"}{patient?` · ${patient.name}`:""}</div>
+        <div style={{background:"#f4f7fb",border:"1px solid rgba(0,74,153,0.14)",borderRadius:12,padding:"12px 16px",marginBottom:18,fontSize:13,color:"#0F2035"}}>
+          <div>HCA: <strong>{hca?.name||"—"}</strong></div>
+          <div>Dates: {placement.startDate} → {placement.endDate}</div>
+          <div>Shift: {placement.shiftType} · Rate: KES {Number(placement.ratePerShift).toLocaleString()}/shift</div>
+          <div>Status: <span className={`badge ${placement.status==="active"?"badge-mint":placement.status==="ended"?"badge-dim":"badge-coral"}`}>{placement.status}</span></div>
+        </div>
+
+        {isActive && (
+          <>
+            <div className="modal-field">
+              <label className="modal-label">Extend end date to</label>
+              <div style={{display:"flex",gap:8}}>
+                <input type="date" className="modal-input" min={placement.endDate} value={newEndDate} onChange={e=>setNewEndDate(e.target.value)} />
+                <button className="btn-o btn-sm" disabled={saving||newEndDate<=placement.endDate} onClick={()=>run(()=>extendPlacement(placement.id,newEndDate))}>Extend</button>
+              </div>
+            </div>
+
+            <div className="modal-field">
+              <label className="modal-label">Reassign to a different HCA (from today)</label>
+              <div style={{display:"flex",gap:8}}>
+                <select className="modal-sel" value={newHcaId} onChange={e=>setNewHcaId(e.target.value)}>
+                  {hcaProfiles.filter(h=>h.status==="active").map(h=><option key={h.id} value={h.id}>{h.name} ({h.employeeId})</option>)}
+                </select>
+                <button className="btn-o btn-sm" disabled={saving||newHcaId===placement.hcaId} onClick={()=>run(()=>reassignPlacement(placement.id,newHcaId))}>Reassign</button>
+              </div>
+            </div>
+
+            <div className="modal-actions" style={{justifyContent:"space-between"}}>
+              <div style={{display:"flex",gap:8}}>
+                <button className="btn-danger btn-sm" disabled={saving} onClick={()=>{ if(confirm("End this placement today? Future scheduled shifts will be cancelled.")) run(()=>endPlacement(placement.id)); }}>End Today</button>
+                <button className="btn-danger btn-sm" disabled={saving} onClick={()=>{ if(confirm("Cancel this entire placement? All its scheduled shifts will be cancelled.")) run(()=>cancelPlacement(placement.id)); }}>Cancel Placement</button>
+              </div>
+              <button className="btn-o btn-sm" onClick={onClose}>Close</button>
+            </div>
+          </>
+        )}
+        {!isActive && (
+          <div className="modal-actions"><button className="btn-o btn-sm" onClick={onClose}>Close</button></div>
+        )}
+
+        {msg && <div style={{padding:"10px 14px",borderRadius:10,fontSize:13,marginTop:12,background:msg.startsWith("✓")?"rgba(0,74,153,0.08)":"rgba(249,112,102,0.08)",border:msg.startsWith("✓")?"1px solid rgba(0,74,153,0.2)":"1px solid rgba(249,112,102,0.25)",color:msg.startsWith("✓")?"var(--mint)":"var(--coral)"}}>{msg}</div>}
       </div>
     </div>
   );
@@ -1557,6 +1759,8 @@ export default function AdminDashboard() {
   const [editClientModal,setEditClientModal] = useState(null);
   const [addEvent,       setAddEvent]       = useState(null);
   const [addShift,       setAddShift]       = useState(null); // date string | true
+  const [placementModal, setPlacementModal] = useState(null); // {} for new, or {prefill} or existing placement to edit
+  const [placementDetail,setPlacementDetail]= useState(null); // placement being extended/reassigned/ended
 
   // Calendar state
   const today = new Date();
@@ -1564,6 +1768,8 @@ export default function AdminDashboard() {
   const [calMonth,     setCalMonth]     = useState(today.getMonth());
   const [calFilter,    setCalFilter]    = useState("all"); // all|shifts|events|hcaId
   const [calHcaFilter, setCalHcaFilter] = useState("");
+  const [calSubTab,    setCalSubTab]    = useState("placements"); // placements|calendar
+  const [placements,   setPlacements]   = useState([]);
 
   // RBAC state
   const [rbacRules,    setRbacRules]    = useState({});
@@ -1620,7 +1826,7 @@ export default function AdminDashboard() {
   const [editingLessons,   setEditingLessons]   = useState([]);
 
   const refresh = useCallback(async () => {
-    const [clients, apps, profiles, invoices, shifts, events, activity, rbac, anns, nls, cardex, pc, discounts, emailRows] = await Promise.all([
+    const [clients, apps, profiles, invoices, shifts, events, activity, rbac, anns, nls, cardex, pc, discounts, emailRows, placements] = await Promise.all([
       getAllClients(),
       getAllHcaApplications().then(r => { setAppsLoadError(""); return r; }).catch(e => { setAppsLoadError(e.message || "Failed to load applications."); return []; }),
       getAllHcaProfiles().then(r => { setHcaProfilesLoadError(""); return r; }).catch(e => { setHcaProfilesLoadError(e.message || "Failed to load HCA profiles."); return []; }),
@@ -1628,12 +1834,14 @@ export default function AdminDashboard() {
       getAllShifts(), getAllCalendarEvents(), getActivityLog(), getRbacRules(),
       getAllAnnouncements(), getAllNewsletters(), getAllCardexEntries(), getPricingConfig(), getAllDiscountCodes(),
       getAllEmails().then(r => { setEmailsLoadError(""); return r; }).catch(e => { setEmailsLoadError(e.message || "Failed to load messages."); return []; }),
+      getAllPlacements().catch(() => []),
     ]);
     setEmails(emailRows);
     setClients(clients);
     setHcaApps(apps);
     setHcaProfiles(profiles);
     setInvoices(invoices);
+    setPlacements(placements);
     setShifts(shifts);
     setEvents(events);
     setActivity(activity.slice(0, 20));
@@ -1869,6 +2077,7 @@ export default function AdminDashboard() {
           hcaProfiles={hcaProfiles}
           onClose={() => setClientModal(null)}
           onRefresh={refresh}
+          onOpenPlacement={(c)=>setPlacementModal({clientId:c.id})}
         />
       )}
       {hcaModal && (
@@ -1914,6 +2123,24 @@ export default function AdminDashboard() {
           clients={clients}
           hcaProfiles={hcaProfiles}
           onClose={() => setAddShift(null)}
+          onRefresh={refresh}
+        />
+      )}
+      {placementModal && (
+        <CreatePlacementModal
+          clients={clients}
+          hcaProfiles={hcaProfiles}
+          prefill={placementModal}
+          onClose={() => setPlacementModal(null)}
+          onRefresh={refresh}
+        />
+      )}
+      {placementDetail && (
+        <PlacementDetailModal
+          placement={placementDetail}
+          clients={clients}
+          hcaProfiles={hcaProfiles}
+          onClose={() => setPlacementDetail(null)}
           onRefresh={refresh}
         />
       )}
@@ -2694,8 +2921,108 @@ export default function AdminDashboard() {
                   return true;
                 });
 
+                const pendingHcaRequests = clients.filter(c => c.requestedHcaId);
+                const pendingOffDayRequests = emails.filter(e => e.origin === "hca_off_day_request" && !e.metadata?.actioned);
+
                 return (
                   <div>
+                    <div className="cal-subtabs" style={{display:"flex",gap:8,marginBottom:16}}>
+                      <button className={`filter-chip${calSubTab==="placements"?" active":""}`} onClick={()=>setCalSubTab("placements")}>🤝 Placements{pendingHcaRequests.length+pendingOffDayRequests.length>0?` (${pendingHcaRequests.length+pendingOffDayRequests.length})`:""}</button>
+                      <button className={`filter-chip${calSubTab==="calendar"?" active":""}`} onClick={()=>setCalSubTab("calendar")}>📅 Calendar</button>
+                    </div>
+
+                    {calSubTab === "placements" && (
+                      <div>
+                        {pendingHcaRequests.length > 0 && (
+                          <div className="panel" style={{marginBottom:16,borderColor:"rgba(240,169,139,0.5)"}}>
+                            <div className="panel-head"><div className="panel-title">🙋 Client HCA Requests Pending Review</div></div>
+                            <div className="panel-body">
+                              {pendingHcaRequests.map(c=>{
+                                const requestedHca = hcaProfiles.find(h=>h.id===c.requestedHcaId);
+                                return (
+                                  <div key={c.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:"1px solid rgba(168,0,64,0.07)",flexWrap:"wrap"}}>
+                                    <div style={{flex:1,minWidth:200}}>
+                                      <div style={{fontSize:13,fontWeight:700}}>{c.name} → {requestedHca?.name||"Unknown HCA"}</div>
+                                      <div style={{fontSize:11,color:"var(--muted)",fontFamily:"var(--mono)",marginTop:2}}>Requested {fmtShort(c.requestedHcaAt)}{c.requestedHcaNotes?` · "${c.requestedHcaNotes}"`:""}</div>
+                                    </div>
+                                    <button className="btn-p btn-sm" onClick={()=>setPlacementModal({clientId:c.id,hcaId:c.requestedHcaId,notes:c.requestedHcaNotes||""})}>Approve & Place</button>
+                                    <button className="btn-o btn-sm" onClick={async ()=>{ await updateClient(c.id,{requestedHcaId:null,requestedHcaNotes:null}); await refresh(); }}>Decline</button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {pendingOffDayRequests.length > 0 && (
+                          <div className="panel" style={{marginBottom:16,borderColor:"rgba(240,169,139,0.5)"}}>
+                            <div className="panel-head"><div className="panel-title">🌴 Off-Day Requests Pending Review</div></div>
+                            <div className="panel-body">
+                              {pendingOffDayRequests.map(e=>{
+                                const requestingHca = hcaProfiles.find(h=>h.id===e.relatedHcaId);
+                                const { fromDate, toDate, reason } = e.metadata || {};
+                                return (
+                                  <div key={e.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:"1px solid rgba(168,0,64,0.07)",flexWrap:"wrap"}}>
+                                    <div style={{flex:1,minWidth:200}}>
+                                      <div style={{fontSize:13,fontWeight:700}}>{requestingHca?.name||e.fromName||"HCA"}{fromDate?` · ${fromDate} → ${toDate}`:""}</div>
+                                      <div style={{fontSize:11,color:"var(--muted)",fontFamily:"var(--mono)",marginTop:2}}>{reason||e.bodyText||"—"}</div>
+                                    </div>
+                                    <button className="btn-p btn-sm" onClick={async ()=>{
+                                      try{
+                                        if (fromDate && toDate && e.relatedHcaId) {
+                                          const conflicts = await getHcaScheduleConflicts(e.relatedHcaId, fromDate, toDate, "live-in");
+                                          const shiftConflictDays = Object.keys(conflicts).filter(d=>conflicts[d].some(c=>c.kind==="shift"));
+                                          if (shiftConflictDays.length && !confirm(`This HCA already has shifts scheduled on ${shiftConflictDays.length} day(s) in this range (starting ${shiftConflictDays[0]}). Approve the off-day anyway? You'll need to reassign those shifts separately.`)) return;
+                                        }
+                                        await approveOffDayRequest(e.id);
+                                        await refresh();
+                                      }catch(err){ alert(err.message); }
+                                    }}>Approve</button>
+                                    <button className="btn-o btn-sm" onClick={async ()=>{ await declineOffDayRequest(e.id); await refresh(); }}>Decline</button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="panel">
+                          <div className="panel-head"><div className="panel-title">All Placements</div><button className="btn-p btn-sm" onClick={()=>setPlacementModal({})}>+ New Placement</button></div>
+                          <div className="panel-body">
+                            {placements.length === 0 ? (
+                              <div style={{textAlign:"center",padding:"32px 0",color:"var(--muted)",fontSize:13}}>No placements yet. Click &quot;New Placement&quot; to assign an HCA to a client.</div>
+                            ) : (
+                              <div className="dash-table-wrap">
+                                <table className="dash-table">
+                                  <thead><tr><th>Client</th><th>Patient</th><th>HCA</th><th>Dates</th><th>Shift</th><th>Status</th><th>Actions</th></tr></thead>
+                                  <tbody>
+                                    {placements.slice().sort((a,b)=>b.createdAt<a.createdAt?-1:1).map(p=>{
+                                      const c = clients.find(x=>x.id===p.clientId);
+                                      const pat = c?.patients?.find(x=>x.id===p.patientId);
+                                      const h = hcaProfiles.find(x=>x.id===p.hcaId);
+                                      return (
+                                        <tr key={p.id}>
+                                          <td style={{fontWeight:600}}>{c?.name||"—"}</td>
+                                          <td>{pat?.name||"General"}</td>
+                                          <td>{h?.name||"—"}</td>
+                                          <td style={{fontFamily:"var(--mono)",fontSize:11}}>{p.startDate} → {p.endDate}</td>
+                                          <td><span className="badge badge-gold">{p.shiftType}</span></td>
+                                          <td><span className={`badge ${p.status==="active"?"badge-mint":p.status==="ended"?"badge-dim":"badge-coral"}`}>{p.status}</span></td>
+                                          <td><button className="btn-o btn-sm" onClick={()=>setPlacementDetail(p)}>Manage</button></td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {calSubTab === "calendar" && (
+                    <>
                     <div className="panel">
                       <div className="panel-body">
                         {/* Nav */}
@@ -2858,6 +3185,8 @@ export default function AdminDashboard() {
                           })}
                         </div>
                       </div>
+                    )}
+                    </>
                     )}
                   </div>
                 );
