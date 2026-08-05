@@ -1770,6 +1770,7 @@ export default function AdminDashboard() {
   const [calFilter,    setCalFilter]    = useState("all"); // all|shifts|events|hcaId
   const [calHcaFilter, setCalHcaFilter] = useState("");
   const [calSubTab,    setCalSubTab]    = useState("placements"); // placements|calendar
+  const [calLoadError, setCalLoadError] = useState("");
   const [placements,   setPlacements]   = useState([]);
 
   // RBAC state
@@ -1936,7 +1937,9 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (!authed) return;
-    getCalendarItemsForMonth(calYear, calMonth).then(setCalItems);
+    getCalendarItemsForMonth(calYear, calMonth)
+      .then(items => { setCalItems(items); setCalLoadError(""); })
+      .catch(e => { setCalItems([]); setCalLoadError(e.message || "Failed to load calendar items."); });
   }, [authed, calYear, calMonth]);
 
   useEffect(() => {
@@ -2915,10 +2918,13 @@ export default function AdminDashboard() {
 
             {/* ── CALENDAR / HR ── */}
             {tab==="calendar" && (() => {
+                // The type filter and the HCA filter compose. They used to
+                // early-return, so picking "HCA Shifts" silently discarded any
+                // HCA selection instead of narrowing to that HCA's shifts.
                 const filteredItems = calItems.filter(item => {
-                  if (calFilter === "shifts") return item.source === "shift";
-                  if (calFilter === "events") return item.source === "event";
-                  if (calHcaFilter) return item.hcaId === calHcaFilter;
+                  if (calFilter === "shifts" && item.source !== "shift") return false;
+                  if (calFilter === "events" && item.source !== "event") return false;
+                  if (calHcaFilter && item.hcaId !== calHcaFilter) return false;
                   return true;
                 });
 
@@ -3024,7 +3030,18 @@ export default function AdminDashboard() {
 
                     {calSubTab === "calendar" && (
                     <>
-                    <div className="panel">
+                    {calLoadError && (
+                      <div className="panel" style={{marginBottom:16,borderColor:"rgba(249,112,102,0.5)",background:"rgba(249,112,102,0.05)"}}>
+                        <div className="panel-body">
+                          <div style={{fontWeight:700,fontSize:14,color:"var(--coral)",marginBottom:6}}>⚠ Could not load calendar items</div>
+                          <div style={{fontSize:12,color:"var(--muted)",lineHeight:1.6}}>
+                            Error: <span style={{fontFamily:"var(--mono)"}}>{calLoadError}</span><br/>
+                            The month grid below will be empty until this is resolved. The HCA Schedule Summary further down reads a different query, so it may still show shifts that the grid does not.
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div className="panel" id="admin-calendar-panel">
                       <div className="panel-body">
                         {/* Nav */}
                         <div className="cal-nav">
@@ -3044,14 +3061,21 @@ export default function AdminDashboard() {
                           <span className="cal-filter-lbl">SHOW:</span>
                           {[["all","All"],["shifts","HCA Shifts"],["events","Events"]].map(([k,l])=>(
                             <button key={k} className={`filter-chip${calFilter===k?" active":""}`}
-                              onClick={()=>{setCalFilter(k);setCalHcaFilter("");}}>{l}</button>
+                              onClick={()=>setCalFilter(k)}>{l}</button>
                           ))}
                           <select style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(168,0,64,0.18)",borderRadius:8,padding:"5px 10px",color:"var(--text)",fontSize:12,fontFamily:"var(--mono)",outline:"none"}}
-                            value={calHcaFilter} onChange={e=>{setCalHcaFilter(e.target.value);setCalFilter("all");}}>
+                            value={calHcaFilter} onChange={e=>setCalHcaFilter(e.target.value)}>
                             <option value="">All HCAs</option>
                             {hcaProfiles.filter(h=>h.status==="active").map(h=><option key={h.id} value={h.id}>{h.name}</option>)}
                           </select>
                         </div>
+
+                        {calHcaFilter && (
+                          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",padding:"8px 12px",marginBottom:12,borderRadius:10,background:"rgba(0,74,153,0.06)",border:"1px solid rgba(0,74,153,0.18)",fontSize:12}}>
+                            <span>🔍 Showing only <strong>{hcaProfiles.find(h=>h.id===calHcaFilter)?.name || "this HCA"}</strong> — {filteredItems.length} item{filteredItems.length!==1?"s":""} this month.</span>
+                            <button className="btn-o btn-sm" style={{marginLeft:"auto"}} onClick={()=>setCalHcaFilter("")}>✕ Clear filter</button>
+                          </div>
+                        )}
 
                         {/* Legend */}
                         <div className="cal-legend">
@@ -3180,7 +3204,13 @@ export default function AdminDashboard() {
                                   {done>0&&<span className="badge badge-mint">{done} done</span>}
                                   {scheduled>0&&<span className="badge badge-sky">{scheduled} upcoming</span>}
                                 </div>
-                                <button className="btn-o btn-sm" onClick={()=>{setCalHcaFilter(hca.id);setCalFilter("all");}}>View</button>
+                                <button className="btn-o btn-sm" onClick={()=>{
+                                  setCalHcaFilter(hca.id);
+                                  setCalFilter("all");
+                                  // The calendar sits above this summary, so without
+                                  // scrolling the filter appears to do nothing at all.
+                                  document.getElementById("admin-calendar-panel")?.scrollIntoView({ behavior:"smooth", block:"start" });
+                                }}>View</button>
                               </div>
                             );
                           })}
