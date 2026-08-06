@@ -99,6 +99,7 @@ import {
   declineOffDayRequest,
 } from "../../lib/store";
 import { toIso, todayIso } from "../../lib/scheduling";
+import CardexView from "../../components/CardexView";
 
 const CSS = `
   .quality-bar { height:8px; border-radius:100px; background:rgba(255,255,255,0.08); overflow:hidden; margin-top:6px; }
@@ -2977,11 +2978,17 @@ export default function AdminDashboard() {
                           </div>
                           {expanded && (
                             <div style={{padding:"12px 14px 14px 56px",background:"rgba(0,0,0,0.12)",borderRadius:10,marginBottom:8}}>
-                              {entry.vitalSigns&&<div style={{fontSize:12,color:"var(--muted)",marginBottom:8}}><strong style={{color:"var(--text)"}}>Vitals: </strong>{entry.vitalSigns.bp&&`BP: ${entry.vitalSigns.bp}  `}{entry.vitalSigns.pulse&&`Pulse: ${entry.vitalSigns.pulse}  `}{entry.vitalSigns.temp&&`Temp: ${entry.vitalSigns.temp}`}</div>}
-                              {entry.notes&&<div style={{fontSize:12,color:"var(--muted)",marginBottom:10}}><strong style={{color:"var(--text)"}}>Notes: </strong>{entry.notes}</div>}
-                              {(entry.qaComments||[]).map(c2=>(
-                                <div key={c2.id} className="cqa-comment"><strong>{c2.adminId}</strong>: {c2.comment}{c2.flagged&&" 🚩"}<span style={{float:"right",fontFamily:"var(--mono)",fontSize:10,color:"var(--muted)"}}>{new Date(c2.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span></div>
-                              ))}
+                              {/* Was reading entry.vitalSigns / entry.notes / .bp — none of
+                                  which the mapper produces, so this panel rendered nothing
+                                  while still letting reviewers flag and comment. Now uses the
+                                  shared renderer, which also combines bpSys/bpDia correctly. */}
+                              <CardexView
+                                entry={entry}
+                                audience="admin"
+                                hcaName={hca?.name}
+                                patientName={client2?.patients?.find(p=>p.id===entry.patientId)?.name}
+                                compact
+                              />
                               <div style={{marginTop:10,display:"flex",gap:8,alignItems:"flex-end"}}>
                                 <textarea className="modal-input" style={{flex:1,resize:"vertical",minHeight:48,fontSize:12}} placeholder="Add QA comment..." value={qa.comment} onChange={e=>setQaInputs(p=>({...p,[entry.id]:{...qa,comment:e.target.value}}))} />
                                 <div style={{display:"flex",flexDirection:"column",gap:6}}>

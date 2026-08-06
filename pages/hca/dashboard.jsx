@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { DASH_BASE } from "../../components/SharedStyles";
+import CardexView from "../../components/CardexView";
 import {
   getHcaSession,
   getHcaProfileById,
@@ -403,7 +404,73 @@ export default function HCADashboard() {
     setClockState("in"); setClockStart(Date.now()); setTab("cardex"); setCardexOpen(true);
   }
 
-  function saveDraft() { setSavedAt(new Date().toLocaleTimeString("en-KE",{hour:"2-digit",minute:"2-digit"})); }
+  // ── Cardex draft persistence ───────────────────────────────────────────────
+  // saveDraft() used to only set a timestamp string — the footer promised
+  // "auto-saves every 5 minutes" while nothing was written anywhere, so a
+  // refresh or a dead battery discarded a form filled in across a 12-hour
+  // shift. Drafts are per-HCA and stay on the HCA's own device.
+  const draftKey = hcaProfile?.id ? `evive_cardex_draft_${hcaProfile.id}` : null;
+
+  // The draft payload lives in a ref as well as state. The autosave interval
+  // reads the ref, so its effect does NOT depend on the form contents — if it
+  // did, every keystroke would tear down and restart the timer and the
+  // five-minute save would never fire while someone was actually typing,
+  // which is the exact case it exists for. Do not "simplify" this away.
+  const draftRef = useRef(null);
+  draftRef.current = {
+    vitals, meds, intakes, nutrition, hygiene, mobility, elimination,
+    mentalSt, incidents, handover, shiftRating, welfareNote, checks, flags,
+  };
+
+  const writeDraft = useCallback(() => {
+    if (!draftKey || typeof window === "undefined") return false;
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({ savedAt: new Date().toISOString(), data: draftRef.current }));
+      setSavedAt(new Date().toLocaleTimeString("en-KE",{hour:"2-digit",minute:"2-digit"}));
+      return true;
+    } catch { return false; }   // quota / private mode — never block the shift
+  }, [draftKey]);
+
+  function clearDraft() {
+    if (draftKey && typeof window !== "undefined") localStorage.removeItem(draftKey);
+  }
+
+  function saveDraft() { writeDraft(); }
+
+  // Restore once the profile is known (draftKey depends on it).
+  const draftRestored = useRef(false);
+  useEffect(() => {
+    if (!draftKey || draftRestored.current || typeof window === "undefined") return;
+    draftRestored.current = true;
+    let saved;
+    try { saved = JSON.parse(localStorage.getItem(draftKey) || "null"); } catch { return; }
+    const d = saved?.data;
+    if (!d) return;
+    if (d.vitals)      setVitals(d.vitals);
+    if (d.meds)        setMeds(d.meds);
+    if (d.intakes)     setIntakes(d.intakes);
+    if (d.nutrition)   setNutrition(d.nutrition);
+    if (d.hygiene)     setHygiene(d.hygiene);
+    if (d.mobility)    setMobility(d.mobility);
+    if (d.elimination) setElim(d.elimination);
+    if (d.mentalSt)    setMentalSt(d.mentalSt);
+    if (d.incidents)   setIncidents(d.incidents);
+    if (d.handover)    setHandover(d.handover);
+    if (d.shiftRating) setShiftRating(d.shiftRating);
+    if (d.welfareNote) setWelfareNote(d.welfareNote);
+    if (Array.isArray(d.checks)) setChecks(d.checks);
+    if (Array.isArray(d.flags))  setFlags(d.flags);
+    if (saved.savedAt) setSavedAt(new Date(saved.savedAt).toLocaleTimeString("en-KE",{hour:"2-digit",minute:"2-digit"}));
+  }, [draftKey]);
+
+  // Autosave every 5 minutes while clocked in. Depends only on writeDraft
+  // (stable) and clockState — never on the form data. See the ref note above.
+  useEffect(() => {
+    if (clockState !== "in" || !draftKey) return;
+    const id = setInterval(writeDraft, 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [clockState, draftKey, writeDraft]);
+
 
   const SHIFT_HOURS = 12;
   const shiftElapsedMs   = clockStart ? Date.now() - clockStart : 0;
@@ -443,6 +510,7 @@ export default function HCADashboard() {
           await clockOutHca(hcaProfile.id, currentShiftId);
         }
         setCurrentShiftId(null);
+        clearDraft();   // clinical data must not linger after submission
         setCardexLog(await getCardexByHca(hcaProfile.id));
         setLiveShifts(await getShiftsByHca(hcaProfile.id));
       } catch(e) { console.error("Cardex save error:", e); }
@@ -484,6 +552,7 @@ export default function HCADashboard() {
     setGpsLat(null); setGpsLng(null); setGpsLabel("");
   }
   function logout() {
+    clearDraft();   // never leave clinical data on a shared device
     clearHcaSession();
     if (typeof window !== "undefined") {
       localStorage.removeItem("hca_auth");
@@ -1342,53 +1411,16 @@ export default function HCADashboard() {
         <div className="cx-view-bg" onClick={e => e.target === e.currentTarget && setViewCardex(null)}>
           <div className="cx-view-box">
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
-              <div>
-                <div style={{fontFamily:"var(--serif)",fontSize:18,fontWeight:700}}>Cardex — {viewCardex.date?new Date(viewCardex.date).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric"}):"—"}</div>
-                <div style={{fontSize:12,color:"var(--muted)",fontFamily:"var(--mono)",marginTop:3}}>Submitted {viewCardex.submittedAt?new Date(viewCardex.submittedAt).toLocaleString("en-GB"):"—"}</div>
+              <div style={{fontFamily:"var(--serif)",fontSize:18,fontWeight:700}}>
+                Cardex — {viewCardex.date?new Date(viewCardex.date).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric"}):"—"}
               </div>
               <button className="btn-o btn-sm" onClick={()=>setViewCardex(null)}>✕ Close</button>
             </div>
-
-            <div className="cx-view-section">
-              <div className="cs-title">🩺 Vital Signs</div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
-                {Object.entries(viewCardex.vitals||{}).map(([k,v])=>(
-                  <div key={k} style={{fontSize:13}}><span style={{color:"var(--muted)",fontFamily:"var(--mono)",fontSize:11}}>{k}: </span>{v||"—"}</div>
-                ))}
-              </div>
-            </div>
-
-            {(viewCardex.medications||[]).length>0 && (
-              <div className="cx-view-section">
-                <div className="cs-title">💊 Medications</div>
-                {viewCardex.medications.map((m,i)=>(
-                  <div key={i} style={{fontSize:13,marginBottom:4}}>{m.time} — {m.drug} {m.dose} ({m.route}){m.notes?` · ${m.notes}`:""}</div>
-                ))}
-              </div>
-            )}
-
-            {viewCardex.incidents && (
-              <div className="cx-view-section">
-                <div className="cs-title">⚠️ Incidents & Observations</div>
-                <div style={{fontSize:13,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{viewCardex.incidents}</div>
-              </div>
-            )}
-
-            {viewCardex.handover && (
-              <div className="cx-view-section">
-                <div className="cs-title">🤝 Handover Notes</div>
-                <div style={{fontSize:13,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{viewCardex.handover}</div>
-              </div>
-            )}
-
-            <div className="cx-view-section" style={{marginBottom:0}}>
-              <div className="cs-title">✅ Special Needs Checklist</div>
-              {(viewCardex.specialNeedsChecks||[]).length===0 ? (
-                <div style={{fontSize:13,color:"var(--muted)"}}>None recorded.</div>
-              ) : viewCardex.specialNeedsChecks.map((c,i)=>(
-                <div key={i} style={{fontSize:13,marginBottom:4}}>{c.done?"✓":c.flagged?"🚩":"○"} {c.need}</div>
-              ))}
-            </div>
+            <CardexView
+              entry={viewCardex}
+              audience="hca"
+              patientName={patientNameForShift({ clientId: viewCardex.clientId, patientId: viewCardex.patientId })}
+            />
           </div>
         </div>
       )}
