@@ -202,6 +202,13 @@ export default function ClientRegister() {
       }
       if (client) {
         setClientSession(client);
+        // Also establish a server-verified session cookie. The localStorage
+        // copy stays for existing UI code, but only the cookie is trusted by
+        // the API routes that serve Cardex data.
+        await fetch("/api/auth/login", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "client", identifier: emailId, password }),
+        }).catch(() => {});
         router.push(redirectTarget());
         return;
       }

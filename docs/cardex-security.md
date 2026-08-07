@@ -1,18 +1,23 @@
-# Cardex security — current state and what blocks the client-facing features
-
-Status as of this commit. Read before building the client Care Reports tab,
-the notification emails, or the doctor-sharing flow.
+# Cardex security — architecture and residual risk
 
 ## Summary
 
-The field-classification foundation (`lib/cardexAccess.js`) is in place and
-tested. The **enforcement** foundation is not, and cannot be built without
-first replacing the authentication model. Until that happens, no Cardex data
-should be exposed to a client-facing surface.
+Enforcement now exists. Cardex data is served only by API routes that derive
+identity from an **HMAC-signed HttpOnly session cookie**, query with the
+service-role key, and select an explicit column list from
+`lib/cardexAccess.js`. RLS denies the public anon key on the Cardex tables
+outright, so the browser cannot reach them directly.
 
-## Why authorisation cannot currently be enforced
+**Two environment variables are required** or every Cardex route returns 503:
 
-Three facts about this codebase, each verified:
+    SUPABASE_SERVICE_ROLE_KEY   Supabase → Settings → API → service_role
+    SESSION_SECRET              node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+
+Neither may be prefixed `NEXT_PUBLIC_`.
+
+## What the previous model looked like (and why it had to change)
+
+Three facts, each verified before the change:
 
 **1. Sessions are unsigned localStorage JSON.**
 
@@ -49,55 +54,54 @@ No `SUPABASE_SERVICE_ROLE_KEY` exists in the repo or in the environment
 template. Every query — browser and API route alike — uses the same public
 anon key, which is embedded in the client bundle.
 
-### What this means
+## How it works now
 
-The brief's §0 rule 3 is *"Never derive identity from the request."* With the
-model above, an API route has **nothing else to derive identity from**. The
-browser would have to send either the client id or the forgeable session blob.
-Adding `/api/cardex?clientId=…` would be precisely the vulnerability the brief
-warns against, wearing the costume of a fix.
-
-RLS alone does not rescue this either: with no authenticated role, a policy can
-only be "allow anon" (no protection) or "deny anon" (breaks the whole app,
-since every existing feature reads through the anon key from the browser).
-
-## What has to happen first
-
-Roughly in order:
-
-1. **Server-verifiable sessions.** On login, an API route verifies credentials
-   server-side and sets an **HttpOnly, Secure, SameSite** signed cookie
-   (signed with a server-only secret). API routes read identity from that
-   cookie. This is the smallest change that makes §2.4 possible and does not
-   require adopting Supabase Auth wholesale.
-2. **A service-role key**, added as a Vercel environment variable and used
-   **only** in API routes — never imported into anything that reaches the
-   browser bundle.
-3. **RLS on `cardex_entries`** (and `shifts`, `placements`, `clients`,
-   `hca_profiles`) that denies the anon role outright for Cardex, forcing all
-   access through server routes that carry the verified identity.
-4. **Column-level restriction** via a view or security-definer function, since
-   RLS is row-level only.
-5. Re-point existing browser-side reads (`getCardexByHca`, etc.) at the new
-   server routes before the anon role is locked out, or they will break.
-
-Steps 1–2 need decisions and credentials from the product owner, and step 3
-cannot be validated from a sandbox without database access.
+1. **Login** (`/api/auth/login`) verifies credentials server-side with the
+   service-role key and issues a signed HttpOnly cookie. The browser can
+   present it but cannot read or forge it.
+2. **Every Cardex route** calls `getSession(req)`, which reads *only* that
+   cookie. No route accepts a client id from the query string, body or a
+   header.
+3. **Queries** use `cardexColumnsFor(audience)` — `welfare_note`,
+   `shift_rating`, `qa_comments` and `flagged` are never requested on a
+   client-facing path, so they cannot appear in a response.
+4. **Responses** are redacted again with `redactCardexFor` (defence in depth).
+5. **RLS** (migration 0009) enables row level security with no anon policies
+   on `cardex_entries`, `cardex_shares`, `cardex_share_recipients`,
+   `cardex_share_audit`, `cardex_notify_prefs`, `platform_settings` and
+   `admin_users` — default deny. Only the service role reaches them.
 
 ## Passwords
 
-Related, and worth fixing in the same pass: client and HCA passwords are
-compared as plain values against a `password` column, and the admin password is
-compared against a SHA-256 hash **in browser-side code**. SHA-256 is not a
-password hash. Any real auth work should move to bcrypt/argon2 server-side.
+Now scrypt (`node:crypto`, no new dependency), salted per user. Legacy
+plaintext rows still verify once and are transparently upgraded to scrypt on
+the next successful login, so no flag-day reset is needed. `password_algo`
+tracks which rows have migrated.
 
-## Honest scope of what is protected today
+The old admin path — a SHA-256 hash compared in **browser** code — remains as
+a fallback only until an `admin_users` row exists. Create one and remove
+`NEXT_PUBLIC_ADMIN_HASH`; SHA-256 is not a password hash and a client-side
+comparison gates nothing.
 
-`lib/cardexAccess.js` + `components/CardexView.jsx` guarantee that **the code
-paths that exist** request and render only the fields an audience should see,
-and fail closed on unknown fields or unknown audiences. That is real and
-tested (`lib/cardexAccess.test.mjs`, 16 cases).
+## Residual risk — read this
 
-They do **not** — and cannot, alone — prevent a determined user from querying
-`cardex_entries` directly with the public anon key. That gap closes only with
-the work listed above.
+- **Not verified at runtime.** None of this was exercised against a live
+  database or a browser. The logic is unit-tested; the deployment is not.
+- **The localStorage session still exists.** Existing UI reads it for display,
+  and it is still forgeable — but it no longer grants access to Cardex data,
+  because the API routes ignore it entirely. It should be removed once every
+  read path is server-side.
+- **Other tables remain anon-readable.** `clients`, `hca_profiles`, `shifts`
+  and the rest are still queried directly from the browser with the anon key.
+  Cardex is protected; the wider application is not yet. Locking those down
+  means routing their reads through API routes too.
+- **Share links are bearer tokens.** Anyone holding the URL (and the access
+  code, when enabled) can read the report until it expires or is revoked.
+  That is inherent to emailed links; expiry, revocation, per-recipient tokens
+  and the audit log limit the blast radius rather than eliminate it.
+- **No rate limiting on login.** Brute-forcing a weak password is not
+  currently slowed server-side.
+
+This defends against forged identity, field over-disclosure, direct table
+access with the public key, and unaudited sharing. It does not make the system
+uncompromisable, and it should not be described that way.

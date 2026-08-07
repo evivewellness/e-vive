@@ -100,6 +100,7 @@ import {
 } from "../../lib/store";
 import { toIso, todayIso } from "../../lib/scheduling";
 import CardexView from "../../components/CardexView";
+import PlatformSettingsPanel from "../../components/PlatformSettingsPanel";
 
 const CSS = `
   .quality-bar { height:8px; border-radius:100px; background:rgba(255,255,255,0.08); overflow:hidden; margin-top:6px; }
@@ -3601,7 +3602,10 @@ export default function AdminDashboard() {
             {/* ── SETTINGS / RBAC ── */}
             {tab==="settings" && (
               <div>
-                <div style={{marginBottom:20,fontWeight:700,fontSize:16}}>Access Control &amp; Permissions (RBAC)</div>
+                <div style={{marginBottom:20,fontWeight:700,fontSize:16}}>Platform Policy</div>
+                <PlatformSettingsPanel />
+
+                <div style={{margin:"28px 0 20px",fontWeight:700,fontSize:16}}>Access Control &amp; Permissions (RBAC)</div>
 
                 {/* Role reference table */}
                 <div className="panel" style={{marginBottom:18}}>

@@ -99,6 +99,23 @@ export default function AdminLogin() {
     setLoading(true);
     try {
       const emailNorm = email.trim().toLowerCase();
+
+      // Preferred path: verify server-side against admin_users and receive a
+      // signed HttpOnly cookie. The legacy fallback below compares a SHA-256
+      // hash in browser code, which is not a password hash and cannot gate
+      // anything server-side — it remains only so existing deployments keep
+      // working until an admin_users row exists.
+      const res = await fetch("/api/auth/login", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: "admin", identifier: emailNorm, password }),
+      }).catch(() => null);
+      if (res && res.ok) {
+        const { session } = await res.json();
+        setAdminSession({ id: session.id, name: session.name || "Administrator", role: session.role || "super_admin" });
+        router.replace("/admin/dashboard");
+        return;
+      }
+
       const hash = await sha256hex(password);
       const emailOk = emailNorm === CORRECT_EMAIL;
       const passOk  = hash === CORRECT_HASH;

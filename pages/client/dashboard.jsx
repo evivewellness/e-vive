@@ -31,6 +31,8 @@ import {
   JOURNEY_LABELS,
 } from "../../lib/store";
 import { todayIso } from "../../lib/scheduling";
+import CareReports from "../../components/CareReports";
+import ShareReportModal from "../../components/ShareReportModal";
 
 const CSS = `
   /* Journey tracker */
@@ -180,6 +182,7 @@ const NAV_ITEMS = [
   { icon:"📊", label:"Overview",      key:"overview"   },
   { icon:"👥", label:"Patients",      key:"patients"   },
   { icon:"🤝", label:"Your Care Team",key:"careteam"   },
+  { icon:"📋", label:"Care Reports",  key:"reports"    },
   { icon:"🩺", label:"Find a HCA",   key:"hcas"       },
   { icon:"💳", label:"Billing",       key:"billing"    },
   { icon:"📅", label:"Shift History", key:"shifts"     },
@@ -625,6 +628,8 @@ export default function ClientDashboard() {
   const [hcaProfiles, setHcaProfiles] = useState([]);
   const [placements,  setPlacements]  = useState([]);
   const [teamHcas,    setTeamHcas]    = useState({}); // id → full profile (with photo)
+  const [shareCtx,    setShareCtx]    = useState(null);
+  const [shareSettings, setShareSettings] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount,   setUnreadCount]   = useState(0);
 
@@ -797,6 +802,9 @@ export default function ClientDashboard() {
       )}
       {showTc && (
         <TcModal client={client} onClose={()=>setShowTc(false)} onAccepted={()=>{reload();setShowTc(false);}} />
+      )}
+      {shareCtx && (
+        <ShareReportModal context={shareCtx} settings={shareSettings} onClose={()=>setShareCtx(null)} />
       )}
       {requestHca && (
         <HcaRequestModal client={client} hca={requestHca} onClose={()=>setRequestHca(null)} onSaved={()=>reload()} />
@@ -1242,6 +1250,11 @@ export default function ClientDashboard() {
                 </>
               );
             })()}
+
+            {/* ── CARE REPORTS ── */}
+            {tab==="reports" && (
+              <CareReports onShare={(ctx)=>setShareCtx(ctx)} />
+            )}
 
             {/* ── FIND A HCA ── */}
             {tab==="hcas" && (

@@ -228,6 +228,10 @@ export default function HCALogin() {
         return;
       }
       setHcaSession(profile);
+      await fetch("/api/auth/login", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: "hca", identifier: empId, password: form.password }),
+      }).catch(() => {});
       if (typeof window !== "undefined") {
         localStorage.setItem("hca_auth", "true");
         localStorage.setItem("hca_id", profile.employeeId);
