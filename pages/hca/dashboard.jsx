@@ -24,6 +24,7 @@ import {
   HCA_JOURNEY_LABELS,
   getCalendarEventsByHca,
 } from "../../lib/store";
+import { acquireFix } from "../../lib/geoFix";
 
 const CSS = `
   /* Clock-in panel */
@@ -227,6 +228,9 @@ export default function HCADashboard() {
   const [gpsLabel,   setGpsLabel]   = useState("");
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsErr,     setGpsErr]     = useState("");
+  const [gpsFixing,  setGpsFixing]  = useState("");   // live accuracy while sampling
+  const [gpsNote,    setGpsNote]    = useState("");   // the server's verdict, in words
+  const [shiftPatient, setShiftPatient] = useState(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -345,63 +349,60 @@ export default function HCADashboard() {
     return clients.find(c => c.id === id)?.name || null;
   }
 
-  // Haversine distance in metres between two GPS points
-  function haversineM(lat1, lng1, lat2, lng2) {
-    const R = 6371000;
-    const dLat = (lat2-lat1)*Math.PI/180;
-    const dLng = (lng2-lng1)*Math.PI/180;
-    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  // ── Attendance ─────────────────────────────────────────────────────────────
+  // The phone's only job here is to obtain the best fix it can and report it,
+  // including how precise that fix is. Which patient this shift is for, where
+  // that patient's address actually is, how far away that is and whether that
+  // is close enough are all decided in /api/shifts/clock, from the signed
+  // session cookie. A distance check performed in the browser is a courtesy
+  // message, not a control — the page can be edited and the position spoofed
+  // from developer tools in seconds.
+
+  /** Acquire a fix, showing the accuracy tightening up while we wait, then let
+   *  the server rule on it. Returns the server's response, or throws. */
+  async function attend(action) {
+    setGpsErr("");
+    setGpsLoading(true);
+    setGpsFixing(action === "in" ? "Locating you…" : "Confirming your location…");
+
+    let fix;
+    try {
+      fix = await acquireFix({
+        onProgress: (best) => {
+          if (best) setGpsFixing(`Locating you… accurate to ±${Math.round(best.accuracyM)} m`);
+        },
+      });
+    } catch (e) {
+      setGpsLoading(false); setGpsFixing("");
+      setGpsErr(e.message || "Your location could not be read.");
+      throw e;
+    }
+
+    setGpsLat(fix.lat); setGpsLng(fix.lng);
+    setGpsLabel(`${fix.lat.toFixed(5)}, ${fix.lng.toFixed(5)} (±${Math.round(fix.accuracyM)} m)`);
+    setGpsFixing("");
+
+    try {
+      const result = action === "in" ? await clockInHca(fix) : await clockOutHca(fix);
+      setGpsLoading(false);
+      setGpsNote(result.message || "");
+      return result;
+    } catch (e) {
+      setGpsLoading(false);
+      setGpsErr(e.message || "Attendance could not be recorded.");
+      throw e;
+    }
   }
 
   async function clockIn() {
-    setGpsErr("");
+    if (gpsLoading) return;                    // one attempt at a time
+    let result;
+    try { result = await attend("in"); }
+    catch { return; }                          // message already shown
 
-    // Must have an active placement
-    if (!assignedClient) {
-      setGpsErr("You cannot clock in without an active placement. Contact your E-Vive coordinator.");
-      return;
-    }
-
-    setGpsLoading(true);
-    let lat = null, lng = null, label = "Location unavailable";
-    try {
-      const pos = await new Promise((res, rej) => {
-        if (!navigator?.geolocation) { rej(new Error("GPS not supported")); return; }
-        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 14000, enableHighAccuracy: true });
-      });
-      lat   = pos.coords.latitude;
-      lng   = pos.coords.longitude;
-      label = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-    } catch (e) {
-      setGpsLoading(false);
-      setGpsErr("GPS access denied or unavailable. Enable location permissions and try again.");
-      return;
-    }
-    setGpsLat(lat); setGpsLng(lng); setGpsLabel(label);
-    setGpsLoading(false);
-
-    // Enforce proximity to client premises (≤ 10 m)
-    const clientLat = assignedClient?.lat;
-    const clientLng = assignedClient?.lng;
-    if (clientLat && clientLng) {
-      const dist = haversineM(lat, lng, clientLat, clientLng);
-      if (dist > 10) {
-        setGpsErr(`You are ${Math.round(dist)} m from the client's premises. You must be within 10 m to clock in.`);
-        return;
-      }
-    }
-
-    try {
-      const pat = assignedClient?.patients?.[0];
-      const shift = await clockInHca(hcaProfile?.id || hcaId, {
-        clientId:  assignedClient?.id  || null,
-        patientId: pat?.id             || null,
-        lat, lng,
-      });
-      if (shift?.id) setCurrentShiftId(shift.id);
-      setLiveShifts(await getShiftsByHca(hcaProfile?.id || hcaId));
-    } catch(e) { console.error("Clock-in error:", e); }
+    if (result.shift?.id) setCurrentShiftId(result.shift.id);
+    if (result.patient)   setShiftPatient(result.patient);
+    try { setLiveShifts(await getShiftsByHca(hcaProfile?.id || hcaId)); } catch { /* display only */ }
 
     setClockState("in"); setClockStart(Date.now()); setTab("cardex"); setCardexOpen(true);
   }
@@ -488,7 +489,10 @@ export default function HCADashboard() {
     }
     if (hcaProfile?.id) {
       try {
-        const pat = assignedClient?.patients?.[0];
+        // The patient this shift is actually for, as resolved server-side at
+        // clock-in. Falling back to patients[0] files the record under the
+        // wrong person whenever an HCA serves more than one patient.
+        const pat = shiftPatient || assignedClient?.patients?.[0];
         await createCardexEntry({
           hcaId:     hcaProfile.id,
           clientId:  assignedClient?.id || null,
@@ -508,48 +512,41 @@ export default function HCADashboard() {
           welfareNote,
           specialNeedsChecks: specialNeeds.map((n,i)=>({ need:n, done:checks[i]||false, flagged:flags[i]||false })),
         });
-        if (currentShiftId) {
-          await clockOutHca(hcaProfile.id, currentShiftId);
-        }
         setCurrentShiftId(null);
         clearDraft();   // clinical data must not linger after submission
         setCardexLog(await getCardexByHca(hcaProfile.id));
         setLiveShifts(await getShiftsByHca(hcaProfile.id));
-      } catch(e) { console.error("Cardex save error:", e); }
+      } catch(e) {
+        // Do not pretend the shift was filed when it was not — the HCA would
+        // lose a full shift's clinical record and never know.
+        console.error("Cardex save error:", e);
+        alert("⚠ Your Cardex could not be submitted: " + (e.message || "please try again.") +
+              "\n\nYour entries have been kept on this device — do not close the page.");
+        return;
+      }
     }
     setClockState("submitted"); setTab("today");
+
+    // The Cardex is safely filed. Now close the shift, capturing where it
+    // ended — the clock-out position was previously never recorded at all.
+    // A refused fix here must not undo the submission: the clinical record
+    // stands and the HCA retries with "Complete Clock-Out".
+    try { await attend("out"); setCurrentShiftId(null); }
+    catch { /* message shown; shift stays in-progress for a retry */ }
+    try { setLiveShifts(await getShiftsByHca(hcaProfile.id)); } catch { /* display only */ }
   }
 
   async function clockOut() {
+    if (gpsLoading) return;
     if (!shiftComplete && clockStart) {
       alert(`⏱ Shift not yet complete. ${shiftRemainingH}h ${shiftRemainingM}m remaining. Please complete the full 12-hour shift before clocking out.`);
       return;
     }
-    // Enforce GPS proximity on clock-out (≤ 10 m)
-    const clientLat = assignedClient?.lat;
-    const clientLng = assignedClient?.lng;
-    if (clientLat && clientLng) {
-      setGpsLoading(true);
-      setGpsErr("");
-      try {
-        const pos = await new Promise((res, rej) => {
-          if (!navigator?.geolocation) { rej(new Error("GPS not supported")); return; }
-          navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 12000 });
-        });
-        const { latitude: lat, longitude: lng } = pos.coords;
-        const dist = haversineM(lat, lng, clientLat, clientLng);
-        if (dist > 10) {
-          setGpsErr(`You are ${Math.round(dist)} m from the client's premises. You must be within 10 m to clock out.`);
-          setGpsLoading(false);
-          return;
-        }
-      } catch {
-        setGpsErr("GPS access denied or unavailable. Enable location permissions and try again.");
-        setGpsLoading(false);
-        return;
-      }
-      setGpsLoading(false);
-    }
+    try { await attend("out"); }
+    catch { return; }
+
+    setCurrentShiftId(null);
+    try { setLiveShifts(await getShiftsByHca(hcaProfile?.id || hcaId)); } catch { /* display only */ }
     setClockState("out"); setClockStart(null); setCardexOpen(false);
     setGpsLat(null); setGpsLng(null); setGpsLabel("");
   }
@@ -799,16 +796,31 @@ export default function HCADashboard() {
                     </div>
                   )}
 
+                  {gpsFixing && (
+                    <div style={{background:"rgba(14,165,233,0.08)",border:"1px solid rgba(14,165,233,0.22)",borderRadius:10,padding:"10px 14px",fontSize:13,color:"var(--sky)",marginBottom:12,lineHeight:1.55}}>
+                      📡 {gpsFixing}
+                      <div style={{fontSize:11,color:"var(--muted)",marginTop:4}}>
+                        Hold still for a few seconds — the first reading is usually the least accurate.
+                      </div>
+                    </div>
+                  )}
+
                   {gpsErr && (
                     <div style={{background:"rgba(244,63,94,0.08)",border:"1px solid rgba(244,63,94,0.25)",borderRadius:10,padding:"10px 14px",fontSize:13,color:"var(--coral)",marginBottom:12,lineHeight:1.55}}>
                       ⚠ {gpsErr}
                     </div>
                   )}
 
+                  {!gpsErr && !gpsFixing && gpsNote && (
+                    <div style={{background:"rgba(0,74,153,0.07)",border:"1px solid rgba(0,74,153,0.18)",borderRadius:10,padding:"10px 14px",fontSize:13,color:"var(--mint)",marginBottom:12,lineHeight:1.55}}>
+                      ✓ {gpsNote}
+                    </div>
+                  )}
+
                   <div className="clockin-btns">
                     {clockState==="out" && (
                       <button className="btn-sky" style={{fontSize:15,padding:"12px 28px"}} onClick={clockIn} disabled={gpsLoading}>
-                        📍 {gpsLoading ? "Capturing GPS…" : "Clock In — GPS Location Confirm"}
+                        📍 {gpsLoading ? "Confirming location…" : "Clock In — GPS Location Confirm"}
                       </button>
                     )}
                     {clockState==="in" && (
@@ -842,7 +854,7 @@ export default function HCADashboard() {
 
                   {clockState==="out" && (
                     <div style={{marginTop:14,fontSize:12,color:"var(--muted)",lineHeight:1.6}}>
-                      📍 You must be <strong style={{color:"var(--amber)"}}>within 10 m</strong> of the client&apos;s address to clock in and clock out. GPS location is verified automatically. Shift starts <strong style={{color:"var(--text)"}}>07:00</strong>.
+                      📍 You must be <strong style={{color:"var(--amber)"}}>at the patient&apos;s address</strong> to clock in and clock out. Your location is checked automatically, and the check allows for how precise your phone&apos;s GPS is at the time — if the reading is too vague you&apos;ll be asked to try again rather than turned away. Shift starts <strong style={{color:"var(--text)"}}>07:00</strong>.
                     </div>
                   )}
                 </div>

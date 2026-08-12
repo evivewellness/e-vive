@@ -875,7 +875,7 @@ const [loading, setLoading] = useState(false);
 - Large live clock display (updates every second)
 - GPS-verified location badge
 - Patient name + care type display (from `client.assignedHcaId` linkage)
-- **Clock In** button: calls `clockInHca(hcaId, { clientId, patientId, lat, lng })`
+- **Clock In** button: acquires the best GPS fix available (`lib/geoFix.js`), then calls `clockInHca({ lat, lng, accuracyM })`, which POSTs `/api/shifts/clock`. The geofence is evaluated server-side against the **patient's** care address, allowing for the fix's own accuracy
   - Records ISO timestamp + GPS coordinates in Supabase `shifts` table
   - Sets shift status to `'in-progress'`
 - **Clock Out** button (shown when clocked in): calls `clockOutHca(hcaId, shiftId)`
@@ -1916,8 +1916,9 @@ All functions are exported from `lib/store.js`. All data functions are **async**
 | `getShiftsByClient` | `async (clientId) → Shift[]` | Filtered | |
 | `createShift` | `async (data) → Shift` | New shift | Sets status='scheduled' |
 | `updateShift` | `async (id, patch) → Shift` | Updated | |
-| `clockInHca` | `async (hcaId, {clientId, patientId, lat, lng}) → Shift` | Shift | Finds today's scheduled shift or creates ad-hoc; records GPS + ISO timestamp; sets status='in-progress'; logs activity |
-| `clockOutHca` | `async (hcaId, shiftId) → Shift` | Shift | Sets status='completed'; records clockOut; logs activity |
+| `clockInHca` | `async ({lat, lng, accuracyM, sampleCount}) → {shift, message, geofence}` | Shift + verdict | POSTs `/api/shifts/clock`. Identity, shift and patient come from the session cookie server-side — never from arguments. Geofenced against the patient's care address; records GPS, accuracy, distance and verdict |
+| `clockOutHca` | `async ({lat, lng, accuracyM, sampleCount}) → {shift, message, geofence}` | Shift + verdict | Same route, `action:'out'`. Sets status='completed' and records where the shift ended |
+| `updatePatientCoords` | `async (clientId, patientId, lat, lng, {geofenceRadiusM}) → Client` | Updated client | Pins ONE patient's care address in the `patients` JSONB. Previously dragging a patient pin wrote to the client row and moved every sibling patient with it |
 | `createShiftWithEvent` | `async (shiftData) → {shift, event}` | Both | Atomically creates shift + linked calendar event |
 
 #### Cardex

@@ -952,7 +952,7 @@ const [loading, setLoading] = useState(false);
 - Large live clock display (updates every second)
 - GPS-verified location badge
 - Patient name + care type display (from `client.assignedHcaId` linkage)
-- **Clock In** button: calls `clockInHca(hcaId, { clientId, patientId, lat, lng })`
+- **Clock In** button: acquires the best GPS fix available (`lib/geoFix.js`), then calls `clockInHca({ lat, lng, accuracyM })`, which POSTs `/api/shifts/clock`. The geofence is evaluated server-side against the **patient's** care address, allowing for the fix's own accuracy
   - Records ISO timestamp + GPS coordinates in Supabase `shifts` table
   - Sets shift status to `'in-progress'`
 - **Clock Out** button (shown when clocked in): calls `clockOutHca(hcaId, shiftId)`
@@ -1036,17 +1036,43 @@ const [incidents, setIncidents] = useState("");
 const [generalObs, setGeneralObs] = useState("");
 ```
 
-**Clock-in flow (GPS + Supabase):**
+**Clock-in flow (GPS geofence, decided server-side):**
+
+The browser's only job is to obtain the best fix it can and report it. Which
+patient the shift is for, where that patient's address is, how far away that
+is, and whether that is close enough are all resolved in the API route from
+the HCA's signed session cookie. A distance check performed in the page is a
+courtesy message, not a control.
+
 ```javascript
-// 1. Request GPS via navigator.geolocation.getCurrentPosition()
-// 2. clockInHca(hcaId, { clientId, patientId, lat, lng }) → returns shift with id
-// 3. setCurrentShiftId(shift.id)
-// 4. Auto-navigate to Cardex tab
+// 1. acquireFix()  (lib/geoFix.js)
+//      watchPosition, maximumAge:0, sampling for up to 15s, keeping the
+//      tightest reading. The first fix is usually cell/Wi-Fi derived and
+//      hundreds of metres out; the satellite fix arrives seconds later.
+// 2. clockInHca({ lat, lng, accuracyM, sampleCount })
+//      → POST /api/shifts/clock  { action: 'in', ... }
+// 3. The route resolves today's shift → its patient → that patient's
+//      careLat/careLng (falling back to the client premises, recorded as
+//      such), then evaluateFix() against the Admin-configured policy.
+// 4. Verdict: inside | borderline | outside | low_confidence | no_fix |
+//      no_reference. Anything but `inside` is written to
+//      attendance_exceptions, allowed or refused.
+// 5. On success the shift records clock_in, lat/lng, accuracy, distance
+//      and verdict; setCurrentShiftId(shift.id); navigate to Cardex.
 // On submitCardex():
-// 5. createCardexEntry({ ..., shiftId: currentShiftId, mentalState: mentalSt })
-// 6. clockOutHca(hcaId, currentShiftId)
-// 7. setCurrentShiftId(null); setClockState("out")
+// 6. createCardexEntry({ ..., shiftId, patientId: <resolved at clock-in> })
+// 7. clockOutHca(fix) → same route with action:'out', capturing where the
+//      shift ended. A refused clock-out never discards the Cardex.
 ```
+
+**Why the fence is not 10 m.** It was, and no consumer smartphone can honour
+that indoors — 5–20 m is a good outdoor fix and walls push it well past 50 m,
+so the old threshold mostly refused honest clock-ins. The radius is now
+Admin-configurable (default 75 m), `coords.accuracy` gates whether a fix is
+usable at all (default: refuse anything vaguer than ±100 m rather than judge
+on a meaningless reading), and up to 50 m of the fix's own uncertainty is
+allowed for before a position counts as a breach. Per-patient radius
+overrides are set on the Admin map. See `lib/geofence.js`.
 
 ---
 
@@ -2194,8 +2220,9 @@ All functions are exported from `lib/store.js`. All data functions are **async**
 | `getShiftsByClient` | `async (clientId) → Shift[]` | Filtered | |
 | `createShift` | `async (data) → Shift` | New shift | Sets status='scheduled' |
 | `updateShift` | `async (id, patch) → Shift` | Updated | |
-| `clockInHca` | `async (hcaId, {clientId, patientId, lat, lng}) → Shift` | Shift | Finds today's scheduled shift or creates ad-hoc; records GPS + ISO timestamp; sets status='in-progress'; logs activity |
-| `clockOutHca` | `async (hcaId, shiftId) → Shift` | Shift | Sets status='completed'; records clockOut; logs activity |
+| `clockInHca` | `async ({lat, lng, accuracyM, sampleCount}) → {shift, message, geofence}` | Shift + verdict | POSTs `/api/shifts/clock`. Identity, shift and patient come from the session cookie server-side — never from arguments. Geofenced against the patient's care address; records GPS, accuracy, distance and verdict |
+| `clockOutHca` | `async ({lat, lng, accuracyM, sampleCount}) → {shift, message, geofence}` | Shift + verdict | Same route, `action:'out'`. Sets status='completed' and records where the shift ended |
+| `updatePatientCoords` | `async (clientId, patientId, lat, lng, {geofenceRadiusM}) → Client` | Updated client | Pins ONE patient's care address in the `patients` JSONB. Previously dragging a patient pin wrote to the client row and moved every sibling patient with it |
 | `createShiftWithEvent` | `async (shiftData) → {shift, event}` | Both | Atomically creates shift + linked calendar event |
 
 #### Cardex

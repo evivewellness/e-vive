@@ -83,6 +83,53 @@ a fallback only until an `admin_users` row exists. Create one and remove
 `NEXT_PUBLIC_ADMIN_HASH`; SHA-256 is not a password hash and a client-side
 comparison gates nothing.
 
+## Attendance geofencing
+
+Clock-in and clock-out were checked in the browser: the page computed the
+distance from `assignedClient.lat/lng` and then wrote the result with the
+public anon key. That is not a control. The position can be spoofed from
+developer tools in seconds, and `clockInHca` could be called from the console
+with any coordinates at all. Attendance drives pay and is the record of who
+was with a patient and when, so it now goes through `/api/shifts/clock`,
+which resolves the shift, the patient and the reference address itself from
+the HCA's signed session cookie and decides the geofence server-side.
+
+Three separate defects were folded into that change:
+
+- **Wrong reference point.** The fence was centred on the *client account's*
+  coordinates. A client can have several patients at different addresses — the
+  placement workflow exists precisely to support one HCA serving more than one
+  — so an HCA could be judged "on site" at a house they had never visited.
+  Patients now carry their own `careLat`/`careLng`, with the client premises
+  as an explicitly recorded fallback (`reference_source`).
+
+- **Accuracy ignored.** `position.coords.accuracy` was discarded, so a ±500 m
+  fix was treated exactly like a ±4 m one. A distance derived from a fix that
+  vague is arithmetic, not evidence — in either direction. Fixes worse than
+  the configured maximum are now refused with a "try again" rather than being
+  silently accepted or silently rejected.
+
+- **A 10 m fence.** No consumer smartphone achieves that indoors, which is
+  where homecare happens. The practical effect was to refuse honest clock-ins,
+  not to catch dishonest ones. The radius is Admin-configurable, defaults to
+  75 m, and forgives up to 50 m of the fix's own uncertainty before calling a
+  position a breach.
+
+Every attempt that is not a clean fix inside the fence is written to
+`attendance_exceptions` — allowed or refused, with the distance, the accuracy,
+the reference source and the enforcement mode in force. A refusal that leaves
+no trace is indistinguishable from an HCA who never turned up.
+
+The response to the browser deliberately omits the reference coordinates and
+returns only the verdict, the distance and the radius. Handing the phone the
+exact centre of the fence is the one thing that makes it easy to defeat.
+
+**What this does not do.** It does not prove the HCA's phone was really at
+those coordinates. A rooted device or a mock-location app can feed the browser
+whatever it likes, and no web API can distinguish that from a genuine fix. The
+geofence raises the cost and creates a reviewable record; it is not proof of
+attendance.
+
 ## Residual risk — read this
 
 - **Not verified at runtime.** None of this was exercised against a live
@@ -101,6 +148,8 @@ comparison gates nothing.
   and the audit log limit the blast radius rather than eliminate it.
 - **No rate limiting on login.** Brute-forcing a weak password is not
   currently slowed server-side.
+- **Mock-location apps defeat the geofence.** See above — the browser
+  cannot tell a spoofed position from a real one.
 
 This defends against forged identity, field over-disclosure, direct table
 access with the public key, and unaudited sharing. It does not make the system

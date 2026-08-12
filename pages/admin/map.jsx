@@ -8,6 +8,7 @@ import {
   getAllMapEntities,
   updateClientCoords,
   updateHcaCoords,
+  updatePatientCoords,
   getAllClients,
   getAllHcaProfiles,
   getAdminSession,
@@ -119,6 +120,7 @@ export default function AdminMap() {
   const [editLat,       setEditLat]       = useState("");
   const [editLng,       setEditLng]       = useState("");
   const [editAddr,      setEditAddr]      = useState("");
+  const [editRadius,    setEditRadius]    = useState("");
   const [saveMsg,       setSaveMsg]       = useState("");
 
   // Auth guard
@@ -263,22 +265,32 @@ export default function AdminMap() {
 
   function openEditPanel(entity) {
     setSelectedEntity(entity);
-    setEditLat(entity.lat ? String(entity.lat) : "");
-    setEditLng(entity.lng ? String(entity.lng) : "");
+    // Nullish, not truthy — 0 is a valid coordinate and blanking the field
+    // would silently drop a pin on the equator or the prime meridian.
+    setEditLat(entity.lat === null || entity.lat === undefined ? "" : String(entity.lat));
+    setEditLng(entity.lng === null || entity.lng === undefined ? "" : String(entity.lng));
     setEditAddr(entity.sub || "");
+    setEditRadius(entity.geofenceRadiusM ? String(entity.geofenceRadiusM) : "");
     setEditPanel({ entity });
     setSaveMsg("");
   }
 
   async function saveLocation() {
-    if (!editPanel?.entity || !editLat || !editLng) return;
+    if (!editPanel?.entity || editLat === "" || editLng === "") return;
     const entity = editPanel.entity;
     const lat = Number(editLat);
     const lng = Number(editLng);
     try {
-      if (entity.type === "client" || entity.type === "patient") {
-        const clientId = entity.type === "client" ? entity.id : entity.parentClientId;
-        await updateClientCoords(clientId, lat, lng);
+      if (entity.type === "patient") {
+        // The patient's OWN care address. This used to write to the client
+        // row, which moved every sibling patient with it and made two
+        // patients at two addresses impossible to pin separately — the exact
+        // case the attendance geofence has to get right.
+        await updatePatientCoords(entity.parentClientId, entity.id, lat, lng, {
+          geofenceRadiusM: editRadius === "" ? null : Number(editRadius),
+        });
+      } else if (entity.type === "client") {
+        await updateClientCoords(entity.id, lat, lng);
       } else if (entity.type === "hca") {
         await updateHcaCoords(entity.id, lat, lng);
       }
@@ -450,6 +462,27 @@ export default function AdminMap() {
                   </div>
                 </div>
 
+                {editPanel.entity?.type === "patient" && (
+                  <>
+                    <div className="map-field">
+                      <label className="map-label">Clock-in radius (m) — optional</label>
+                      <input className="map-input" type="number" min="20" max="2000" value={editRadius}
+                        onChange={e => setEditRadius(e.target.value)} placeholder="Platform default" />
+                      <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 5, lineHeight: 1.5 }}>
+                        Overrides the platform-wide radius for this address only. Useful where a
+                        compound is large or a block of flats is tight.
+                      </div>
+                    </div>
+                    {editPanel.entity?.inheritedPin && (
+                      <div style={{ padding: "8px 12px", background: "rgba(249,112,102,0.08)", border: "1px solid rgba(249,112,102,0.2)", borderRadius: 8, fontSize: 11, color: "var(--amber)", marginBottom: 12, lineHeight: 1.5 }}>
+                        ⚠ This patient has no pin of their own and is currently using the client’s.
+                        Attendance is being checked against the account holder’s address, not this
+                        patient’s. Saving here pins the patient separately.
+                      </div>
+                    )}
+                  </>
+                )}
+
                 {placeMode && (
                   <div style={{ padding: "8px 12px", background: "rgba(249,112,102,0.08)", border: "1px solid rgba(249,112,102,0.2)", borderRadius: 8, fontSize: 11, color: "var(--amber)", marginBottom: 12, fontFamily: "var(--mono)" }}>
                     🎯 Place mode active — click anywhere on the map to set coordinates automatically
@@ -462,11 +495,11 @@ export default function AdminMap() {
                   </div>
                 )}
 
-                <button className="map-save-btn" disabled={!editLat || !editLng} onClick={saveLocation}>
+                <button className="map-save-btn" disabled={editLat === "" || editLng === ""} onClick={saveLocation}>
                   Save Location
                 </button>
 
-                {editPanel.entity?.lat && (
+                {editPanel.entity?.lat != null && (
                   <div style={{ textAlign: "center", marginTop: 8, fontSize: 11, color: "var(--muted)", fontFamily: "var(--mono)" }}>
                     Current: {Number(editPanel.entity.lat).toFixed(4)}, {Number(editPanel.entity.lng).toFixed(4)}
                   </div>

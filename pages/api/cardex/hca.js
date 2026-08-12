@@ -53,7 +53,7 @@ export default async function handler(req, res) {
       welfare_note: b.welfareNote || '',
     }).select().single();
     if (error) return res.status(500).json({ error: error.message });
-    await db.from('activity_log').insert({ type: 'cardex_submitted', payload: { hcaId: session.id, patientId: b.patientId } }).select().maybeSingle();
+    await db.from('activity_log').insert({ type: 'cardex_submitted', data: { hcaId: session.id, patientId: b.patientId } }).select().maybeSingle();
     return res.status(200).json({ entry: mapRow(data) });
   }
 
