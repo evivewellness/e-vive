@@ -237,7 +237,9 @@ export default function HCADashboard() {
         const [profile, shifts, cardex, clients, courses, enrollments, calEvents] = await Promise.all([
           getHcaProfileById(session.id),
           getShiftsByHca(session.id),
-          getCardexByHca(session.id),
+          // A pre-deploy session has no cookie yet; an empty list is far better
+          // than failing the whole dashboard load.
+          getCardexByHca(session.id).catch(() => []),
           getAllClients(),
           getLmsCourses('hca'),
           getEnrollmentsForUser(session.id, 'hca'),

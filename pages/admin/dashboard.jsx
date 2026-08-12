@@ -1887,6 +1887,7 @@ export default function AdminDashboard() {
   const [calHcaFilter, setCalHcaFilter] = useState("");
   const [calSubTab,    setCalSubTab]    = useState("placements"); // placements|calendar
   const [calLoadError, setCalLoadError] = useState("");
+  const [cardexLoadError, setCardexLoadError] = useState("");
   const [hcaScheduleModal, setHcaScheduleModal] = useState(null); // hca profile
   const [placements,   setPlacements]   = useState([]);
 
@@ -1951,7 +1952,7 @@ export default function AdminDashboard() {
       getAllHcaProfiles().then(r => { setHcaProfilesLoadError(""); return r; }).catch(e => { setHcaProfilesLoadError(e.message || "Failed to load HCA profiles."); return []; }),
       getAllInvoices(),
       getAllShifts(), getAllCalendarEvents(), getActivityLog(), getRbacRules(),
-      getAllAnnouncements(), getAllNewsletters(), getAllCardexEntries(), getPricingConfig(), getAllDiscountCodes(),
+      getAllAnnouncements(), getAllNewsletters(), getAllCardexEntries().then(r=>{setCardexLoadError("");return r;}).catch(e=>{setCardexLoadError(e.message||"Could not load Cardex entries.");return [];}), getPricingConfig(), getAllDiscountCodes(),
       getAllEmails().then(r => { setEmailsLoadError(""); return r; }).catch(e => { setEmailsLoadError(e.message || "Failed to load messages."); return []; }),
       getAllPlacements().catch(() => []),
     ]);
@@ -2945,6 +2946,20 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 </div>
+
+                {cardexLoadError && (
+                  <div className="panel" style={{marginTop:18,borderColor:"rgba(249,112,102,0.5)",background:"rgba(249,112,102,0.05)"}}>
+                    <div className="panel-body">
+                      <div style={{fontWeight:700,fontSize:14,color:"var(--coral)",marginBottom:6}}>⚠ Could not load Cardex entries</div>
+                      <div style={{fontSize:12,color:"var(--muted)",lineHeight:1.6}}>
+                        Error: <span style={{fontFamily:"var(--mono)"}}>{cardexLoadError}</span><br/>
+                        Cardex is now served by <code>/api/cardex/admin</code>, which needs an admin session cookie. That is only
+                        issued when an <code>admin_users</code> row exists — the legacy browser-side login does not create one.
+                        Add your admin row, then sign out and back in.
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Cardex QA */}
                 <div className="panel" style={{marginTop:18}}>
