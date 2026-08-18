@@ -4,15 +4,14 @@
 > **Live URL:** https://e-vive.vercel.app  
 > **Repository:** https://github.com/mafichoni/e-vive  
 > **Branch:** `main`  
-> **Launch status:** Pre-launch. The build is green and the Cardex data path is
-> secured end-to-end; six **P0 blockers** remain open. Start at
-> [Implementation Status](#implementation-status--august-2026-review).
+> **Launch status:** All six P0 launch blockers are closed. Start at
+> [Implementation Status](#implementation-status--august-2026).
 
 ---
 
 ## Table of Contents
 
-- **[Implementation Status & Pending Work — August 2026 review](#implementation-status--august-2026-review)** ← read this first
+- **[Implementation Status & Outstanding Work — August 2026](#implementation-status--august-2026)** ← read this first
 
 1. [Platform Overview](#1-platform-overview)
 2. [Tech Stack & Architecture](#2-tech-stack--architecture)
@@ -47,6 +46,7 @@
    - 9.3 [Store Functions Reference](#93-store-functions-reference)
    - 9.4 [Messages / Email Setup](#94-messages--email-setup)
    - 9.5 [Database Migrations](#95-database-migrations)
+   - 9.6 [The Data Gateway](#96-the-data-gateway)
 10. [Authentication Systems](#10-authentication-systems)
 11. [Client Journey Stages](#11-client-journey-stages)
 12. [RBAC System](#12-rbac-system)
@@ -58,158 +58,106 @@
 
 ---
 
-## Implementation Status — August 2026 Review
+## Implementation Status — August 2026
 
-This section is the outcome of a full read of the current implementation (all
-36 pages and API routes, `lib/`, `components/`, the nine SQL migrations) plus a
-clean `npm install && npm run build && npm run lint && npm test` against this
-commit. Everything below §1 is reference documentation; this section is the
-honest state of the build.
+The August review found six P0 launch blockers. **All six are now closed**; this
+section records what changed, what was verified, and what is still outstanding.
+Everything below §1 is reference documentation for the platform as it now
+stands.
 
-### Verified working
+### Verified
 
 | Area | State |
 |---|---|
-| Build | `next build` succeeds — 36 routes, 80 kB shared JS, no errors |
-| Lint | `next lint` clean, 2 `no-img-element` warnings (`client/register.jsx:335`, `contact.jsx:250`) |
-| Tests | `npm test` — 71/71 pass (`lib/scheduling`, `lib/cardexAccess`, `lib/cardexSummary`) |
-| Cardex data path | Fully server-side. Identity comes from an HMAC-signed HttpOnly cookie, queries use the service-role key with an explicit column list, RLS denies the anon key outright (migration `0009`). See `docs/cardex-security.md` |
-| Cardex sharing | Per-recipient revocable tokens (hash stored, not the token), optional access code, expiry, per-hour and per-recipient limits, recorded consent + written justification, and an audit row for every success *and* every distinct failure |
-| Placement scheduling | Conflict-safe, timezone-correct, covered by 71 unit tests including 24/7 day+night coverage and non-overlapping reassignment |
-| Email | Live via Resend, with a Svix-verified webhook reconciling sent/delivered/bounced/complained/opened/clicked back onto the `emails` row |
-| Passwords | scrypt (`node:crypto`), salted per user, with transparent upgrade of legacy plaintext rows on next login |
-| Security headers | HSTS, CSP, `X-Frame-Options: DENY`, `nosniff`, Referrer-Policy and Permissions-Policy set in `vercel.json` |
+| Build | `next build` succeeds — 41 routes, no errors |
+| Lint | `next lint` clean, 2 pre-existing `no-img-element` warnings |
+| Tests | `npm test` — 117/117 pass. 46 of those are new, covering the authorisation policy and the query shim it enforces |
+| Sessions | Identity is the HMAC-signed HttpOnly cookie everywhere — sign-in, page guards and every API route. No page decides access from localStorage |
+| Data access | The browser no longer holds a database key. Every read and write goes through `/api/db`, which applies `lib/dbPolicy.js` and queries with the service role |
+| RLS | Enabled with no anon policies on **all 32 tables** (migration `0009` for the Cardex tables, `0010` for the rest) |
+| Passwords | scrypt everywhere: registration, reset and password change all hash server-side. No browser code compares a password |
+| Payments | M-Pesa callbacks are authenticated, persisted to `payments`, reconciled against the invoice, and confirmed to the family |
+| Public pages | Every page carries a title, description, canonical URL, OG tags and — critically — a viewport meta |
 
-### Pending Work — Prioritised for Launch
+### What was closed, and how
 
-Priorities are ordered by launch risk, not by effort. **P0 items must be closed
-before the platform is opened to real families and real HCAs**; each one either
-exposes personal health or payment data, or breaks a flow a real user will hit
-on day one.
+**P0-1 · Admin identity is server-verified.** `admin/dashboard`, `admin/finance`
+and `admin/map` now call `/api/auth/session` and render only for a confirmed
+`admin` role (`lib/session.js`). The browser-side SHA-256 comparison is deleted,
+along with `NEXT_PUBLIC_ADMIN_EMAIL` and `NEXT_PUBLIC_ADMIN_HASH`. Admins are
+rows in `admin_users`; §17 covers creating one. Signing out clears the cookie,
+not just localStorage.
 
-#### P0 — Launch blockers
+**P0-2 · Sign-in is server-only.** `pages/hca/login.jsx` and
+`pages/client/register.jsx` no longer fetch a row and compare a password —
+`/api/auth/login` decides, and its answer drives the redirect. This also fixes
+the lockout it caused: once the login route upgraded a legacy password to
+scrypt, the browser's `profile.password !== typed` check could never match
+again, so every user failed their *second* sign-in. Registration moved to
+`/api/auth/register`, which hashes with scrypt before the row is written, and
+the plaintext `evive_client_registry` in localStorage is gone.
 
-**P0-1 · Make the signed session the only proof of admin identity**
+**P0-3 · The browser no longer talks to Postgres.** `lib/supabase.js` used to be
+a real Supabase client holding the public anon key. It is now a shim with the
+same query-builder shape that posts a *description* of the query to `/api/db`.
+That route resolves the caller from the signed cookie, looks the request up in
+`lib/dbPolicy.js`, narrows the columns, ANDs on a mandatory row scope, and only
+then queries with the service-role key. Migration `0010` enables default-deny
+RLS on the remaining 23 tables. See §9.6 for how the policy reads.
 
-`pages/admin/dashboard.jsx:2048` (and the same guard in `admin/finance.jsx` and
-`admin/map.jsx`) admits anyone whose browser has
-`localStorage.evive_admin_session` set — a single devtools line. Because most
-tables are still anon-readable (P0-3), that grants read/write access to every
-client, HCA, invoice and payroll record. `pages/admin/login.jsx:119` also keeps
-a fallback that compares a SHA-256 hash shipped in the client bundle
-(`NEXT_PUBLIC_ADMIN_HASH`); SHA-256 is not a password hash and a browser-side
-comparison gates nothing.
+Three acts authenticate *themselves* rather than a role, so they are their own
+routes rather than table policy: applying (`/api/applications/create`),
+correcting an application by emailed link (`/api/applications/[token]`), and an
+HCA reading their own private fields (`/api/hca/me`).
 
-*Close it by:* creating the `admin_users` row that migration `0009` provides,
-deleting the SHA-256 fallback along with `NEXT_PUBLIC_ADMIN_EMAIL` /
-`NEXT_PUBLIC_ADMIN_HASH`, and having every admin page verify against
-`/api/auth/session` before it renders.
+**P0-4 · Password reset is real.** `/api/auth/request-reset` issues a single-use
+token, stores only its SHA-256, emails the link, and answers identically whether
+or not the account exists. `/auth/reset/[token]` redeems it; the token expires in
+45 minutes, is consumed on use, and issuing a new one invalidates the last.
+HCAs have a reset path for the first time.
 
-**P0-2 · Move client and HCA sign-in fully server-side — second logins currently fail**
+**P0-5 · M-Pesa payments reconcile.** The callback authenticates via
+`MPESA_CALLBACK_SECRET` carried in the callback URL (Safaricom sends no
+credentials of its own), writes to the new `payments` table, marks the invoice
+paid, and emails the family a receipt. The STK push now requires a signed-in
+client and reads the amount from the invoice rather than the request body, so an
+edited payload cannot underpay a KES 35,000 invoice with KES 1.
 
-`pages/hca/login.jsx:213` and `pages/client/register.jsx:197` still compare the
-password *in the browser* against a row fetched with the public anon key, then
-call `/api/auth/login` fire-and-forget (`.catch(() => {})`). Two consequences:
+**P0-6 · Every public page has a `<Head>`.** Viewport, favicon and OG defaults
+live in `pages/_app.jsx`; `components/PageMeta.jsx` adds each page's title,
+description, canonical URL and social card. The eight pages that previously
+rendered no `<Head>` at all — and so laid out at desktop width on phones — now
+render correctly.
 
-- `/api/auth/login` upgrades a legacy plaintext row to scrypt on first success
-  (`pages/api/auth/login.js:58`). From then on the stored value is `scrypt$…`,
-  so the browser's `profile.password !== form.password` check can never match
-  again — **every user is locked out on their second login**.
-- `if (profile.password && …)` at `pages/hca/login.jsx:225` lets an HCA row with
-  an empty password sign in with *any* password.
+### Still outstanding
 
-*Close it by:* deleting both browser-side comparisons and making
-`/api/auth/login` the only sign-in path, with its result — not localStorage —
-driving the redirect.
-
-**P0-3 · Extend Row Level Security past the Cardex tables**
-
-Migration `0009` §6 locks seven tables. The other twenty-three that
-`lib/store.js` touches — `clients`, `hca_profiles`, `invoices`,
-`payroll_payments`, `placements`, `shifts`, `emails`, `hca_applications` and the
-rest — are still read *and written* straight from the browser with the public
-anon key. `getAllHcaProfiles()` (`lib/store.js:703`, selecting `HCA_PROFILE_LIST_COLUMNS` at `:701`) pulls the `password` column
-into the browser on every `/hca/login` and `/match` load.
-
-*Close it by:* routing those reads and writes through API routes that derive
-identity from the session cookie (the `/api/cardex/*` routes are the pattern),
-then enabling default-deny RLS on each table in a `0010` migration.
-
-**P0-4 · Build a real password reset**
-
-`pages/client/register.jsx:247` generates the six-digit code in the browser,
-holds it in React state, and never sends it anywhere — the screen says "a reset
-code has been sent" and none was. The account lookup searches only
-`localStorage.evive_client_registry`, so a user resetting from a new device is
-told "No account found", while anyone with devtools open can complete the flow
-for any account present in that device's local registry. HCAs have no reset path
-at all; their initial password is emailed once at approval
-(`lib/store.js:1681`).
-
-*Close it by:* a server-side flow — single-use hashed token, short expiry,
-delivered by Resend, redeemed through an API route that writes a scrypt hash.
-`lib/serverAuth.js` already has `generateShareToken` / `hashShareToken` to
-build on.
-
-**P0-5 · Persist and reconcile M-Pesa payments**
-
-`pages/api/mpesa/callback.js:42` logs a confirmed payment and drops it —
-`// TODO: persist record to Supabase`. `pages/client/dashboard.jsx:532` already
-offers families the STK push, so money can move while the invoice stays unpaid
-forever and the only trace is a serverless function log. The callback also
-accepts any POST: nothing checks the request came from Safaricom.
-
-*Close it by:* a `payments` table, correlation on `CheckoutRequestID` and
-`AccountReference` → invoice, an invoice status transition plus the existing
-`sendPaymentConfirmedNotification`, and callback authenticity (Safaricom source
-IP allowlist or an unguessable callback path).
-
-**P0-6 · Give the public pages a `<Head>`**
-
-Eight of the ten public pages — `/about`, `/contact`, `/caregivers`,
-`/assistants`, `/products`, `/partners`, `/privacy`, `/terms` — render no
-`<Head>` at all: no `<title>`, no meta description, and no
-`<meta name="viewport">`. Without the viewport tag a mobile browser lays the
-page out at desktop width and zooms out, so a majority-mobile Kenyan audience
-meets a broken page everywhere except `/` and `/match`. `/favicon.ico` is
-referenced at `pages/index.jsx:289` but no such file exists in `public/`.
-
-*Close it by:* a shared `<Head>` in `pages/_app.jsx` for viewport and defaults,
-per-page title and description, and a real favicon.
-
-#### P1 — Close before launch day
-
-| # | Task | Why it matters |
-|---|---|---|
-| **P1-1** | Complete `.env.local.example` and set every variable in Vercel | The file documents 4 of the 16 variables the code reads. Without `SESSION_SECRET` and `SUPABASE_SERVICE_ROLE_KEY` every Cardex route answers 503 (`lib/supabaseAdmin.js:42`) and the flagship feature is silently dark. Without `NEXT_PUBLIC_SITE_URL`, share links are built from the `Host` header (`pages/api/cardex/share.js:160`). See §2 for the full table |
-| **P1-2** | Enforce RBAC, or remove the screen | `hasPermission()` (`lib/store.js:1706`) is never called anywhere in the app. Rules created under Admin → RBAC are stored and displayed but gate nothing. The only permission actually enforced is `can_read_welfare_notes`, server-side |
-| **P1-3** | Deliver the Cardex notifications families opted into | `/api/cardex/notify-prefs` writes `cardex_notify_prefs` and nothing reads it: no incident alert and no daily/weekly/monthly digest is ever sent. Incident alerts default **on**, so this is a promise currently unkept |
-| **P1-4** | Schedule the retention purge | `purge_expired_cardex_data()` exists and Admin → Settings can run it by hand (`pages/api/settings.js`, `PUT`), but nothing runs it on a schedule. The retention periods in `platform_settings` are a data-protection commitment; wire pg_cron or a Vercel cron job |
-| **P1-5** | Rate-limit login, HCA application, contact and partner forms | There is no server-side throttling anywhere. The admin login's 3-attempt lockout is browser state and resets on refresh. Application uploads accept 10 MB, unauthenticated |
-| **P1-6** | Verify clock-in location, or stop calling it verified | `clockInHca()` (`lib/store.js:1218`) records `lat`/`lng` but never compares them to the placement address. §1 advertises "GPS-verified clock-in/out" — add the geofence or soften the claim |
-| **P1-7** | Move certificate and photo uploads to Supabase Storage | Files are base64 inside `hca_applications.form_data`. This already caused a live statement timeout; the fix was to skip the column in list queries (`lib/store.js:452`), which is mitigation, not a cure |
-| **P1-8** | Remove leftover demo copy | `pages/client/dashboard.jsx:513` still tells families "In a live deployment, this email would be delivered…" although Resend delivery is live |
-| **P1-9** | Settle the demo-data story | `seedDemoDataIfEmpty()` (`lib/store.js:2095`) is exported but no page calls it, so §15's automatic seeding no longer happens. Confirm the published demo credentials (`demo@client.com` / `demo1234`) exist in no production database |
-
-#### P2 — First weeks after launch
+Ordered by priority. None of these blocks launch; all were identified in the
+same review.
 
 | # | Task | Detail |
 |---|---|---|
-| **P2-1** | Dependency advisories | `npm audit --omit=dev` reports 3 high: `next@14.2.35` and `nanoid ≤3.3.17`. Most of the listed Next.js CVEs target App Router, Server Components or self-hosted image optimisation — none of which this Pages-Router-on-Vercel app uses — but pin a patched release and re-audit |
-| **P2-2** | Test coverage | 71 tests, all green, covering three `lib` modules. Nothing covers `lib/store.js`, the API routes, auth, or any page. Highest value next: `/api/auth/login`, `/api/cardex/*`, and one end-to-end pass per persona |
-| **P2-3** | Observability | No error tracking, no structured request logging, no uptime check, no analytics. A failed payment or a 503 from a Cardex route is invisible until a user reports it |
-| **P2-4** | Search and social | No `robots.txt`, no `sitemap.xml`, no Open Graph or Twitter card tags, no favicon (see P0-6) |
-| **P2-5** | Accessibility and legal polish | No accessibility audit has been run. The footer's social buttons and its Accessibility and Cookies links all point to `#` (`components/Footer.jsx`). `/privacy` should carry the Kenya Data Protection Act 2019 specifics — registration, DPO contact, cookie notice |
-| **P2-6** | Documentation hygiene | `DOCUMENTATION.md` is a stale May 2026 copy of this file. Delete it or reduce it to a pointer |
-| **P2-7** | Maintainability | `pages/admin/dashboard.jsx` is 4,037 lines; splitting each tab into a component makes it reviewable. CSP still needs `'unsafe-inline'` because every page ships its styles as an inline string |
+| **P1-1** | Enforce RBAC, or remove the screen | `hasPermission()` in `lib/store.js` is still called from nowhere. Rules created under Admin → RBAC are stored and displayed but gate nothing. The permissions actually enforced are the role in the session cookie and `admin_users.can_read_welfare_notes` |
+| **P1-2** | Deliver the Cardex notifications families opted into | `cardex_notify_prefs` is written and nothing reads it: no incident alert, no digest. Incident alerts default **on**, so this is a promise still unkept |
+| **P1-3** | Schedule the retention purge | `purge_expired_cardex_data()` and `purge_expired_password_resets()` both exist and both run only when an admin presses the button. Wire pg_cron or a Vercel cron job |
+| **P1-4** | Rate-limit authentication and the public forms | `/api/auth/request-reset` limits itself to 5 per account per hour, and `/api/cardex/share` enforces its own limits, but login, registration, the HCA application and the contact form have no server-side throttle. The admin login's 3-attempt lockout is still browser state that resets on refresh |
+| **P1-5** | Hash admin-issued initial passwords at creation | Approving an HCA generates a password, emails it, and stores it in plain form until that HCA's first sign-in upgrades it to scrypt. Narrow (the same string is already in their inbox) but avoidable |
+| **P1-6** | Verify clock-in location | `clockInHca()` records `lat`/`lng` but never compares them to the placement address. §1 no longer claims otherwise; the geofence is still worth adding |
+| **P1-7** | Move certificate and photo uploads to Supabase Storage | Files are base64 inside `hca_applications.form_data`. This already caused a live statement timeout; skipping the column in list queries is mitigation, not a cure |
+| **P1-8** | Settle the demo-data story | `seedDemoDataIfEmpty()` is exported but no page calls it. Confirm the published demo credentials exist in no production database |
+| **P2-1** | Dependency advisories | `npm audit --omit=dev` reports 3 high: `next@14.2.35` and `nanoid ≤3.3.17`. Most listed Next.js CVEs target App Router, Server Components or self-hosted image optimisation — none of which this app uses — but pin a patched release and re-audit |
+| **P2-2** | Widen test coverage | 117 tests cover scheduling, Cardex access, Cardex summaries, the data policy and the query shim. The API routes themselves, `lib/store.js` and the pages are still untested; an end-to-end pass per persona would be the highest-value addition |
+| **P2-3** | Observability | No error tracking, no structured request logging, no uptime check, no analytics. A 503 from a misconfigured deploy is invisible until a user reports it |
+| **P2-4** | Search and social | No `robots.txt` and no `sitemap.xml` (per-page meta and favicons are done) |
+| **P2-5** | Accessibility and legal polish | No accessibility audit has been run. The footer's social buttons and its Accessibility and Cookies links point to `#`. `/privacy` should carry the Kenya Data Protection Act 2019 specifics — registration, DPO contact, cookie notice |
+| **P2-6** | Maintainability | `pages/admin/dashboard.jsx` is over 4,000 lines. CSP still needs `'unsafe-inline'` because every page ships its styles as an inline string |
 
-#### P3 — Deliberately deferred
+### Deliberately deferred
 
-Not blockers; listed so they are not mistaken for oversights.
+Not oversights.
 
 - **Homecare products marketplace** (`/products`) — waitlist only, by design
-- **Community & support groups** (`/caregivers`) — held until moderation exists (`pages/caregivers.jsx:765`)
-- **PDF generation** — shared reports print via the browser; a PDF dependency was deliberately not added (`pages/report/[token].jsx:15`)
+- **Community & support groups** (`/caregivers`) — held until moderation exists
+- **PDF generation** — shared reports print via the browser; a PDF dependency was deliberately not added
 - **Automated invoicing from completed shifts** — invoices are raised by Admin today
 - **TypeScript migration**
 
@@ -234,6 +182,7 @@ E-Vive is Kenya's location-based homecare assistant matching platform, operated 
 - **Journey tracking** — 10-stage client onboarding pipeline
 - **Family Caregiver Hub** — LMS training courses, counselling referrals, professional resource library (community/support groups coming soon)
 - **Super Admin controls** — announcements, newsletters, pricing, discount codes, RBAC, map management
+- **M-Pesa payments** — STK Push against an invoice, reconciled from Safaricom's callback
 
 ---
 
@@ -255,7 +204,8 @@ E-Vive is Kenya's location-based homecare assistant matching platform, operated 
 ### State & Data
 - **Supabase backend** — all persistent application data is stored in a Supabase PostgreSQL database (project `vwwdmzdknmdsiowmjkzf`, region `eu-west-1`)
 - All async data functions live in `lib/store.js`, which imports from `lib/supabase.js`
-- **Session tokens only** are stored in browser localStorage (`evive_client_session`, `evive_hca_session`, `evive_admin_session`)
+- **`lib/supabase.js` is not a database client.** It is a shim with the Supabase query-builder shape that posts a description of each query to `/api/db`. The browser holds no database key at all — see §9.6
+- **Identity is the signed HttpOnly `evive_session` cookie.** localStorage holds display copies (name, employee ID) and Cardex drafts; nothing reads it to decide access
 - React hooks (`useState`, `useEffect`, `useCallback`, `useRef`) for all component state
 - Email delivery via `/api/send-email.js` using the Resend SDK
 
@@ -288,13 +238,12 @@ and share tokens all use `node:crypto` — no cryptography dependency was added.
 
 ### Environment Variables
 
-The code reads sixteen variables. `.env.local.example` currently documents four
-of them — completing it is **P1-1**.
+`.env.local.example` documents all of these, with the generation commands.
 
 | Variable | Purpose | Required |
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | **Yes** |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/public key | **Yes** |
+| `MPESA_CALLBACK_SECRET` | Authorises Safaricom's callback, carried in the callback URL. Safaricom sends no credentials of its own, so without this the endpoint is unauthenticated | **Yes when M-Pesa is live** |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service-role key, used only in API routes. Bypasses RLS — must **never** carry a `NEXT_PUBLIC_` prefix | **Yes** — without it every `/api/cardex/*`, `/api/settings` and `/api/auth/login` call returns 503 |
 | `SESSION_SECRET` | HMAC key for session cookies; ≥ 32 chars. Generate with `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` | **Yes** — same 503 without it |
 | `NEXT_PUBLIC_SITE_URL` | Canonical origin. Used to build M-Pesa callback URLs and shared-report links | **Yes in production** — otherwise both fall back to the request's `Host` header |
@@ -306,9 +255,12 @@ of them — completing it is **P1-1**.
 | `MPESA_PASSKEY` | Daraja Lipa Na M-Pesa passkey | Required for M-Pesa |
 | `MPESA_SHORTCODE` | Paybill / till number | Optional (defaults to `4165689`) |
 | `MPESA_ENV` | `sandbox` or `production` | Optional (defaults to `sandbox` — **set explicitly before launch**) |
-| `NEXT_PUBLIC_ADMIN_EMAIL` | Legacy browser-side admin login email | Deprecated — remove once an `admin_users` row exists (**P0-1**) |
-| `NEXT_PUBLIC_ADMIN_HASH` | Legacy SHA-256 hex of admin password, shipped in the client bundle | Deprecated — remove (**P0-1**) |
 | `NODE_ENV` | Set by Next.js; gates the `Secure` flag on session cookies | Automatic |
+
+**No longer used.** `NEXT_PUBLIC_SUPABASE_ANON_KEY` is obsolete — the browser no
+longer talks to Postgres, so there is no public database key to leak.
+`NEXT_PUBLIC_ADMIN_EMAIL` and `NEXT_PUBLIC_ADMIN_HASH` are obsolete — admins are
+rows in `admin_users`. Delete all three from your deployment.
 
 ### External Resources (CDN, loaded at runtime)
 - **Leaflet.js 1.9.4** — loaded dynamically via `document.createElement('script')` in `pages/admin/map.jsx` only (SSR-safe)
@@ -327,6 +279,14 @@ a query parameter, body field or header the caller controls.
 |---|---|---|---|
 | `POST /api/auth/login` | `api/auth/login.js` | None | Verifies `{ role, identifier, password }` against `clients` / `hca_profiles` / `admin_users` with the service-role key, upgrades legacy plaintext passwords to scrypt, and sets the signed HttpOnly `evive_session` cookie (12 h) |
 | `POST /api/auth/logout` | `api/auth/logout.js` | None | Clears the session cookie |
+| `POST /api/auth/register` | `api/auth/register.js` | None | Client self-registration. Hashes with scrypt before the row is written, ignores any field registration is not allowed to set, and signs the caller in |
+| `POST /api/auth/change-password` | `api/auth/change-password.js` | Cookie | Change your own password. Verifies the current one against the stored hash server-side; can only ever change the account in the cookie |
+| `POST /api/auth/request-reset` | `api/auth/request-reset.js` | None | Issues a single-use reset token, stores only its SHA-256, emails the link. Answers identically whether or not the account exists, and limits itself to 5 per account per hour |
+| `GET/POST /api/auth/reset` | `api/auth/reset.js` | Reset token | `GET` reports whether a link is still live; `POST` redeems it and writes a scrypt hash. Failures return one neutral message |
+| `POST /api/db` | `api/db.js` | Cookie (or anonymous) | **The data gateway.** Every database read and write the browser makes. Resolves the caller from the cookie, applies `lib/dbPolicy.js`, queries with the service role. See §9.6 |
+| `GET /api/hca/me` | `api/hca/me.js` | HCA | An HCA's own full record, including the private fields the public directory view omits. Always the row named by the cookie |
+| `POST /api/applications/create` | `api/applications/create.js` | None | HCA application intake. Hashes the chosen password, runs the duplicate check server-side, and sets `status` itself so nobody can apply as approved |
+| `GET/POST /api/applications/[token]` | `api/applications/[token].js` | Edit token | Applicant self-service correction. Returns and accepts only the fields an admin opened; the token is spent on submission |
 | `GET /api/auth/session` | `api/auth/session.js` | Cookie | Lets the browser discover who the server thinks it is. Never itself an authorisation decision |
 | `GET/POST /api/cardex/reports` | `api/cardex/reports.js` | Client | The only client-facing Cardex read path. `client_id` comes from the cookie; `welfare_note`, `shift_rating`, `qa_comments` and `flagged` are never selected, then redacted again before serialising |
 | `GET/POST /api/cardex/hca` | `api/cardex/hca.js` | HCA | An HCA's own entries — read history, submit a new one. Scoped to their own `hca_id` |
@@ -335,8 +295,8 @@ a query parameter, body field or header the caller controls.
 | `GET/POST/DELETE /api/cardex/share` | `api/cardex/share.js` | Client | Create, list and revoke outward shares. Enforces per-hour, per-recipient, justification-length and expiry limits from `platform_settings`; stores only the token hash; emails each recipient a link and nothing else |
 | `GET /api/report/[token]` | `api/report/[token].js` | Share token | Token-gated care summary, assembled server-side. Every outcome — success and each distinct failure — is audited; failures return one neutral message so a token cannot be probed |
 | `GET/POST/PUT /api/settings` | `api/settings.js` | Admin | Retention, consent ownership and sharing defaults. `PUT` runs `purge_expired_cardex_data()` on demand |
-| `POST /api/mpesa/stkpush` | `api/mpesa/stkpush.js` | None | Daraja OAuth + STK Push. Normalises the phone number to `2547…`/`2541…`; returns 503 when credentials are absent |
-| `POST /api/mpesa/callback` | `api/mpesa/callback.js` | None (public, by Safaricom's requirement) | STK Push result receiver. **Currently logs and discards the payment — P0-5** |
+| `POST /api/mpesa/stkpush` | `api/mpesa/stkpush.js` | Client | Daraja OAuth + STK Push against one of the caller's own unpaid invoices. The amount is read from the invoice, never from the request; the initiation is recorded in `payments` so the callback has something to reconcile |
+| `POST /api/mpesa/callback` | `api/mpesa/callback.js` | `MPESA_CALLBACK_SECRET` in the URL | STK Push result receiver. Persists to `payments`, reconciles the invoice, notifies the family. Always answers 200 with Safaricom's acknowledgement — including when it rejects the caller — because any other status triggers a retry |
 | `POST /api/send-email` | `pages/api/send-email.js` | None | Sends transactional emails via Resend SDK. Accepts `{ to, cc, subject, text, replyTo, origin, relatedClientId, relatedHcaId, adminId }`. Converts plain text to HTML. Logs every attempt (sent/failed/skipped) to the `emails` table. Returns `{ ok: true }` on success; silently returns `{ ok: true, skipped: true }` if `RESEND_API_KEY` is not set. |
 | `POST /api/webhooks/resend` | `pages/api/webhooks/resend.js` | Svix signature | Resend webhook receiver — reconciles outbound delivery lifecycle events (`email.sent`/`delivered`/`bounced`/`complained`/`opened`/`clicked`) against the matching `emails` row by `resend_message_id`, and inserts new rows for inbound mail (Resend Inbound). Verifies the Svix signature via `RESEND_WEBHOOK_SECRET` when set. See §9.4 for setup. |
 
@@ -368,13 +328,14 @@ a query parameter, body field or header the caller controls.
 | `/admin/finance` | `pages/admin/finance.jsx` | Admin session | Financial management |
 | `/admin/map` | `pages/admin/map.jsx` | Admin session | Geographic location management |
 | `/report/[token]` | `pages/report/[token].jsx` | Share token (+ access code) | Recipient view of a shared care summary; print / save as PDF |
+| `/auth/reset/[token]` | `pages/auth/reset/[token].jsx` | Reset token | Set a new password from an emailed reset link. Shared by clients and HCAs |
 | `/404` | Next.js default | None | 404 error page |
 
 > **Note:** All routes have a trailing slash due to `trailingSlash: true`. The canonical URL for the home page is `https://e-vive.vercel.app/`.
 >
-> **Gap:** only `/` and `/match` render a `<Head>`. The other eight public pages
-> have no `<title>`, no meta description and — critically — no
-> `<meta name="viewport">`, so they lay out at desktop width on phones. See **P0-6**.
+> Every page renders a `<Head>`: site-wide defaults (viewport, favicon, OG) come
+> from `pages/_app.jsx`, and each page's own title, description, canonical URL
+> and social card from `components/PageMeta.jsx`.
 
 ---
 
@@ -1786,6 +1747,27 @@ Dashboard/portal layout system. Includes:
 
 ---
 
+### `components/PageMeta.jsx`
+
+Per-page metadata: title, description, canonical URL, Open Graph and Twitter
+card. Site-wide defaults — viewport, favicon, theme colour, `og:site_name` —
+live in `pages/_app.jsx` and apply to every route, so a page only declares what
+is specific to it. Next.js de-duplicates head tags by `key`, so a page that
+renders `PageMeta` overrides the defaults rather than appending a second copy.
+
+```jsx
+<PageMeta
+  title="About Us"
+  description="E-Vive Wellness Initiative connects Kenyan families with certified HomeCare Assistants."
+  path="/about/"
+/>
+```
+
+`noindex` is available for pages that should not be indexed (`/press`, the
+account and reset pages).
+
+---
+
 ### Cardex & settings components
 
 Added with the secure-Cardex work; all four talk to the `/api/cardex/*` routes
@@ -1847,25 +1829,33 @@ All application data is persisted to a Supabase PostgreSQL database. The `lib/st
 | `cardex_share_recipients` | One row per recipient — relationship, written justification, SHA-256 of the token, optional access code, expiry, access count |
 | `cardex_share_audit` | Immutable audit of every share event, successful and failed alike (`viewed`, `revoked`, `denied_expired`, `denied_code`, …) |
 
-> Of the 30 tables in use, only the seven listed under migration `0009`
-> (`cardex_entries` plus the six above) have RLS enabled. The rest are still
-> reachable with the public anon key from the browser — see **P0-3**.
+**Added by migration `0010`:**
 
-**localStorage keys (session tokens only):**
+| Table | Purpose |
+|---|---|
+| `password_resets` | Single-use reset tokens: role, subject, SHA-256 of the token, expiry, and when it was spent |
+| `payments` | One row per M-Pesa STK Push — written when the push is initiated, completed when Safaricom's callback lands, and linked to the invoice it settles |
+
+> **All 32 tables now have Row Level Security enabled with no anon or
+> authenticated policies** — `0009` for the seven Cardex tables, `0010` for the
+> rest. The public anon key opens nothing. Every browser read and write goes
+> through `/api/db` (§9.6), which uses the service role after checking the
+> caller's session against `lib/dbPolicy.js`.
+
+**localStorage keys (display copies and drafts only):**
 
 | Key | Purpose |
 |---|---|
-| `evive_client_session` | Current active client session token |
-| `evive_hca_session` | Current active HCA session token |
-| `evive_admin_session` | Current active admin session token |
-| `evive_client_registry` | Legacy auth lookup (maintained for backwards compat during transition) |
-| `hca_auth`, `hca_id` | Flags the HCA dashboard guard reads |
-| `evive_cardex_draft_*` | Per-shift Cardex draft autosave |
+| `evive_client_session` | The signed-in family's name and email, so the dashboard can greet them before the first fetch returns |
+| `evive_hca_session` | Same, plus employee ID, for the HCA dashboard |
+| `evive_admin_session` | Same for the admin sidebar |
+| `evive_cardex_draft_*` | Per-shift Cardex draft autosave, cleared on sign-out |
 
-> The authoritative session is the HMAC-signed HttpOnly `evive_session` cookie
-> (§10). These localStorage entries are still what the dashboards' own route
-> guards check, which is why **P0-1** and **P0-2** are blockers: the API routes
-> ignore them, but the pages do not.
+> **None of these decide access.** Identity is the HMAC-signed HttpOnly
+> `evive_session` cookie (§10): page guards ask `/api/auth/session`, and every
+> API route re-derives the caller from the cookie itself. Editing any key above
+> changes what name is displayed until the next fetch, and nothing else. The
+> plaintext `evive_client_registry` is gone.
 
 ### 9.2 Data Schemas
 
@@ -2627,7 +2617,7 @@ Each function creates a Supabase notification record AND calls `dispatchEmail()`
 
 The admin "Messages" tab (`tab==="messages"` in `pages/admin/dashboard.jsx`) is a unified inbox/sent/outbox/trash for email, tagged by origin (`Resend`, `Admin`, `System`, `Contact Page`). It needs two pieces of one-time setup outside the codebase:
 
-**1. Database migration** — the `emails` table doesn't exist until you create it. Run `supabase/migrations/0001_create_emails_table.sql` once in the Supabase SQL Editor for this project. It creates the table, indexes, and an RLS policy granting the `anon` role full access. That was written before migration `0009` introduced the service-role key; `emails` is one of the 23 tables still reachable with the public anon key, and tightening it is part of **P0-3**.
+**1. Database migration** — the `emails` table doesn't exist until you create it. Run `supabase/migrations/0001_create_emails_table.sql` once in the Supabase SQL Editor for this project. It creates the table, indexes, and an RLS policy granting the `anon` role full access. Migration `0010` drops that policy — `emails` is now reachable only through the data gateway, which lets a non-admin file an inbound message and read nothing back but its id.
 
 **2. Resend webhook** — in the Resend dashboard, add a webhook endpoint pointing at `https://<your-domain>/api/webhooks/resend`, subscribed to: `email.sent`, `email.delivered`, `email.delivery_delayed`, `email.bounced`, `email.complained`, `email.opened`, `email.clicked`, and the Inbound event (for two-way email — requires Resend's Inbound Routes feature and its own DNS/MX setup on your domain, done separately in Resend). Copy the webhook's signing secret into the `RESEND_WEBHOOK_SECRET` environment variable in Vercel. Without it, the endpoint still works but accepts events without verifying they actually came from Resend.
 
@@ -2648,21 +2638,85 @@ Applied in order in the Supabase SQL editor; each is idempotent.
 | `0007_perf_indexes.sql` | Indexes behind the HCA profile queries |
 | `0008_placement_workflow.sql` | Placements, request review, conflict-safe scheduling, off-days |
 | `0009_secure_cardex.sql` | `admin_users`, `platform_settings`, sharing + audit tables, scrypt password columns, Cardex indexes, RLS on the clinical tables, and `purge_expired_cardex_data()` |
+| `0010_lock_down_and_payments.sql` | `password_resets`, `payments`, invoice reconciliation columns, RLS on all remaining tables (dropping `0001`'s permissive `anon` policy on `emails`), a widened `emails.origin` constraint, and `purge_expired_password_resets()` |
 
-> `0009` **must** be paired with `SUPABASE_SERVICE_ROLE_KEY` and `SESSION_SECRET`
-> in the environment. Run it without deploying the matching code and the Cardex
-> screens return empty; deploy without the variables and they return 503.
+> `0009` and `0010` **must** be paired with `SUPABASE_SERVICE_ROLE_KEY` and
+> `SESSION_SECRET` in the environment, and **the code must be deployed first**.
+> `0010` revokes the public anon key's access to every table: run it against an
+> older deploy and the whole application goes dark. Deploy, then migrate.
+
+### 9.6 The Data Gateway
+
+Every database read and write the browser makes goes through `POST /api/db`.
+
+```
+browser                       /api/db                        Postgres
+───────                       ───────                        ────────
+lib/store.js
+  supabase.from('invoices')
+    .select('*')
+    .eq('client_id', id)
+        │
+        ▼
+lib/supabase.js — records the
+call and posts a description
+        │  { table, action, columns, filters, order, limit }
+        ▼
+                  getSession(req)  ← the signed cookie, nothing else
+                        │
+                  policyFor(table, role)
+                        │  absent ⇒ 403
+                        ▼
+                  resolveSelect  — '*' expands to the role's columns;
+                                   an explicit list is intersected, so a
+                                   column outside the policy cannot come
+                                   back even if it is asked for
+                  resolveScope   — a mandatory row filter, ANDed onto the
+                                   caller's own filters (never instead of)
+                  resolveWrite   — writable columns; strict, and `force`
+                                   pins owner and status columns
+                        │
+                        ▼
+                  service-role query ──────────────────────────►
+```
+
+Four rules govern `lib/dbPolicy.js`, and reading that file should tell you the
+whole authorisation story:
+
+1. **Absent means denied.** A table with no entry for a role, or an action not
+   listed, is refused. New tables are locked until someone opts them in.
+2. **`select` is a column allowlist.** `password` is in none of them, for any
+   non-admin role, however it is requested.
+3. **`scope` is mandatory and derived from the session** — never from the
+   request. A family is scoped to `client_id = <their own>`; an HCA to their own
+   shifts, and to the families they actually hold a placement or shift with.
+   Writes may be scoped more tightly than reads: an HCA browses the whole active
+   directory but may only ever change their own row.
+4. **Writes are strict.** A payload naming a column the role may not set is
+   rejected rather than trimmed — a write that half-happens is worse than one
+   that fails.
+
+Three operations authenticate *themselves* rather than a role, so they are their
+own routes rather than table policy: applying
+(`/api/applications/create`), correcting an application by emailed link
+(`/api/applications/[token]`), and an HCA reading their own private fields
+(`/api/hca/me`).
+
+`lib/dbPolicy.test.mjs` covers the policy directly — that no non-admin role can
+delete anything, that `password` cannot be read by any route, that an HCA cannot
+raise their own rate or approve themselves, that an HCA with no placements
+matches no clients rather than all of them, and that every table access the
+application actually makes is permitted.
 
 ---
 
 ## 10. Authentication Systems
 
-Authentication is **mid-migration**, and both halves are described here because
-both are live in the current build.
+There is one answer to "who is this": the HMAC-signed HttpOnly `evive_session`
+cookie. Pages, API routes and the data gateway all derive identity from it and
+from nothing else.
 
-### The server-side layer (authoritative)
-
-`lib/serverAuth.js` and `pages/api/auth/*` are the real thing:
+### Signing in
 
 ```
 POST /api/auth/login  { role, identifier, password }
@@ -2671,7 +2725,7 @@ service-role lookup in clients | hca_profiles | admin_users
   (email, mobile, or employee_id — whichever that role may sign in with)
         ↓
 verifyPassword(password, stored, algo)     scrypt, constant-time
-  · unknown account still pays a decoy comparison — no account enumeration
+  · an unknown account still pays a decoy comparison — no enumeration
   · legacy plaintext verifies once, then upgrades to scrypt in place
         ↓
 active === false or status === 'suspended' → 403
@@ -2681,44 +2735,47 @@ createSessionToken({ role, id, name, email, … })   HMAC-SHA256, 12 h expiry
 Set-Cookie: evive_session=…; HttpOnly; SameSite=Lax; Path=/; Secure (prod)
 ```
 
-Every protected API route re-derives identity from that cookie with
-`getSession(req)` or `requireRole(req, role)`. Nothing accepts an id from the
-query string, the body, or a header.
+The browser never fetches a password column and never decides whether one
+matched. `lib/session.js` is how a page asks who it is talking to:
+
+```javascript
+const session = await fetchServerSession();       // GET /api/auth/session
+if (session?.role !== "admin") router.replace("/admin/login");
+```
 
 **Session payload:** `{ role, id, name, email, iat, exp }`, plus
-`canReadWelfareNotes` for admins and `employeeId` for HCAs.
+`canReadWelfareNotes` and `adminRole` for admins, `employeeId` for HCAs.
 
-### The browser-side layer (legacy, still gating the pages)
-
-The three dashboards still decide whether to render by reading localStorage:
+### Page guards
 
 | Page | Guard |
 |---|---|
-| `client/dashboard.jsx` | `getClientSession()` → `evive_client_session` |
-| `hca/dashboard.jsx` | `localStorage.hca_auth` / `hca_id` |
-| `admin/dashboard.jsx`, `admin/finance.jsx`, `admin/map.jsx` | `getAdminSession()` → `evive_admin_session` |
+| `client/dashboard.jsx` | `fetchServerSession()` → requires `role === 'client'` |
+| `hca/dashboard.jsx` | `fetchServerSession()` → requires `role === 'hca'` |
+| `admin/dashboard.jsx`, `admin/finance.jsx`, `admin/map.jsx` | `fetchServerSession()` → requires `role === 'admin'` |
 
-Those values are plain JSON that any visitor can write. They no longer grant
-access to Cardex data — the API routes ignore them entirely — but they do decide
-what the admin *page* renders, and the anon key still reaches most tables
-directly. That is **P0-1** and **P0-3**.
+Pages render `null` until the server confirms, so protected content never
+flashes. Signing out clears the cookie through `/api/auth/logout` as well as the
+localStorage display copy.
 
-Sign-in pages likewise still compare passwords in the browser *before* calling
-`/api/auth/login`, which is **P0-2** — and, once the scrypt upgrade has run,
-breaks the second login for every user.
+### Registration, reset and password change
 
-### Admin authentication
+| Flow | Route | Notes |
+|---|---|---|
+| Register | `POST /api/auth/register` | scrypt-hashed before the row exists; ignores any field registration may not set; signs the caller in |
+| Forgot password | `POST /api/auth/request-reset` | Single-use token, only its SHA-256 stored, emailed, 45-minute expiry, 5 per account per hour. The response is identical whether or not the account exists |
+| Redeem reset | `GET/POST /api/auth/reset` + `/auth/reset/[token]` | Consumed on use; issuing a new token invalidates the previous one |
+| Change password | `POST /api/auth/change-password` | The current password is verified against the stored hash server-side; only ever changes the account in the cookie |
 
-Preferred path: an `admin_users` row, verified by `/api/auth/login` as above.
+### Admin accounts
 
-Fallback still present in `pages/admin/login.jsx:119`: `SHA-256(password)`
-compared in browser code against `NEXT_PUBLIC_ADMIN_HASH`. SHA-256 is not a
-password hash, the value ships in the client bundle, and this path issues no
-cookie — so it cannot reach `/api/cardex/admin` or `/api/settings` at all.
-Create the `admin_users` row and delete it (**P0-1**).
+Admins are rows in `admin_users` with a scrypt hash. There is no browser-side
+fallback: the `NEXT_PUBLIC_ADMIN_HASH` path — a SHA-256 comparison against a
+value shipped in the client bundle — has been removed. §17 covers creating an
+admin.
 
 The login screen's 3-attempt / 60-second lockout is React state and resets on
-refresh; there is no server-side rate limiting (**P1-5**).
+refresh; server-side rate limiting is still outstanding (**P1-4**).
 
 ### Share-link authentication
 
@@ -2728,6 +2785,10 @@ SHA-256 hash, so a database dump yields no working links, and expiry, revocation
 and per-recipient scoping bound the blast radius. Anyone holding a live URL can
 read that report — inherent to emailed links, and the reason every access is
 audited.
+
+`/auth/reset/[token]` and `/api/applications/[token]` work the same way: the
+token is the credential, it is stored hashed or single-use, and failures return
+one neutral message so a token cannot be probed for validity.
 
 ---
 
@@ -2753,11 +2814,12 @@ The client journey is a 10-stage pipeline tracked in `client.journeyStage`. Each
 ## 12. RBAC System
 
 > **Status:** designed and configurable, **not enforced**. `hasPermission()` is
-> exported from `lib/store.js:1706` and called from nowhere in the application;
-> rules created under Admin → RBAC are stored, listed, and ignored. Every admin
-> who can reach the dashboard sees every tab. The single permission genuinely
-> enforced is `admin_users.can_read_welfare_notes`, checked server-side in
-> `/api/cardex/admin`. Closing this is **P1-2**.
+> exported from `lib/store.js` and called from nowhere; rules created under
+> Admin → RBAC are stored, listed, and ignored, so every admin who can reach the
+> dashboard sees every tab. What *is* enforced is coarser and server-side: the
+> role in the session cookie (an HCA cannot reach an admin route at all), and
+> `admin_users.can_read_welfare_notes`, checked in `/api/cardex/admin`. Making
+> these keys real is **P1-1**.
 
 ### Roles
 
@@ -2888,34 +2950,29 @@ All three admin pages include:
 
 ### Admin Authentication Security
 
-- Preferred path: an `admin_users` row verified server-side, scrypt-hashed, issuing a signed HttpOnly cookie
-- Admin pages return `null` (blank screen) while the auth check runs — no flash of protected content
-- Session cleared on sign-out (`clearAdminSession()` + `/api/auth/logout`)
-- **Weak points:** the page guard is still localStorage (**P0-1**); the legacy
-  SHA-256 fallback compares a bundled hash in the browser (**P0-1**); the
-  3-attempt lockout is browser state that resets on refresh (**P1-5**)
+- Admins are `admin_users` rows with scrypt hashes, verified server-side, issuing a signed HttpOnly cookie
+- Every admin page verifies that cookie with `/api/auth/session` before rendering, and returns `null` until it does — no flash of protected content, and a forged localStorage entry opens nothing
+- Sign-out clears the cookie (`/api/auth/logout`) as well as the display copy
+- The browser-side SHA-256 fallback is removed
+- **Remaining weak point:** the 3-attempt lockout is browser state that resets on refresh; there is no server-side rate limit (**P1-4**)
 
 ### Known Limitations
 
-Ordered by severity. Every entry maps to a task in
-[Pending Work](#pending-work--prioritised-for-launch).
+The August review's six P0 blockers are closed. What remains, ordered by
+severity, with the task each maps to in
+[Still outstanding](#still-outstanding).
 
 | Issue | Impact | Resolution |
 |---|---|---|
-| Admin pages gate on localStorage | One devtools line renders the admin portal; combined with the row below, that is read/write access to every client, HCA, invoice and payroll record | **P0-1** — verify `/api/auth/session` server-side before rendering |
-| RLS covers 7 tables of 30 | `clients`, `hca_profiles` (including its `password` column), `invoices`, `payroll_payments`, `shifts`, `placements` and `emails` are readable and writable with the public anon key | **P0-3** — route reads through API routes, then default-deny RLS |
-| Sign-in compares passwords in the browser | Password material reaches the client bundle; and after the scrypt upgrade the comparison can never match, locking users out on their second login | **P0-2** — `/api/auth/login` as the only sign-in path |
-| Password reset is simulated | The code is generated in the browser, never sent, and the lookup only reads that device's localStorage registry | **P0-4** — server-issued single-use hashed token |
-| M-Pesa callback discards the result | A family can pay and the invoice stays open; the callback also accepts any POST | **P0-5** — persist, reconcile, and verify the caller |
-| RBAC stored but never enforced | `hasPermission()` is never called; rules configured in the UI gate nothing | **P1-2** |
-| No server-side rate limiting | Login, HCA application, contact and partner forms can be hammered or spammed | **P1-5** |
-| Retention purge is manual | `purge_expired_cardex_data()` runs only when an admin presses the button | **P1-4** — pg_cron or a Vercel cron job |
-| Clock-in GPS is recorded, not verified | No comparison against the placement address, though §1 says "GPS-verified" | **P1-6** |
+| RBAC stored but never enforced | Any admin who can sign in sees every tab. Bounded by the fact that admin accounts are created by hand, and welfare notes are gated separately | **P1-1** |
+| No rate limiting on login or the public forms | A weak admin or client password can be brute-forced without server-side slowdown; the application and contact forms can be spammed | **P1-4** |
+| Retention purges are manual | `purge_expired_cardex_data()` and `purge_expired_password_resets()` run only when an admin presses the button | **P1-3** — pg_cron or a Vercel cron job |
+| Admin-issued initial passwords are stored in plain form until first login | Narrow: the same string is already in the HCA's inbox, and the first sign-in upgrades it to scrypt | **P1-5** |
+| Clock-in GPS is recorded, not verified | No comparison against the placement address. §1 no longer claims otherwise | **P1-6** |
 | Uploads stored as base64 in Postgres | Certificates and photos bloat `hca_applications.form_data`; already caused a live statement timeout | **P1-7** — Supabase Storage |
-| `unsafe-inline` in CSP | Weakens XSS protection | Pages Router + inline CSS-in-JS; nonce support needs an App Router migration (**P2-7**) |
+| `unsafe-inline` in CSP | Weakens XSS protection | Pages Router + inline CSS-in-JS; nonce support needs an App Router migration (**P2-6**) |
 | Share links are bearer tokens | Anyone holding a live URL (and code, when required) can read that report until expiry or revocation | Inherent to emailed links; bounded by expiry, revocation, per-recipient tokens and the audit log |
-
----
+| The gateway has not been exercised against a live database | The policy is unit-tested and the build is clean, but no query in this release has run against real Postgres | Run the smoke checks in §17 against staging before promoting |
 
 ## 15. Demo & Seed Data
 
@@ -2923,8 +2980,7 @@ Ordered by severity. Every entry maps to a task in
 
 > **Current state:** the function is exported but **no page calls it any more**,
 > so nothing is seeded automatically. The credentials below are published in
-> this repository — confirm they exist in no production database before launch
-> (**P1-9**).
+> this repository — confirm they exist in no production database (**P1-8**).
 
 ### Demo Client
 
@@ -2978,6 +3034,15 @@ To clear all Supabase data and re-seed:
 
 All assets are served from the `/public` directory.
 
+### Icons
+
+| File | Use |
+|---|---|
+| `favicon.ico` | 32×32 tab icon for browsers that want an `.ico` |
+| `favicon.svg` | Scalable tab icon; preferred by modern browsers, and also the apple-touch-icon |
+
+Both are referenced from `pages/_app.jsx`, so every route carries them.
+
 ### Images
 
 #### Hero Photos (`/images/`)
@@ -3019,6 +3084,16 @@ All assets are served from the `/public` directory.
 | `hca-rose-adhiambo.svg` | Rose Adhiambo |
 | `hca-samuel-kamau.svg` | Samuel Kamau |
 | `hca-sylvia-achieng.svg` | Sylvia Achieng |
+
+#### Counsellor Portraits (`/images/portraits/`)
+4 counsellors used on the `/caregivers` page:
+
+| File | Character |
+|---|---|
+| `counsellor-james-otieno.svg` | James Otieno — Grief & Loss Counsellor |
+| `counsellor-peter-mwangi.svg` | Peter Mwangi — Palliative Care Specialist |
+| `counsellor-rose-mutua.svg` | Rose Mutua — Caregiver Wellness Coach |
+| `counsellor-sarah-kamau.svg` | Sarah Kamau — Family Therapist |
 
 #### Team Portraits (`/images/portraits/`)
 2 active team members used in `/about` page:
@@ -3082,8 +3157,10 @@ npm run dev
 Open http://localhost:3000
 
 Apply `supabase/migrations/*.sql` in filename order in the Supabase SQL editor
-before first run; `0009` additionally requires the two server-side variables
-above. See §9.5.
+before first run. `0009` and `0010` additionally require
+`SUPABASE_SERVICE_ROLE_KEY` and `SESSION_SECRET`, and must be applied *after*
+the matching code is deployed — `0010` revokes the public anon key's access to
+every table. See §9.5.
 
 ### Available Scripts
 
@@ -3095,6 +3172,31 @@ above. See §9.5.
 | `npm run lint` | Run ESLint across all pages, components, and lib |
 | `npm test` | Run the unit suite — `node --test lib/*.test.mjs` (71 tests) |
 | `npm run test:tz` | Same suite under `TZ=Africa/Nairobi`, which is how the scheduling date bugs were caught |
+
+### Adding a Table, or Widening What a Role May See
+
+Data access is declared in `lib/dbPolicy.js` and enforced by `/api/db` (§9.6).
+A table with no entry there is unreachable from the browser, which is the
+intended default.
+
+1. Add the table to the `POLICY` object with an entry per role that needs it.
+   Name the columns explicitly — `select: ALL` is for Admin only.
+2. Give it a `scope` if rows belong to someone. `selfId`, `byClient` and `byHca`
+   cover most cases; a scope may also be async and resolve ids with a query of
+   its own, as `clientsLinkedToHca` does.
+3. For writes, list the columns the role may set. Use `force` to pin values the
+   caller must not choose (status, ownership) and `forceFromSession` to stamp
+   the owner from the cookie.
+4. If the role cannot read the table but the write needs to confirm, add
+   `returning: ['id']` rather than opening `select`.
+5. Add the new access to `CALL_SITES` in `lib/dbPolicy.test.mjs`. That test
+   fails if a page uses a table the policy denies, which is much easier to
+   diagnose than an empty screen in production.
+6. Enable RLS on the table in a new migration. Never add an `anon` policy.
+
+If the operation authenticates itself rather than a role — an emailed link, a
+share token, a webhook — write a route for it instead, as
+`/api/applications/[token]` and `/api/report/[token]` do.
 
 ### Creating and Changing Admin Accounts
 
@@ -3114,11 +3216,11 @@ values ('you@e-vive.co.ke', 'Your Name', 'scrypt$16384$8$1$…', 'super_admin', 
 note is a worker's confidential account of their own working conditions, not
 care-quality data. Grant it explicitly, to named people.
 
-**The legacy path, being removed.** `NEXT_PUBLIC_ADMIN_EMAIL` /
-`NEXT_PUBLIC_ADMIN_HASH` compare a SHA-256 hash in browser code. That hash ships
-in the client bundle, SHA-256 is not a password hash, and the path issues no
-session cookie — so it cannot reach `/api/cardex/admin` or `/api/settings`.
-Delete both variables once a real row exists (**P0-1**).
+**There is no other path.** The `NEXT_PUBLIC_ADMIN_EMAIL` /
+`NEXT_PUBLIC_ADMIN_HASH` fallback has been removed: it compared a SHA-256 hash
+shipped in the client bundle, which is neither a password hash nor a server-side
+check. Delete both variables from your deployment. Without an `admin_users` row,
+nobody can sign in to the admin portal.
 
 ### Adding a New Public Page
 
@@ -3218,15 +3320,31 @@ Production URL: **https://e-vive.vercel.app**
 
 **Pre-launch deployment checklist**
 
-1. All nine migrations applied, in order
-2. `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET` and `NEXT_PUBLIC_SITE_URL` set in Vercel (Production **and** Preview)
-3. At least one `admin_users` row created; `NEXT_PUBLIC_ADMIN_*` removed
-4. `MPESA_ENV=production` with live Daraja credentials, and the callback URL registered against the production shortcode
+Order matters for steps 1–2: `0010` revokes the anon key's access to every
+table, so the code that no longer needs it must be live first.
+
+1. `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET` and `NEXT_PUBLIC_SITE_URL` set in Vercel (Production **and** Preview)
+2. Deploy the code, **then** apply all ten migrations in filename order
+3. At least one `admin_users` row created; `NEXT_PUBLIC_ADMIN_*` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` removed
+4. `MPESA_ENV=production` with live Daraja credentials, `MPESA_CALLBACK_SECRET` set, and the callback URL — including its `?k=` secret — registered against the production shortcode
 5. `RESEND_API_KEY` set, sender domain verified, `RESEND_WEBHOOK_SECRET` configured
 6. No demo rows (`demo@client.com`, `grace@hca.com`) in the production database
 7. `npm run build`, `npm run lint` and `npm test` green on the release commit
-8. All **P0** items closed
+
+**Post-deploy smoke checks.** The gateway has not been exercised against a live
+database; run these against staging before promoting:
+
+| Check | Expected |
+|---|---|
+| `/match` while signed out | HCA cards load. In the network tab, the `/api/db` response carries no `email`, `mobile`, `dob` or `password` |
+| Sign in as a client, then **sign in again** | Both succeed — this is the scrypt-upgrade lockout that used to break the second attempt |
+| Client dashboard | Invoices, shifts, placements and notifications load; care team photos appear |
+| Devtools: `localStorage.setItem('evive_admin_session', '{"id":"x"}')`, then open `/admin/dashboard` | Redirected to `/admin/login` |
+| HCA dashboard | Own profile, shifts and Cardex load; the client list shows only placed families |
+| Forgot password, as client and as HCA | A link arrives; it works once and is dead on reuse |
+| Submit the contact form and an HCA application signed out | Both save; both appear in Admin → Messages / Applications |
+| M-Pesa sandbox payment | `payments` row completes, invoice flips to paid, receipt email sent |
 
 ---
 
-*Documentation updated August 2026 after a full implementation review — E-Vive Homecare · by E-Vive Wellness Initiative · Nairobi, Kenya*
+*Documentation updated August 2026, after the review and after closing the six P0 launch blockers it found — E-Vive Homecare · by E-Vive Wellness Initiative · Nairobi, Kenya*
