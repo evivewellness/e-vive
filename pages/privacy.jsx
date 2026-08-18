@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 import { BASE_CSS } from '../components/SharedStyles';
+import PageMeta from '../components/PageMeta';
 
 const PAGE_CSS = `
   body { padding-top: 72px; }
@@ -62,6 +63,11 @@ const PAGE_CSS = `
 export default function PrivacyPage() {
   return (
     <>
+      <PageMeta
+        title="Privacy Policy"
+        description="How E-Vive collects, uses, stores and protects personal and health information, and the rights you hold over your data."
+        path="/privacy/"
+      />
       <style>{BASE_CSS + PAGE_CSS}</style>
       <Nav />
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import Head from "next/head";
+import PageMeta from '../components/PageMeta';
 import Link from "next/link";
 import Nav from "../components/Nav";
 import Footer from "../components/Footer";
@@ -282,12 +282,11 @@ export default function Home() {
 
   return (
     <>
-      <Head>
-        <title>E-Vive - Kenya&apos;s HomeCare Matching Platform</title>
-        <meta name="description" content="Connect with certified HomeCare Assistants near you. Location-based matching, Cardex reporting, family caregiver support, partner hospitals and more." />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
+      <PageMeta
+        title="Kenya's HomeCare Matching Platform"
+        description="Connect with certified HomeCare Assistants near you. Location-based matching, Cardex reporting, family caregiver support, partner hospitals and more."
+        path="/"
+      />
       <style>{BASE_CSS + PAGE_CSS}</style>
       <Nav />
 

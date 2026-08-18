@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 import { BASE_CSS } from '../components/SharedStyles';
+import PageMeta from '../components/PageMeta';
 
 const PAGE_CSS = `
   body { padding-top: 72px; }
@@ -241,6 +242,11 @@ export default function ProductsPage() {
 
   return (
     <>
+      <PageMeta
+        title="Homecare Products"
+        description="Medical equipment, mobility aids and consumables curated by our clinical team and delivered to your door. Join the waitlist."
+        path="/products/"
+      />
       <style>{BASE_CSS + PAGE_CSS}</style>
       <Nav />
 

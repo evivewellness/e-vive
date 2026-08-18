@@ -68,7 +68,10 @@ export default async function handler(req, res) {
     role, id: row.id,
     name: row.name || row.full_name || '',
     email: row.email || '',
-    ...(role === 'admin' ? { canReadWelfareNotes: !!row.can_read_welfare_notes } : {}),
+    ...(role === 'admin' ? {
+      canReadWelfareNotes: !!row.can_read_welfare_notes,
+      adminRole: row.role || 'super_admin',
+    } : {}),
     ...(role === 'hca'   ? { employeeId: row.employee_id } : {}),
   };
   res.setHeader('Set-Cookie', sessionCookie(createSessionToken(session)));

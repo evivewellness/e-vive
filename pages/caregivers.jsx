@@ -3,10 +3,11 @@ import Link from 'next/link';
 import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 import { BASE_CSS } from '../components/SharedStyles';
+import PageMeta from '../components/PageMeta';
 import {
   getClientSession, getHcaSession, getAdminSession,
   getLmsCourses, getEnrollmentsForUser, enrollInCourse,
-  updateCourseProgress, submitPartnerCourse, getAllClients,
+  updateCourseProgress, submitPartnerCourse, getClientCount,
   createHubAccessRequest, createHubReferral,
 } from '../lib/store';
 
@@ -652,12 +653,12 @@ export default function CaregiversPage() {
         setAuthed(!!resolvedUser);
 
         // Load courses & stats (available to all — used even on gate)
-        const [fetchedCourses, fetchedClients] = await Promise.all([
+        const [fetchedCourses, familiesServed] = await Promise.all([
           getLmsCourses(),
-          getAllClients(),
+          getClientCount(),
         ]);
         setCourses(fetchedCourses);
-        setClientCount(fetchedClients.length);
+        setClientCount(familiesServed);
 
         // Load enrollments if authed
         if (resolvedUser) {
@@ -772,7 +773,12 @@ export default function CaregiversPage() {
   if (!loading && !authed) {
     return (
       <>
-        <style>{BASE_CSS + PAGE_CSS}</style>
+        <PageMeta
+        title="Family Caregiver Hub"
+        description="Training courses, counselling referrals and a professional resource library for Kenyan families caring for a loved one at home."
+        path="/caregivers/"
+      />
+      <style>{BASE_CSS + PAGE_CSS}</style>
         <Nav />
 
         {/* Hero with lock overlay */}
@@ -842,6 +848,11 @@ export default function CaregiversPage() {
   // ─── Render main hub ────────────────────────────────────────────────────────
   return (
     <>
+      <PageMeta
+        title="Family Caregiver Hub"
+        description="Training courses, counselling referrals and a professional resource library for Kenyan families caring for a loved one at home."
+        path="/caregivers/"
+      />
       <style>{BASE_CSS + PAGE_CSS}</style>
       <Nav />
 

@@ -1,18 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { setAdminSession, getAdminSession } from "../../lib/store";
+import { setAdminSession } from "../../lib/store";
+import { fetchServerSession } from "../../lib/session";
 
-const CORRECT_HASH = process.env.NEXT_PUBLIC_ADMIN_HASH ||
-  "a62272989cd2f742263eb83f266507e7810c569b952bb36fef788d21e40ccb5f";
-const CORRECT_EMAIL = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || "admin@e-vive.co.ke").toLowerCase();
+// Credentials are verified server-side against the `admin_users` table, which
+// stores scrypt hashes. The browser never sees a hash and never decides whether
+// a password is correct — /api/auth/login does, and answers with a signed
+// HttpOnly cookie or with 401.
 const MAX_ATTEMPTS   = 3;
 const LOCKOUT_SECS   = 60;
-
-async function sha256hex(str) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
-}
 
 const CSS = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -72,13 +69,14 @@ export default function AdminLogin() {
   const [locked,   setLocked]   = useState(false);
   const [lockSecs, setLockSecs] = useState(0);
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated — asks the server, not localStorage.
   useEffect(() => {
-    try {
-      const session = getAdminSession();
-      if (session?.id) router.replace("/admin/dashboard");
-    } catch {}
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    let cancelled = false;
+    fetchServerSession().then(s => {
+      if (!cancelled && s?.role === "admin") router.replace("/admin/dashboard");
+    });
+    return () => { cancelled = true; };
+  }, [router])
 
   // Lockout countdown
   useEffect(() => {
@@ -100,28 +98,20 @@ export default function AdminLogin() {
     try {
       const emailNorm = email.trim().toLowerCase();
 
-      // Preferred path: verify server-side against admin_users and receive a
-      // signed HttpOnly cookie. The legacy fallback below compares a SHA-256
-      // hash in browser code, which is not a password hash and cannot gate
-      // anything server-side — it remains only so existing deployments keep
-      // working until an admin_users row exists.
       const res = await fetch("/api/auth/login", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role: "admin", identifier: emailNorm, password }),
       }).catch(() => null);
       if (res && res.ok) {
         const { session } = await res.json();
-        setAdminSession({ id: session.id, name: session.name || "Administrator", role: session.role || "super_admin" });
+        // Kept only so the sidebar can greet the admin by name. Every page
+        // guard and every API route re-checks the cookie regardless.
+        setAdminSession({ id: session.id, name: session.name || "Administrator", role: session.adminRole || "super_admin" });
         router.replace("/admin/dashboard");
         return;
       }
-
-      const hash = await sha256hex(password);
-      const emailOk = emailNorm === CORRECT_EMAIL;
-      const passOk  = hash === CORRECT_HASH;
-      if (emailOk && passOk) {
-        setAdminSession({ id: "admin", name: "Salome Ruguru", role: "super_admin" });
-        router.replace("/admin/dashboard");
+      if (res && res.status === 503) {
+        setError("Admin sign-in is not configured on this deployment. SESSION_SECRET and SUPABASE_SERVICE_ROLE_KEY must be set.");
         return;
       }
       const newAttempts = attempts + 1;

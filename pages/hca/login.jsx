@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import Head from "next/head";
 import { BASE_CSS } from "../../components/SharedStyles";
-import { getAllHcaProfiles, setHcaSession } from "../../lib/store";
+import { setHcaSession } from "../../lib/store";
 
 const PAGE_CSS = `
   body { margin:0; }
@@ -196,6 +196,30 @@ export default function HCALogin() {
   const [form, setForm] = useState({ empId: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resetSending, setResetSending] = useState(false);
+  const [resetSent,    setResetSent]    = useState(false);
+
+  // Reset links are issued and emailed server-side; the browser learns nothing
+  // about whether the account exists.
+  async function handleForgotPassword() {
+    if (!form.empId.trim()) {
+      setError("Enter your Employee ID, email or mobile first, then choose 'Forgot your password?'.");
+      return;
+    }
+    setError("");
+    setResetSending(true);
+    try {
+      await fetch("/api/auth/request-reset", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: "hca", identifier: form.empId.trim() }),
+      });
+      setResetSent(true);
+    } catch {
+      setError("Could not start the reset. Please check your connection and try again.");
+    } finally {
+      setResetSending(false);
+    }
+  }
 
   function handleChange(e) {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));
@@ -210,32 +234,26 @@ export default function HCALogin() {
     }
     setLoading(true);
     try {
-      const profiles = await getAllHcaProfiles();
-      const empId = form.empId.trim();
-      const profile = profiles.find(p =>
-        p.employeeId === empId ||
-        p.email?.toLowerCase() === empId.toLowerCase() ||
-        p.mobile === empId
-      );
-      if (!profile) {
-        setError("No HCA account found with these credentials. Contact hello@e-vive.co.ke.");
-        setLoading(false);
-        return;
-      }
-      if (profile.password && profile.password !== form.password) {
-        setError("Incorrect password. Please try again.");
-        setLoading(false);
-        return;
-      }
-      setHcaSession(profile);
-      await fetch("/api/auth/login", {
+      // Credentials are checked server-side only. The browser never fetches a
+      // password column, and never decides whether one matched.
+      const res = await fetch("/api/auth/login", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "hca", identifier: empId, password: form.password }),
-      }).catch(() => {});
-      if (typeof window !== "undefined") {
-        localStorage.setItem("hca_auth", "true");
-        localStorage.setItem("hca_id", profile.employeeId);
+        body: JSON.stringify({ role: "hca", identifier: form.empId.trim(), password: form.password }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(res.status === 503
+          ? "Sign-in is not configured on this deployment. Please contact hello@e-vive.co.ke."
+          : (body.error || "Incorrect sign-in details."));
+        setLoading(false);
+        return;
       }
+      setHcaSession({
+        id: body.session.id,
+        name: body.session.name,
+        email: body.session.email,
+        employeeId: body.session.employeeId,
+      });
       router.push("/hca/dashboard");
     } catch {
       setError("Something went wrong. Please try again.");
@@ -324,6 +342,25 @@ export default function HCALogin() {
                   {loading ? "Signing in…" : "Sign In to Dashboard →"}
                 </button>
               </form>
+
+              <div style={{ marginTop: 16, textAlign: "center" }}>
+                {resetSent ? (
+                  <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.6 }}>
+                    📬 If an account exists for <strong style={{ color: "var(--text)" }}>{form.empId.trim()}</strong>,
+                    we have emailed it a link to set a new password. It works once and expires in 45 minutes.
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={resetSending}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0,
+                             fontFamily: "var(--sans)", fontSize: 13, fontWeight: 600, color: "var(--jade)" }}
+                  >
+                    {resetSending ? "Sending…" : "Forgot your password?"}
+                  </button>
+                )}
+              </div>
 
               <div className="login-hint">
                 <strong>New to E-Vive?</strong> Your Employee ID and temporary password are provided after your application is approved. Contact <strong>hello@e-vive.co.ke</strong> if you have not received your credentials.

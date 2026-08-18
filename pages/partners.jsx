@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 import { BASE_CSS } from '../components/SharedStyles';
+import PageMeta from '../components/PageMeta';
 
 const PAGE_CSS = `
   body { padding-top: 72px; }
@@ -229,6 +230,11 @@ export default function PartnersPage() {
 
   return (
     <>
+      <PageMeta
+        title="Partner With Us"
+        description="Hospitals, clinics and insurers partner with E-Vive for verified post-discharge and long-term home care across Kenya."
+        path="/partners/"
+      />
       <style>{BASE_CSS + PAGE_CSS}</style>
       <Nav />
 

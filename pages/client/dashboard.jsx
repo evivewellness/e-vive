@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { DASH_BASE } from "../../components/SharedStyles";
 import {
-  getClientSession,
+  setClientSession,
   clearClientSession,
   getClientByEmail,
   getClientById,
@@ -30,6 +30,7 @@ import {
   JOURNEY_STAGES,
   JOURNEY_LABELS,
 } from "../../lib/store";
+import { fetchServerSession, serverSignOut } from "../../lib/session";
 import { todayIso } from "../../lib/scheduling";
 import CareReports from "../../components/CareReports";
 import ShareReportModal from "../../components/ShareReportModal";
@@ -509,9 +510,11 @@ function NotifEmailModal({ notif, onClose }) {
         <div style={{background:"rgba(0,74,153,0.04)",border:"1px solid rgba(0,74,153,0.1)",borderRadius:10,padding:"14px 16px",fontSize:12,color:"var(--muted)",fontFamily:"var(--mono)",lineHeight:1.8,whiteSpace:"pre-wrap",maxHeight:340,overflowY:"auto"}}>
           {notif.body}
         </div>
-        <div style={{marginTop:14,fontSize:12,color:"var(--muted)",padding:"10px 14px",background:"rgba(14,165,233,0.05)",border:"1px solid rgba(14,165,233,0.12)",borderRadius:10}}>
-          📧 In a live deployment, this email would be delivered to <strong style={{color:"var(--jade)"}}>{notif.emailTo}</strong> via your email service provider.
-        </div>
+        {notif.emailTo && (
+          <div style={{marginTop:14,fontSize:12,color:"var(--muted)",padding:"10px 14px",background:"rgba(14,165,233,0.05)",border:"1px solid rgba(14,165,233,0.12)",borderRadius:10}}>
+            📧 A copy was emailed to <strong style={{color:"var(--jade)"}}>{notif.emailTo}</strong>.
+          </div>
+        )}
         <div className="modal-actions"><button className="btn-p" style={{padding:"9px 20px"}} onClick={onClose}>Close</button></div>
       </div>
     </div>
@@ -529,15 +532,13 @@ function MpesaPayModal({ invoice, defaultPhone, onClose }) {
     setStatus("sending");
     setMsg("");
     try {
+      // Only the phone and the invoice are sent. The amount is read from the
+      // invoice server-side, so an edited payload cannot underpay.
       const res  = await fetch("/api/mpesa/stkpush", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({
-          phone:      phone.trim(),
-          amount:     invoice.total,
-          accountRef: invoice.invoiceNum,
-          description: "E-Vive Invoice",
-        }),
+        method:      "POST",
+        credentials: "same-origin",
+        headers:     { "Content-Type": "application/json" },
+        body:        JSON.stringify({ phone: phone.trim(), invoiceId: invoice.id }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
@@ -564,6 +565,13 @@ function MpesaPayModal({ invoice, defaultPhone, onClose }) {
           {invoice.description && <div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>{invoice.description}</div>}
           <div style={{fontFamily:"var(--serif)",fontSize:22,fontWeight:700,color:"var(--gold)",marginTop:8}}>KES {(invoice.total||0).toLocaleString()}</div>
         </div>
+
+        {status === "success" && (
+          <div style={{fontSize:12,color:"var(--muted)",lineHeight:1.6,marginBottom:16}}>
+            Your invoice updates here once Safaricom confirms the payment — usually within a few
+            seconds of you entering your PIN. You can close this and refresh.
+          </div>
+        )}
 
         {status !== "success" && (
           <>
@@ -656,14 +664,17 @@ export default function ClientDashboard() {
   const [deletionSubmitted, setDeletionSubmitted]  = useState(false);
 
   const reload = useCallback(async () => {
-    const session = getClientSession();
-    if (!session) { router.replace("/client/register"); return; }
+    // Identity is the signed cookie, decoded server-side — not the localStorage
+    // copy, which any visitor could previously edit to become another client.
+    const session = await fetchServerSession();
+    if (session?.role !== "client") { clearClientSession(); router.replace("/client/register"); return; }
+    setClientSession({ id: session.id, name: session.name, email: session.email, mobile: session.mobile || "" });
     async function loadData() {
-      let full = session.id ? await getClientById(session.id) : null;
+      let full = await getClientById(session.id);
       if (!full && session.email) full = await getClientByEmail(session.email);
       if (!full) {
         full = {
-          id: null, name: session.name, email: session.email, mobile: session.mobile,
+          id: session.id, name: session.name, email: session.email, mobile: session.mobile,
           location:"", address:"", patients:[], journeyStage:"account_created",
           journeyDates:{}, visitDate:null, assignedHcaId:null, status:"active",
           createdAt: new Date().toISOString(),
@@ -699,12 +710,12 @@ export default function ClientDashboard() {
   }, [router]);
 
   useEffect(() => {
-    const session = getClientSession();
     async function init() {
       await reload();
       // Send welcome notification once if account_created and no notifications yet
-      if (session) {
-        let c = session.id ? await getClientById(session.id) : await getClientByEmail(session.email);
+      const session = await fetchServerSession();
+      if (session?.role === "client") {
+        const c = await getClientById(session.id);
         if (c && c.journeyStage === "account_created") {
           const existing = await getNotificationsForClient(c.id);
           if (!existing.some(n => n.type === "welcome")) {
@@ -716,7 +727,7 @@ export default function ClientDashboard() {
     init();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function handleLogout() { clearClientSession(); router.push("/client/register"); }
+  async function handleLogout() { clearClientSession(); await serverSignOut(); router.push("/client/register"); }
 
   if (!client) return null;
 
@@ -813,7 +824,11 @@ export default function ClientDashboard() {
         <NotifEmailModal notif={previewNotif} onClose={()=>setPreviewNotif(null)} />
       )}
       {mpesaInvoice && (
-        <MpesaPayModal invoice={mpesaInvoice} defaultPhone={client?.mobile||""} onClose={()=>setMpesaInvoice(null)} />
+        <MpesaPayModal
+          invoice={mpesaInvoice}
+          defaultPhone={client?.mobile||""}
+          onClose={()=>{ setMpesaInvoice(null); reload(); }}
+        />
       )}
 
       {/* ── Notification Panel ── */}

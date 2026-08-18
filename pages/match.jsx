@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import Head from "next/head";
+import PageMeta from '../components/PageMeta';
 import Link from "next/link";
 import Nav from "../components/Nav";
 import Footer from "../components/Footer";
@@ -916,11 +916,11 @@ export default function MatchPage() {
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <>
-      <Head>
-        <title>Find a HomeCare Assistant - E-Vive Kenya</title>
-        <meta name="description" content="Search verified HomeCare Assistants by care type, language, shift, location and availability." />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-      </Head>
+      <PageMeta
+        title="Find a HomeCare Assistant"
+        description="Search verified HomeCare Assistants by care type, language, shift, location and availability."
+        path="/match/"
+      />
       <style>{BASE_CSS + PAGE_CSS}</style>
       <Nav />
 

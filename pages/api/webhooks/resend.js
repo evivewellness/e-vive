@@ -1,5 +1,5 @@
 import { Webhook } from 'svix';
-import { supabase } from '../../../lib/supabase';
+import { getSupabaseAdmin } from '../../../lib/supabaseAdmin';
 
 // Resend signs webhooks using Svix. Disable Next's body parser so we can
 // verify the signature against the exact raw bytes Resend sent.
@@ -106,7 +106,7 @@ async function handleInbound(type, event, data) {
 
   const safeEvent = { ...event, data: safeData, _fetchDebug: fetchDebug };
 
-  const { error } = await supabase.from('emails').insert({
+  const { error } = await getSupabaseAdmin().from('emails').insert({
     direction: 'inbound',
     origin: 'resend',
     folder: 'inbox',
@@ -131,7 +131,7 @@ async function handleOutboundEvent(type, event, data) {
   const emailId = data.email_id || data.id;
   if (!status || !emailId) return;
 
-  const { data: existing, error: findErr } = await supabase
+  const { data: existing, error: findErr } = await getSupabaseAdmin()
     .from('emails').select('id, status, metadata')
     .eq('resend_message_id', emailId).maybeSingle();
   if (findErr || !existing) return; // nothing to reconcile against (e.g. sent before this table existed)
@@ -140,7 +140,7 @@ async function handleOutboundEvent(type, event, data) {
   const newRank = STATUS_RANK[status] || 0;
   if (newRank < existingRank) return; // don't regress a further-along status
 
-  const { error: updateErr } = await supabase.from('emails').update({
+  const { error: updateErr } = await getSupabaseAdmin().from('emails').update({
     status,
     metadata: { ...(existing.metadata || {}), [type]: event },
   }).eq('id', existing.id);

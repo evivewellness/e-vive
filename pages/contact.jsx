@@ -4,6 +4,7 @@ import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 import { createContactMessage } from '../lib/store';
 import { BASE_CSS } from '../components/SharedStyles';
+import PageMeta from '../components/PageMeta';
 
 const PAGE_CSS = `
   body { padding-top: 72px; }
@@ -235,6 +236,11 @@ export default function ContactPage() {
 
   return (
     <>
+      <PageMeta
+        title="Contact Us"
+        description="Talk to the E-Vive team about care for your family, joining as a HomeCare Assistant, or partnering with us. Nairobi-based, replying within one working day."
+        path="/contact/"
+      />
       <style>{BASE_CSS + PAGE_CSS}</style>
       <Nav />
 

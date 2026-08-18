@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 import { BASE_CSS } from '../components/SharedStyles';
+import PageMeta from '../components/PageMeta';
 
 const PAGE_CSS = `
   body { padding-top: 72px; }
@@ -62,6 +63,11 @@ const PAGE_CSS = `
 export default function TermsPage() {
   return (
     <>
+      <PageMeta
+        title="Terms of Use"
+        description="The terms governing use of the E-Vive platform by families, HomeCare Assistants and partner organisations."
+        path="/terms/"
+      />
       <style>{BASE_CSS + PAGE_CSS}</style>
       <Nav />
 

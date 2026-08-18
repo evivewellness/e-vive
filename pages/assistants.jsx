@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 import { BASE_CSS } from '../components/SharedStyles';
+import PageMeta from '../components/PageMeta';
 
 const PAGE_CSS = `
   body { padding-top: 72px; }
@@ -262,6 +263,11 @@ export default function AssistantsPage() {
 
   return (
     <>
+      <PageMeta
+        title="For HomeCare Assistants"
+        description="Join E-Vive as a certified HomeCare Assistant. Fair rates, steady placements, training and welfare support for care professionals across Kenya."
+        path="/assistants/"
+      />
       <style>{BASE_CSS + PAGE_CSS}</style>
       <Nav />
 

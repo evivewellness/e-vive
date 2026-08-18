@@ -4,13 +4,13 @@ import Link from "next/link";
 import { DASH_BASE } from "../../components/SharedStyles";
 import CardexView from "../../components/CardexView";
 import {
-  getHcaSession,
-  getHcaProfileById,
+  setHcaSession,
+  getMyHcaProfile,
   clearHcaSession,
   getShiftsByHca,
   getCardexByHca,
   createCardexEntry,
-  getAllClients,
+  getClientsForHca,
   requestHcaDeletion,
   clockInHca,
   clockOutHca,
@@ -24,6 +24,7 @@ import {
   HCA_JOURNEY_LABELS,
   getCalendarEventsByHca,
 } from "../../lib/store";
+import { fetchServerSession, serverSignOut } from "../../lib/session";
 
 const CSS = `
   /* Clock-in panel */
@@ -230,21 +231,28 @@ export default function HCADashboard() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    // Try new store session first
-    const session = getHcaSession();
-    if (session?.id) {
+    let cancelled = false;
+    // Identity comes from the signed cookie, verified server-side. localStorage
+    // is no longer consulted: it decided nothing an attacker could not rewrite.
+    (async () => {
+      const session = await fetchServerSession();
+      if (cancelled) return;
+      if (session?.role !== "hca") {
+        clearHcaSession();
+        window.location.href = "/hca/login";
+        return;
+      }
       async function loadData() {
         const [profile, shifts, cardex, clients, courses, enrollments, calEvents] = await Promise.all([
-          getHcaProfileById(session.id),
+          getMyHcaProfile(),
           getShiftsByHca(session.id),
-          // A pre-deploy session has no cookie yet; an empty list is far better
-          // than failing the whole dashboard load.
           getCardexByHca(session.id).catch(() => []),
-          getAllClients(),
+          getClientsForHca().catch(() => []),
           getLmsCourses('hca'),
           getEnrollmentsForUser(session.id, 'hca'),
           getCalendarEventsByHca(session.id),
         ]);
+        if (cancelled) return;
         if (profile) {
           setHcaProfile(profile);
           setHcaId(profile.employeeId);
@@ -277,24 +285,15 @@ export default function HCADashboard() {
             .catch(()=>{});
           return;
         }
-        // Profile not found — fall back to legacy
-        if (!localStorage.getItem("hca_auth")) {
-          window.location.href = "/hca/login";
-        } else {
-          setAuthed(true);
-          setHcaId(localStorage.getItem("hca_id") || "");
-        }
+        // Signed in, but the profile row is gone — treat as signed out rather
+        // than rendering an empty dashboard.
+        clearHcaSession();
+        window.location.href = "/hca/login";
       }
+      setHcaSession({ id: session.id, name: session.name, email: session.email, employeeId: session.employeeId });
       loadData();
-      return;
-    }
-    // Legacy fallback (no session id)
-    if (!localStorage.getItem("hca_auth")) {
-      window.location.href = "/hca/login";
-    } else {
-      setAuthed(true);
-      setHcaId(localStorage.getItem("hca_id") || "");
-    }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   // Cardex state
@@ -553,13 +552,10 @@ export default function HCADashboard() {
     setClockState("out"); setClockStart(null); setCardexOpen(false);
     setGpsLat(null); setGpsLng(null); setGpsLabel("");
   }
-  function logout() {
+  async function logout() {
     clearDraft();   // never leave clinical data on a shared device
     clearHcaSession();
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("hca_auth");
-      localStorage.removeItem("hca_id");
-    }
+    await serverSignOut();
     window.location.href = "/hca/login";
   }
 
@@ -571,16 +567,22 @@ export default function HCADashboard() {
     setShowDeleteConfirm(false);
   }
 
+  // The current password is checked server-side against the stored scrypt hash.
+  // The browser is never handed a password column to compare against.
   async function handleChangePassword() {
     setPwdMsg("");
     if (!pwdForm.current || !pwdForm.next || !pwdForm.confirm) { setPwdMsg("⚠ All fields are required."); return; }
-    if (pwdForm.current !== hcaProfile?.password) { setPwdMsg("⚠ Current password is incorrect."); return; }
     if (pwdForm.next.length < 8) { setPwdMsg("⚠ New password must be at least 8 characters."); return; }
     if (pwdForm.next !== pwdForm.confirm) { setPwdMsg("⚠ New password and confirmation do not match."); return; }
     setPwdSaving(true);
     try {
-      await updateHcaProfile(hcaProfile.id, { password: pwdForm.next });
-      setHcaProfile(p => ({ ...p, password: pwdForm.next }));
+      const res = await fetch("/api/auth/change-password", {
+        method: "POST", credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword: pwdForm.current, newPassword: pwdForm.next }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { setPwdMsg("⚠ " + (body.error || "Failed to change password.")); setPwdSaving(false); return; }
       setPwdForm({ current:"", next:"", confirm:"" });
       setPwdMsg("✓ Password changed successfully.");
     } catch (e) { setPwdMsg("⚠ " + (e.message || "Failed to change password.")); }

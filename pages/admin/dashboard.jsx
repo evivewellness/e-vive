@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { DASH_BASE } from "../../components/SharedStyles";
 import {
-  getAdminSession,
   clearAdminSession,
   getAllClients,
   getAllHcaApplications,
@@ -98,6 +97,7 @@ import {
   approveOffDayRequest,
   declineOffDayRequest,
 } from "../../lib/store";
+import { fetchServerSession, serverSignOut } from "../../lib/session";
 import { toIso, todayIso } from "../../lib/scheduling";
 import CardexView from "../../components/CardexView";
 import PlatformSettingsPanel from "../../components/PlatformSettingsPanel";
@@ -1843,6 +1843,7 @@ function ClientEditModal({ client, onClose, onRefresh }) {
 export default function AdminDashboard() {
   const router = useRouter();
   const [authed,    setAuthed]   = useState(false);
+  const [adminUser, setAdminUser] = useState(null);
   const [tab,       setTab]      = useState("overview");
   const [sideOpen,  setSideOpen] = useState(false);
   const [hcaFilter, setHcaFilter]= useState("All");
@@ -2043,13 +2044,18 @@ export default function AdminDashboard() {
   }
 
   // ── Auth guard ──
+  // The signed HttpOnly cookie is the only thing that decides this, verified
+  // server-side on every mount. A forged localStorage entry opens nothing.
   useEffect(() => {
-    try {
-      const session = getAdminSession();
-      if (!session?.id) { router.replace("/admin/login"); return; }
+    let cancelled = false;
+    fetchServerSession().then(s => {
+      if (cancelled) return;
+      if (s?.role !== "admin") { clearAdminSession(); router.replace("/admin/login"); return; }
+      setAdminUser(s);
       setAuthed(true);
-    } catch { router.replace("/admin/login"); }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    });
+    return () => { cancelled = true; };
+  }, [router]);
 
   useEffect(() => { if (authed) refresh(); }, [authed, refresh]);
 
@@ -2303,8 +2309,8 @@ export default function AdminDashboard() {
           <div className="dash-user">
             <div className="dash-avatar" style={{background:"linear-gradient(135deg,var(--gold),var(--amber))"}}>👑</div>
             <div>
-              <div className="dash-user-name">Salome Ruguru</div>
-              <div className="dash-user-role" style={{color:"var(--amber)"}}>SUPER ADMIN</div>
+              <div className="dash-user-name">{adminUser?.name || "Administrator"}</div>
+              <div className="dash-user-role" style={{color:"var(--amber)"}}>{(adminUser?.adminRole || "admin").replace(/_/g," ").toUpperCase()}</div>
             </div>
           </div>
           <nav className="dash-nav">
@@ -2320,7 +2326,7 @@ export default function AdminDashboard() {
           </nav>
           <div className="dash-footer">
             <Link href="/">← Public Site</Link>
-            <button onClick={()=>{ clearAdminSession(); router.push("/admin/login"); }} style={{marginTop:8,width:"100%",background:"rgba(249,112,102,0.1)",border:"1px solid rgba(249,112,102,0.2)",borderRadius:10,padding:"8px 12px",color:"var(--coral)",fontSize:12,fontFamily:"var(--mono)",fontWeight:700,cursor:"pointer",transition:"all 0.2s"}}>
+            <button onClick={()=>{ clearAdminSession(); serverSignOut(); router.push("/admin/login"); }} style={{marginTop:8,width:"100%",background:"rgba(249,112,102,0.1)",border:"1px solid rgba(249,112,102,0.2)",borderRadius:10,padding:"8px 12px",color:"var(--coral)",fontSize:12,fontFamily:"var(--mono)",fontWeight:700,cursor:"pointer",transition:"all 0.2s"}}>
               🔒 Sign Out
             </button>
           </div>

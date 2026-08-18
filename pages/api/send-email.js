@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-import { supabase } from '../../lib/supabase';
+import { getSupabaseAdmin, serviceRoleConfigured } from '../../lib/supabaseAdmin';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM   = process.env.EMAIL_FROM || 'E-Vive Kenya <hello@e-vive.co.ke>';
@@ -18,8 +18,9 @@ function fromNameOf(fromHeader) {
 // `emails` table so it shows up in the admin Messages view, regardless of
 // which part of the app triggered it.
 async function logEmail({ to, cc, subject, text, html, replyTo, origin, relatedClientId, relatedHcaId, adminId, folder, status, resendId, error }) {
+  if (!serviceRoleConfigured()) return;   // nothing to log to; never fail a send over it
   try {
-    await supabase.from('emails').insert({
+    await getSupabaseAdmin().from('emails').insert({
       direction: 'outbound',
       origin: origin || 'system',
       folder,

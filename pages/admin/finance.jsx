@@ -6,11 +6,12 @@ import { DASH_BASE } from "../../components/SharedStyles";
 import {
   getAllInvoices, createInvoice, approveInvoicePayment,
   getAllClients, advanceClientJourney, JOURNEY_STAGES,
-  getAdminSession, clearAdminSession,
+  clearAdminSession,
   getAllHcaProfiles, getAllShifts,
   getAllExpenses, createExpense, deleteExpense,
   getPayrollPayments, createPayrollPayment,
 } from "../../lib/store";
+import { fetchServerSession, serverSignOut } from "../../lib/session";
 import { todayIso } from "../../lib/scheduling";
 
 const CSS = `
@@ -122,6 +123,7 @@ export default function AdminFinance() {
   const curYear  = now.getFullYear();
 
   const [authed,     setAuthed]     = useState(false);
+  const [adminUser, setAdminUser] = useState(null);
   const [sideOpen,   setSideOpen]   = useState(false);
   const [tab,        setTab]        = useState("revenue");
   const [invoices,   setInvoices]   = useState([]);
@@ -134,14 +136,19 @@ export default function AdminFinance() {
   const [showNewInv, setShowNewInv] = useState(false);
   const [payFilter,  setPayFilter]  = useState("All");
 
-  // Auth guard
+  // ── Auth guard ──
+  // The signed HttpOnly cookie is the only thing that decides this, verified
+  // server-side on every mount. A forged localStorage entry opens nothing.
   useEffect(() => {
-    try {
-      const s = getAdminSession();
-      if (!s?.id) { router.replace("/admin/login"); return; }
+    let cancelled = false;
+    fetchServerSession().then(s => {
+      if (cancelled) return;
+      if (s?.role !== "admin") { clearAdminSession(); router.replace("/admin/login"); return; }
+      setAdminUser(s);
       setAuthed(true);
-    } catch { router.replace("/admin/login"); }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    });
+    return () => { cancelled = true; };
+  }, [router]);
 
   // Load data
   useEffect(() => {
@@ -350,7 +357,7 @@ export default function AdminFinance() {
           </div>
           <div className="dash-user">
             <div className="dash-avatar" style={{background:"linear-gradient(135deg,var(--gold),var(--amber))"}}>👑</div>
-            <div><div className="dash-user-name">Salome Ruguru</div><div className="dash-user-role" style={{color:"var(--amber)"}}>SUPER ADMIN</div></div>
+            <div><div className="dash-user-name">{adminUser?.name || "Administrator"}</div><div className="dash-user-role" style={{color:"var(--amber)"}}>{(adminUser?.adminRole || "admin").replace(/_/g," ").toUpperCase()}</div></div>
           </div>
           <nav className="dash-nav">
             <div className="dash-nav-section">Finance</div>
@@ -366,7 +373,7 @@ export default function AdminFinance() {
           </nav>
           <div className="dash-footer">
             <Link href="/admin/dashboard">← Admin Dashboard</Link>
-            <button onClick={()=>{clearAdminSession();router.push("/admin/login");}} style={{marginTop:8,width:"100%",background:"rgba(249,112,102,0.1)",border:"1px solid rgba(249,112,102,0.2)",borderRadius:10,padding:"8px 12px",color:"var(--coral)",fontSize:12,fontFamily:"var(--mono)",fontWeight:700,cursor:"pointer",transition:"all 0.2s"}}>
+            <button onClick={()=>{clearAdminSession(); serverSignOut(); router.push("/admin/login");}} style={{marginTop:8,width:"100%",background:"rgba(249,112,102,0.1)",border:"1px solid rgba(249,112,102,0.2)",borderRadius:10,padding:"8px 12px",color:"var(--coral)",fontSize:12,fontFamily:"var(--mono)",fontWeight:700,cursor:"pointer",transition:"all 0.2s"}}>
               🔒 Sign Out
             </button>
           </div>

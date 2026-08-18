@@ -1,17 +1,14 @@
 import { useState, useEffect } from "react";
-import Head from "next/head";
+import PageMeta from "../../components/PageMeta";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { DASH_BASE } from "../../components/SharedStyles";
 import {
   createClient,
-  authenticateClient,
-  getAllClients,
-  getClientByEmail,
   setClientSession,
   advanceClientJourney,
-  updateClient,
 } from "../../lib/store";
+import { fetchServerSession } from "../../lib/session";
 
 const CSS = `
   body { margin:0; background:var(--deep); }
@@ -147,7 +144,7 @@ const STEP_LABELS = ["Your Details","Patient Details","Terms & Confirm","Account
 export default function ClientRegister() {
   const router = useRouter();
 
-  // flow: "signin" | "register" | "reset-request" | "reset-verify"
+  // flow: "signin" | "register" | "reset-request" | "reset-sent"
   const [flow,       setFlow]      = useState("signin");
   const [loginEmail, setLoginEmail] = useState("");
   const [password,   setPassword]  = useState("");
@@ -155,12 +152,9 @@ export default function ClientRegister() {
 
   // password reset
   const [resetId,      setResetId]      = useState("");
-  const [resetCode,    setResetCode]    = useState("");
-  const [resetInput,   setResetInput]   = useState("");
-  const [newPwd,       setNewPwd]       = useState("");
-  const [confirmNewPwd,setConfirmNewPwd]= useState("");
   const [resetErr,     setResetErr]     = useState("");
   const [resetDone,    setResetDone]    = useState(false);
+  const [resetSending, setResetSending] = useState(false);
 
   // register sub-steps
   const [step,       setStep]       = useState(0);
@@ -168,12 +162,13 @@ export default function ClientRegister() {
   const [patients,   setPatients]   = useState([{ name:"", gender:"", careType:"", notes:"" }]);
   const [tcAccepted, setTcAccepted] = useState(false);
 
-  // Redirect if already logged in
+  // Redirect if already signed in — asks the server, not localStorage.
   useEffect(() => {
-    try {
-      const session = JSON.parse(localStorage.getItem("evive_client_session") || "null");
-      if (session?.email) router.replace(redirectTarget());
-    } catch {}
+    let cancelled = false;
+    fetchServerSession().then(s => {
+      if (!cancelled && s?.role === "client") router.replace(redirectTarget());
+    });
+    return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function redirectTarget() {
@@ -189,99 +184,58 @@ export default function ClientRegister() {
   const canNext1 = patients.every(p => p.name && p.gender && p.careType);
   const canNext2 = tcAccepted;
 
-  // ── Sign in: look up by email or phone, verify password ──
+  // ── Sign in: verified server-side, against email or phone ──
+  // The browser no longer fetches client rows to compare a password against;
+  // it presents the credentials and is told yes or no.
   async function handleSignIn() {
     if (!loginEmail.trim() || !password) return;
+    setLoginErr("");
     try {
-      const emailId = loginEmail.trim().toLowerCase();
-      let client = await authenticateClient(emailId, password);
-      if (!client) {
-        const all = await getAllClients();
-        const byMobile = all.find(c => c.mobile === loginEmail.trim() && c.password === password);
-        if (byMobile) client = byMobile;
-      }
-      if (client) {
-        setClientSession(client);
-        // Also establish a server-verified session cookie. The localStorage
-        // copy stays for existing UI code, but only the cookie is trusted by
-        // the API routes that serve Cardex data.
-        await fetch("/api/auth/login", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role: "client", identifier: emailId, password }),
-        }).catch(() => {});
-        router.push(redirectTarget());
+      const res = await fetch("/api/auth/login", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: "client", identifier: loginEmail.trim(), password }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setLoginErr(res.status === 503
+          ? "Sign-in is not configured on this deployment. Please contact hello@e-vive.co.ke."
+          : (body.error || "Incorrect sign-in details."));
         return;
       }
-      const registry = JSON.parse(localStorage.getItem("evive_client_registry") || "[]");
-      const user = registry.find(u =>
-        u.email?.toLowerCase() === emailId || u.mobile === loginEmail.trim()
-      );
-      if (!user) {
-        setLoginErr("No account found with these details. Check your email / phone or create a new account below.");
-      } else if (user.password !== password) {
-        setLoginErr("Incorrect password. Please try again.");
-      } else {
-        localStorage.setItem("evive_client_session", JSON.stringify({
-          name: user.name, email: user.email, mobile: user.mobile,
-        }));
-        router.push(redirectTarget());
-      }
+      setClientSession({
+        id: body.session.id, name: body.session.name,
+        email: body.session.email, mobile: body.session.mobile || "",
+      });
+      router.push(redirectTarget());
     } catch {
       setLoginErr("Something went wrong. Please try again.");
     }
   }
 
-  // ── Reset: send code (simulated — code shown on screen) ──
-  function handleResetRequest() {
+  // ── Reset: ask the server to email a single-use link ──
+  // The browser is told nothing about whether the account exists — a reset
+  // form that says "no account found" is an account-enumeration oracle.
+  async function handleResetRequest() {
     if (!resetId.trim()) return;
+    setResetErr("");
+    setResetSending(true);
     try {
-      const registry = JSON.parse(localStorage.getItem("evive_client_registry") || "[]");
-      const id = resetId.trim().toLowerCase();
-      const user = registry.find(u =>
-        u.email?.toLowerCase() === id || u.mobile === id
-      );
-      if (!user) {
-        setResetErr("No account found with that email or mobile number.");
-        return;
-      }
-      const code = String(Math.floor(100000 + Math.random() * 900000));
-      setResetCode(code);
-      setResetErr("");
-      setFlow("reset-verify");
-    } catch {
-      setResetErr("Something went wrong. Please try again.");
-    }
-  }
-
-  // ── Reset: verify code and update password ──
-  async function handleResetVerify() {
-    if (resetInput !== resetCode) { setResetErr("Incorrect code. Please try again."); return; }
-    if (newPwd.length < 6)        { setResetErr("Password must be at least 6 characters."); return; }
-    if (newPwd !== confirmNewPwd) { setResetErr("Passwords do not match."); return; }
-    try {
-      const id = resetId.trim().toLowerCase();
-      const storeClient = await getClientByEmail(id);
-      if (storeClient) await updateClient(storeClient.id, { password: newPwd });
-      const registry = JSON.parse(localStorage.getItem("evive_client_registry") || "[]");
-      const idx = registry.findIndex(u =>
-        u.email?.toLowerCase() === id || u.mobile === resetId.trim()
-      );
-      if (idx !== -1) {
-        registry[idx] = { ...registry[idx], password: newPwd };
-        localStorage.setItem("evive_client_registry", JSON.stringify(registry));
-      }
-      if (!storeClient && idx === -1) { setResetErr("Account not found."); return; }
-      setResetErr("");
+      await fetch("/api/auth/request-reset", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: "client", identifier: resetId.trim() }),
+      });
       setResetDone(true);
+      setFlow("reset-sent");
     } catch {
-      setResetErr("Something went wrong. Please try again.");
+      setResetErr("Could not start the reset. Please check your connection and try again.");
+    } finally {
+      setResetSending(false);
     }
   }
 
   function goBackToSignIn() {
     setFlow("signin");
-    setResetId(""); setResetCode(""); setResetInput("");
-    setNewPwd(""); setConfirmNewPwd(""); setResetErr(""); setResetDone(false);
+    setResetId(""); setResetErr(""); setResetDone(false);
   }
 
   // ── Register: advance steps; save on final step ──
@@ -323,10 +277,12 @@ export default function ClientRegister() {
 
   return (
     <>
-      <Head>
-        <title>Client Account — E-Vive Kenya</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-      </Head>
+      <PageMeta
+        title="Client Account"
+        description="Create your E-Vive account or sign in to manage care, placements and billing for your family."
+        path="/client/register/"
+        noindex
+      />
       <style>{DASH_BASE + CSS}</style>
 
       <div className="reg-outer">
@@ -479,10 +435,12 @@ export default function ClientRegister() {
                 className="btn-p"
                 style={{width:"100%", padding:"13px"}}
                 onClick={handleResetRequest}
-                disabled={!resetId.trim()}
+                disabled={!resetId.trim() || resetSending}
               >
-                Send Reset Code →
+                {resetSending ? "Sending…" : "Email Me a Reset Link →"}
               </button>
+
+              {resetErr && <div className="login-error" style={{textAlign:"left", marginTop:14}}>⚠ {resetErr}</div>}
 
               <div style={{marginTop:16, textAlign:"center"}}>
                 <button className="ghost-btn" onClick={goBackToSignIn}>← Back to Sign In</button>
@@ -490,90 +448,22 @@ export default function ClientRegister() {
             </div>
           )}
 
-          {/* ══ RESET — Step 2: enter code + new password ══ */}
-          {flow === "reset-verify" && (
+          {/* ══ RESET — Step 2: the link is in their inbox ══ */}
+          {flow === "reset-sent" && (
             <div className="gate-wrap">
               <div className="gate-icon">📬</div>
-              <div className="gate-title">{resetDone ? "Password Updated" : "Enter Reset Code"}</div>
-
-              {!resetDone ? (
-                <>
-                  <div className="gate-sub">
-                    A reset code has been sent to the email / mobile registered for <strong style={{color:"var(--text)"}}>{resetId}</strong>.
-                    Please check your messages and enter the 6-digit code below.
-                  </div>
-
-                  {resetErr && <div className="login-error" style={{textAlign:"left"}}>⚠ {resetErr}</div>}
-
-                  <div className="gate-input-wrap">
-                    <label className="fl">Enter the 6-digit code</label>
-                    <input
-                      className="fi"
-                      inputMode="numeric"
-                      maxLength={6}
-                      placeholder="123456"
-                      value={resetInput}
-                      onChange={e => { setResetInput(e.target.value.replace(/\D/g,"")); setResetErr(""); }}
-                      style={{textAlign:"center", fontSize:20, letterSpacing:6, fontFamily:"var(--mono)"}}
-                      autoFocus
-                    />
-                  </div>
-
-                  <div className="fr2" style={{marginBottom:16}}>
-                    <div className="frg" style={{margin:0}}>
-                      <label className="fl">New Password</label>
-                      <input
-                        className="fi"
-                        type="password"
-                        placeholder="Min. 6 characters"
-                        value={newPwd}
-                        onChange={e => { setNewPwd(e.target.value); setResetErr(""); }}
-                      />
-                    </div>
-                    <div className="frg" style={{margin:0}}>
-                      <label className="fl">Confirm Password</label>
-                      <input
-                        className="fi"
-                        type="password"
-                        placeholder="Repeat password"
-                        value={confirmNewPwd}
-                        onChange={e => { setConfirmNewPwd(e.target.value); setResetErr(""); }}
-                        style={confirmNewPwd && newPwd !== confirmNewPwd ? {borderColor:"var(--coral)"} : {}}
-                      />
-                      {confirmNewPwd && newPwd !== confirmNewPwd && (
-                        <div style={{fontSize:11,color:"var(--coral)",marginTop:4,fontFamily:"var(--mono)"}}>Passwords do not match</div>
-                      )}
-                    </div>
-                  </div>
-
-                  <button
-                    className="btn-p"
-                    style={{width:"100%", padding:"13px"}}
-                    onClick={handleResetVerify}
-                    disabled={resetInput.length < 6 || newPwd.length < 6 || newPwd !== confirmNewPwd}
-                  >
-                    Set New Password →
-                  </button>
-
-                  <div style={{marginTop:14, textAlign:"center"}}>
-                    <button className="ghost-btn" onClick={() => setFlow("reset-request")}>← Request a new code</button>
-                  </div>
-                </>
-              ) : (
-                <div className="reset-success">
-                  <div style={{fontSize:52, marginBottom:16}}>✅</div>
-                  <div className="gate-sub">
-                    Your password has been updated successfully. You can now sign in with your new password.
-                  </div>
-                  <button
-                    className="btn-p"
-                    style={{padding:"12px 32px"}}
-                    onClick={goBackToSignIn}
-                  >
-                    Sign In →
-                  </button>
-                </div>
-              )}
+              <div className="gate-title">Check your email</div>
+              <div className="gate-sub">
+                If an account exists for <strong style={{color:"var(--text)"}}>{resetId}</strong>, we have sent it a
+                link to set a new password. The link works once and expires in 45 minutes.
+                <br /><br />
+                Nothing arrived? Check your spam folder, or request another link in a few minutes.
+              </div>
+              <div style={{marginTop:20, textAlign:"center"}}>
+                <button className="btn-p" style={{padding:"12px 32px"}} onClick={goBackToSignIn}>
+                  Back to Sign In →
+                </button>
+              </div>
             </div>
           )}
 

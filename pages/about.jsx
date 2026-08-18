@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 import { BASE_CSS } from '../components/SharedStyles';
+import PageMeta from '../components/PageMeta';
 
 const PAGE_CSS = `
   body { padding-top: 72px; }
@@ -287,6 +288,11 @@ const TESTIMONIALS = [
 export default function AboutPage() {
   return (
     <>
+      <PageMeta
+        title="About Us"
+        description="E-Vive Wellness Initiative connects Kenyan families with certified HomeCare Assistants. Our story, our team and the standards we hold care to."
+        path="/about/"
+      />
       <style>{BASE_CSS + PAGE_CSS}</style>
       <Nav />
 

@@ -10,9 +10,9 @@ import {
   updateHcaCoords,
   getAllClients,
   getAllHcaProfiles,
-  getAdminSession,
   clearAdminSession,
 } from "../../lib/store";
+import { fetchServerSession, serverSignOut } from "../../lib/session";
 
 const MAP_CSS = `
   body { margin:0; padding:0; }
@@ -103,6 +103,7 @@ const NAIROBI = { lat: -1.2921, lng: 36.8219 };
 export default function AdminMap() {
   const router = useRouter();
   const [authed, setAuthed] = useState(false);
+  const [, setAdminUser] = useState(null);
 
   const mapContainerRef  = useRef(null);
   const mapInstanceRef   = useRef(null);
@@ -121,14 +122,19 @@ export default function AdminMap() {
   const [editAddr,      setEditAddr]      = useState("");
   const [saveMsg,       setSaveMsg]       = useState("");
 
-  // Auth guard
+  // ── Auth guard ──
+  // The signed HttpOnly cookie is the only thing that decides this, verified
+  // server-side on every mount. A forged localStorage entry opens nothing.
   useEffect(() => {
-    try {
-      const session = getAdminSession();
-      if (!session?.id) { router.replace("/admin/login"); return; }
+    let cancelled = false;
+    fetchServerSession().then(s => {
+      if (cancelled) return;
+      if (s?.role !== "admin") { clearAdminSession(); router.replace("/admin/login"); return; }
+      setAdminUser(s);
       setAuthed(true);
-    } catch { router.replace("/admin/login"); }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    });
+    return () => { cancelled = true; };
+  }, [router]);
 
   const refreshData = useCallback(async () => {
     const [m, e] = await Promise.all([getAllMapMarkers(), getAllMapEntities()]);
@@ -376,7 +382,7 @@ export default function AdminMap() {
           {/* Back link + sign out */}
           <div style={{ padding: "12px 20px", borderTop: "1px solid rgba(168,0,64,0.1)", display: "flex", flexDirection: "column", gap: 8 }}>
             <Link href="/admin/dashboard" style={{ fontSize: 12, color: "var(--muted)", textDecoration: "none" }}>← Admin Dashboard</Link>
-            <button onClick={() => { clearAdminSession(); router.push("/admin/login"); }} style={{ background: "rgba(249,112,102,0.1)", border: "1px solid rgba(249,112,102,0.2)", borderRadius: 8, padding: "6px 10px", color: "var(--coral)", fontSize: 11, fontFamily: "var(--mono)", fontWeight: 700, cursor: "pointer" }}>
+            <button onClick={() => { clearAdminSession(); serverSignOut(); router.push("/admin/login"); }} style={{ background: "rgba(249,112,102,0.1)", border: "1px solid rgba(249,112,102,0.2)", borderRadius: 8, padding: "6px 10px", color: "var(--coral)", fontSize: 11, fontFamily: "var(--mono)", fontWeight: 700, cursor: "pointer" }}>
               🔒 Sign Out
             </button>
           </div>
