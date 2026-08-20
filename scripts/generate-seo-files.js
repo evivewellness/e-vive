@@ -29,6 +29,7 @@ const PUBLIC_PAGES = [
   { path: '/products/',   changefreq: 'monthly', priority: '0.5' },
   { path: '/privacy/',    changefreq: 'yearly',  priority: '0.3' },
   { path: '/terms/',      changefreq: 'yearly',  priority: '0.3' },
+  { path: '/accessibility/', changefreq: 'yearly', priority: '0.3' },
   { path: '/hca/apply/',  changefreq: 'monthly', priority: '0.8' },
 ];
 

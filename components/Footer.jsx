@@ -51,7 +51,7 @@ export default function Footer() {
             <div className="logo-text">e<span>-</span>vive</div>
             <p>Kenya&apos;s premier location-based homecare assistant matching platform - connecting certified carers with families who need them most.</p>
             <div className="footer-socials">
-              {[{icon:"📘",url:"https://www.facebook.com/profile.php?id=61590981592097"},{icon:"📸",url:"https://www.instagram.com/e-vive.co.ke"}].map((s, i) => <a key={i} href={s.url} className="social-btn" target={s.url !== "#" ? "_blank" : undefined} rel={s.url !== "#" ? "noopener noreferrer" : undefined}>{s.icon}</a>)}
+              {[{icon:"📘",label:"E-Vive on Facebook",url:"https://www.facebook.com/profile.php?id=61590981592097"},{icon:"📸",label:"E-Vive on Instagram",url:"https://www.instagram.com/e-vive.co.ke"}].map((s, i) => <a key={i} href={s.url} className="social-btn" aria-label={s.label} title={s.label} target="_blank" rel="noopener noreferrer"><span aria-hidden="true">{s.icon}</span></a>)}
             </div>
             <div className="footer-cert">
               <span>🏥</span>
@@ -93,8 +93,8 @@ export default function Footer() {
           <div className="footer-legal">
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>
-            <a href="#">Accessibility</a>
-            <a href="#">Cookies</a>
+            <Link href="/accessibility">Accessibility</Link>
+            <Link href="/privacy#cookies">Cookies</Link>
           </div>
         </div>
       </footer>

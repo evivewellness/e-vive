@@ -1,5 +1,6 @@
 import Head from 'next/head';
 import { SITE_NAME } from '../components/PageMeta';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 /**
  * Site-wide document head. The viewport tag in particular belongs here rather
@@ -22,7 +23,9 @@ export default function App({ Component, pageProps }) {
         <meta property="og:locale" content="en_KE" />
         <title key="title">{SITE_NAME}</title>
       </Head>
-      <Component {...pageProps} />
+      <ErrorBoundary>
+        <Component {...pageProps} />
+      </ErrorBoundary>
     </>
   );
 }

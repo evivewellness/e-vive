@@ -76,7 +76,7 @@ export default function PrivacyPage() {
           <div className="stag" style={{ marginBottom: 16 }}>Legal</div>
           <h1>Privacy Policy</h1>
           <p>How E-Vive collects, uses, and protects your personal information.</p>
-          <div className="legal-updated">Last updated: 1 January 2025</div>
+          <div className="legal-updated">Last updated: 20 August 2026</div>
         </div>
       </section>
 
@@ -175,8 +175,12 @@ export default function PrivacyPage() {
 
         <div className="legal-sec" id="cookies">
           <h2>7. Cookies &amp; Tracking</h2>
-          <p>We use essential cookies to maintain your session and platform preferences. We do not use third-party advertising cookies. Analytics cookies (where used) are anonymised and can be disabled in your browser settings.</p>
-          <p>Local storage is used on the HCA dashboard to maintain session state. This data does not leave your device and is cleared on logout.</p>
+          <p>We set <strong>one cookie</strong>, and only once you sign in.</p>
+          <ul>
+            <li><strong><code>evive_session</code></strong> — proves to our servers that you are signed in. It is cryptographically signed, marked <em>HttpOnly</em> (so no script on the page can read it) and <em>Secure</em>, and it expires after 12 hours or when you sign out. It carries no personal data beyond your account identifier and role.</li>
+          </ul>
+          <p>That cookie is strictly necessary: the platform cannot tell who you are without it, so there is nothing to consent to or opt out of short of not signing in. <strong>We set no advertising cookies, no third-party trackers, and no analytics cookies.</strong></p>
+          <p>Your browser&apos;s local storage also holds a copy of your display name, and — for HomeCare Assistants — an unsent Cardex draft, so that a lost connection mid-shift does not discard a form filled in over twelve hours. None of it is used to identify you to our servers, none of it leaves your device, and all of it is cleared when you sign out.</p>
         </div>
 
         <div className="legal-sec" id="security">
