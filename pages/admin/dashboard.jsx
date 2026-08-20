@@ -1846,11 +1846,10 @@ export default function AdminDashboard() {
   // The tabs this admin may see. Server-verified permissions ride in the
   // session; the API routes check them again, so this is presentation, not
   // protection — but a tab you cannot use should not be in the sidebar.
-  const permissions = adminUser?.permissions || [];
-  const visibleNav  = useMemo(
-    () => NAV.filter(n => hasPermission(permissions, n.key)),
-    [permissions],
-  );
+  const visibleNav = useMemo(() => {
+    const permissions = adminUser?.permissions || [];
+    return NAV.filter(n => hasPermission(permissions, n.key));
+  }, [adminUser]);
   const [tab,       setTab]      = useState("overview");
   const [sideOpen,  setSideOpen] = useState(false);
   const [hcaFilter, setHcaFilter]= useState("All");

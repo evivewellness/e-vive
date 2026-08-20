@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "test": "node --test lib/*.test.mjs",
-    "test:tz": "TZ=Africa/Nairobi node --test lib/*.test.mjs"
+    "test:tz": "TZ=Africa/Nairobi node --test lib/*.test.mjs",
+    "prebuild": "node scripts/generate-seo-files.js",
+    "seo": "node scripts/generate-seo-files.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",
