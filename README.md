@@ -4,7 +4,8 @@
 > **Live URL:** https://e-vive.vercel.app  
 > **Repository:** https://github.com/mafichoni/e-vive  
 > **Branch:** `main`  
-> **Launch status:** All six P0 launch blockers are closed. Start at
+> **Launch status:** All six P0 blockers and every P1 are closed, along with
+> four of six P2s. Start at
 > [Implementation Status](#implementation-status--august-2026).
 
 ---
@@ -69,9 +70,9 @@ stands.
 
 | Area | State |
 |---|---|
-| Build | `next build` succeeds — 41 routes, no errors |
+| Build | `next build` succeeds — 50 routes, no errors |
 | Lint | `next lint` clean, 2 pre-existing `no-img-element` warnings |
-| Tests | `npm test` — 117/117 pass. 46 of those are new, covering the authorisation policy and the query shim it enforces |
+| Tests | `npm test` — 179/179 pass, up from 71 |
 | Sessions | Identity is the HMAC-signed HttpOnly cookie everywhere — sign-in, page guards and every API route. No page decides access from localStorage |
 | Data access | The browser no longer holds a database key. Every read and write goes through `/api/db`, which applies `lib/dbPolicy.js` and queries with the service role |
 | RLS | Enabled with no anon policies on **all 32 tables** (migration `0009` for the Cardex tables, `0010` for the rest) |
@@ -129,27 +130,46 @@ description, canonical URL and social card. The eight pages that previously
 rendered no `<Head>` at all — and so laid out at desktop width on phones — now
 render correctly.
 
-### Still outstanding
+### Closed since that review
 
-Ordered by priority. None of these blocks launch; all were identified in the
-same review.
+Every P1 is done, and four of the six P2s. What changed:
+
+| # | Was | Now |
+|---|---|---|
+| **P1-1** | RBAC declared, displayed, never checked | Permissions live in `lib/permissions.js`, resolve at sign-in into the signed cookie, and gate admin writes per table, `/api/settings`, Cardex, the sidebar, and the finance and map pages. An unknown role grants nothing |
+| **P1-2** | `cardex_notify_prefs` written and read by nothing | Incident alerts, optional per-report notices and daily/weekly/monthly digests, all carrying counts and a link rather than clinical detail |
+| **P1-3** | Retention purges ran only by hand | `/api/cron/purge` nightly and digests on their own schedules, via `vercel.json` crons, authorised by `CRON_SECRET` |
+| **P1-4** | No server-side throttle anywhere | `lib/rateLimit.js` — sign-in limited per account *and* per IP, plus registration, application intake, password change, reset and anonymous writes |
+| **P1-5** | Initial passwords generated with `Math.random` and stored in plain form | `/api/hca/approve` generates with `crypto.randomInt`, hashes with scrypt, and returns the password exactly once |
+| **P1-6** | Location checked in the browser at 10 m | Checked in `/api/hca/clock-in` at a configurable radius (default 150 m), after confirming the HCA is actually placed with that family. The outcome is recorded, so payroll can tell verified from merely recorded |
+| **P1-7** | Uploads base64 inside `hca_applications.form_data` | Private Storage bucket, signed-URL reads gated by permission, and a fallback to inline if the bucket does not exist yet |
+| **P1-8** | Demo seed with published credentials | Deleted |
+| **P2-1** | 3 high advisories | nanoid patched. Next.js remains — see below |
+| **P2-3** | Nothing observable | `/api/health`, structured JSON logging with secret redaction, and an error boundary |
+| **P2-4** | No robots.txt or sitemap.xml | Both generated at prebuild from `NEXT_PUBLIC_SITE_URL` |
+| **P2-5** | Dead footer links, stale cookie notice | `/accessibility` written, cookie notice corrected, footer links live |
+
+Three corrections to that review, since it was wrong on the detail:
+
+- **The clock-in geofence did exist**, in `pages/hca/dashboard.jsx`. The problem
+  was that a check in the browser is advice, and that 10 m is inside the error
+  bar of consumer GPS indoors — so it also rejected honest carers.
+- **The footer's social buttons were not dead.** They pointed at real Facebook
+  and Instagram accounts; what they lacked was accessible names.
+- **The privacy policy was more complete than stated.** It already named the
+  controller, a DPO postal route and the right to complain to the ODPC. What was
+  wrong was its cookie section, which still described localStorage sessions.
+
+### Still outstanding
 
 | # | Task | Detail |
 |---|---|---|
-| **P1-1** | Enforce RBAC, or remove the screen | `hasPermission()` in `lib/store.js` is still called from nowhere. Rules created under Admin → RBAC are stored and displayed but gate nothing. The permissions actually enforced are the role in the session cookie and `admin_users.can_read_welfare_notes` |
-| **P1-2** | Deliver the Cardex notifications families opted into | `cardex_notify_prefs` is written and nothing reads it: no incident alert, no digest. Incident alerts default **on**, so this is a promise still unkept |
-| **P1-3** | Schedule the retention purge | `purge_expired_cardex_data()` and `purge_expired_password_resets()` both exist and both run only when an admin presses the button. Wire pg_cron or a Vercel cron job |
-| **P1-4** | Rate-limit authentication and the public forms | `/api/auth/request-reset` limits itself to 5 per account per hour, and `/api/cardex/share` enforces its own limits, but login, registration, the HCA application and the contact form have no server-side throttle. The admin login's 3-attempt lockout is still browser state that resets on refresh |
-| **P1-5** | Hash admin-issued initial passwords at creation | Approving an HCA generates a password, emails it, and stores it in plain form until that HCA's first sign-in upgrades it to scrypt. Narrow (the same string is already in their inbox) but avoidable |
-| **P1-6** | Verify clock-in location | `clockInHca()` records `lat`/`lng` but never compares them to the placement address. §1 no longer claims otherwise; the geofence is still worth adding |
-| **P1-7** | Move certificate and photo uploads to Supabase Storage | Files are base64 inside `hca_applications.form_data`. This already caused a live statement timeout; skipping the column in list queries is mitigation, not a cure |
-| **P1-8** | Settle the demo-data story | `seedDemoDataIfEmpty()` is exported but no page calls it. Confirm the published demo credentials exist in no production database |
-| **P2-1** | Dependency advisories | `npm audit --omit=dev` reports 3 high: `next@14.2.35` and `nanoid ≤3.3.17`. Most listed Next.js CVEs target App Router, Server Components or self-hosted image optimisation — none of which this app uses — but pin a patched release and re-audit |
-| **P2-2** | Widen test coverage | 117 tests cover scheduling, Cardex access, Cardex summaries, the data policy and the query shim. The API routes themselves, `lib/store.js` and the pages are still untested; an end-to-end pass per persona would be the highest-value addition |
-| **P2-3** | Observability | No error tracking, no structured request logging, no uptime check, no analytics. A 503 from a misconfigured deploy is invisible until a user reports it |
-| **P2-4** | Search and social | No `robots.txt` and no `sitemap.xml` (per-page meta and favicons are done) |
-| **P2-5** | Accessibility and legal polish | No accessibility audit has been run. The footer's social buttons and its Accessibility and Cookies links point to `#`. `/privacy` should carry the Kenya Data Protection Act 2019 specifics — registration, DPO contact, cookie notice |
-| **P2-6** | Maintainability | `pages/admin/dashboard.jsx` is over 4,000 lines. CSP still needs `'unsafe-inline'` because every page ships its styles as an inline string |
+| **P2-1** | Next.js advisories | `14.2.35` is the newest release in the 14.2 line and the advisory range runs to `16.3.0-preview.10`, so only a major-major upgrade clears it. Every listed CVE targets App Router, Server Components, self-hosted image optimisation, middleware i18n or custom servers — none of which this Pages-Router-on-Vercel app uses. Left open deliberately: a blind 14 → 16 jump with no runtime testing available would trade a theoretical exposure for a real one |
+| **P2-2** | Test coverage of `lib/store.js` and the API routes | 179 tests now cover scheduling, Cardex access and summaries, the data policy, the query shim, permissions, rate limiting, geo, notifications, logging and cron auth. `lib/store.js` itself resists unit testing — it uses extensionless imports that plain Node ESM cannot resolve — and the API routes need a live database. An end-to-end pass per persona is still the highest-value addition |
+| **P2-6** | `pages/admin/dashboard.jsx` is 4,053 lines | **Not attempted, deliberately.** The bulk is fourteen tabs of JSX and around twenty modals; extracting them is mechanical but touches the most important admin surface with no page-level tests to catch a slip, and no way to exercise the result against a real database from here. Shipping an unverifiable refactor of that screen immediately before launch is a worse trade than the file being long. Do it behind an end-to-end test, after launch |
+| **P2-6** | CSP still needs `'unsafe-inline'` | Every page ships its styles as an inline string. Nonces need an App Router migration |
+| — | ODPC registration number and named DPO | `/privacy` gives a postal route to a Data Protection Officer but no registration number and no named individual. Those are real-world values that have to be supplied, not invented |
+| — | Accessibility audit | `/accessibility` states what has been done and, at more length, what has not been verified. A real audit against assistive technology is still outstanding |
 
 ### Deliberately deferred
 
@@ -255,6 +275,7 @@ and share tokens all use `node:crypto` — no cryptography dependency was added.
 | `MPESA_PASSKEY` | Daraja Lipa Na M-Pesa passkey | Required for M-Pesa |
 | `MPESA_SHORTCODE` | Paybill / till number | Optional (defaults to `4165689`) |
 | `MPESA_ENV` | `sandbox` or `production` | Optional (defaults to `sandbox` — **set explicitly before launch**) |
+| `CRON_SECRET` | Authorises `/api/cron/*`. Vercel Cron sends it as a bearer token; other schedulers can pass `?k=`. Without it the cron endpoints refuse every caller — they delete records, so they fail closed | **Yes** — otherwise digests and retention purges never run |
 | `NODE_ENV` | Set by Next.js; gates the `Secure` flag on session cookies | Automatic |
 
 **No longer used.** `NEXT_PUBLIC_SUPABASE_ANON_KEY` is obsolete — the browser no
@@ -285,6 +306,14 @@ a query parameter, body field or header the caller controls.
 | `GET/POST /api/auth/reset` | `api/auth/reset.js` | Reset token | `GET` reports whether a link is still live; `POST` redeems it and writes a scrypt hash. Failures return one neutral message |
 | `POST /api/db` | `api/db.js` | Cookie (or anonymous) | **The data gateway.** Every database read and write the browser makes. Resolves the caller from the cookie, applies `lib/dbPolicy.js`, queries with the service role. See §9.6 |
 | `GET /api/hca/me` | `api/hca/me.js` | HCA | An HCA's own full record, including the private fields the public directory view omits. Always the row named by the cookie |
+| `POST /api/hca/approve` | `api/hca/approve.js` | Admin (`hcas`) | Approves an application into a profile. Generates the initial password with `crypto.randomInt`, stores only its scrypt hash, and returns it once so it can be shown and emailed |
+| `POST /api/hca/clock-in` | `api/hca/clock-in.js` | HCA | Starts a shift. Confirms the HCA is placed with that family, then checks their position against the client's address at the configured radius. Records whether the check actually passed |
+| `POST /api/hca/clock-out` | `api/hca/clock-out.js` | HCA | Ends a shift. Location is recorded and checked but never refused — a carer who cannot clock out cannot file their Cardex |
+| `POST /api/uploads` | `api/uploads.js` | Open (throttled) | Stores a certificate or photo in the private bucket and returns a path. Answers 503 if the bucket does not exist, and the caller keeps the file inline |
+| `GET /api/uploads/[...path]` | `api/uploads/[...path].js` | Admin (`hcas`) or the owning HCA | Mints a five-minute signed URL for a stored document |
+| `GET /api/cron/digests` | `api/cron/digests.js` | `CRON_SECRET` | Sends the digests due for one frequency |
+| `GET /api/cron/purge` | `api/cron/purge.js` | `CRON_SECRET` | Runs the retention purges — Cardex, reset tokens, rate-limit rows |
+| `GET /api/health` | `api/health.js` | None | Whether each piece is configured and reachable, never what it is configured to. 503 when the session secret, service role or database is missing, so an uptime check catches a misconfigured deploy |
 | `POST /api/applications/create` | `api/applications/create.js` | None | HCA application intake. Hashes the chosen password, runs the duplicate check server-side, and sets `status` itself so nobody can apply as approved |
 | `GET/POST /api/applications/[token]` | `api/applications/[token].js` | Edit token | Applicant self-service correction. Returns and accepts only the fields an admin opened; the token is spent on submission |
 | `GET /api/auth/session` | `api/auth/session.js` | Cookie | Lets the browser discover who the server thinks it is. Never itself an authorisation decision |
@@ -316,6 +345,7 @@ a query parameter, body field or header the caller controls.
 | `/partners` | `pages/partners.jsx` | None | Healthcare provider partnerships |
 | `/privacy` | `pages/privacy.jsx` | None | Privacy policy |
 | `/terms` | `pages/terms.jsx` | None | Terms of use |
+| `/accessibility` | `pages/accessibility.jsx` | None | Accessibility statement — what has been done, and what has not been verified |
 | `/press` | `pages/press.jsx` | None | Redirects → `/about` |
 | `/client/register` | `pages/client/register.jsx` | None (redirects if logged in) | Client sign-up / sign-in |
 | `/client/dashboard` | `pages/client/dashboard.jsx` | Client session | Client portal |
@@ -2598,7 +2628,6 @@ Each function creates a Supabase notification record AND calls `dispatchEmail()`
 
 | Function | Notes |
 |---|---|
-| `seedDemoDataIfEmpty` | `async () → void` — checks if `clients` table is empty; only runs once; creates demo client, HCA profile, invoice, and calendar event in Supabase |
 
 #### Messages (`emails` table)
 
@@ -2639,6 +2668,10 @@ Applied in order in the Supabase SQL editor; each is idempotent.
 | `0008_placement_workflow.sql` | Placements, request review, conflict-safe scheduling, off-days |
 | `0009_secure_cardex.sql` | `admin_users`, `platform_settings`, sharing + audit tables, scrypt password columns, Cardex indexes, RLS on the clinical tables, and `purge_expired_cardex_data()` |
 | `0010_lock_down_and_payments.sql` | `password_resets`, `payments`, invoice reconciliation columns, RLS on all remaining tables (dropping `0001`'s permissive `anon` policy on `emails`), a widened `emails.origin` constraint, and `purge_expired_password_resets()` |
+
+| `0011_rate_limits.sql` | The sliding-window table behind `lib/rateLimit.js`, and its purge function |
+| `0012_attendance_verification.sql` | `clock_in_verified`, `clock_in_distance_m`, clock-out position, and the configurable `clock_in_radius_m` |
+| `0013_document_storage.sql` | No SQL — records the one ops step that cannot be a migration: creating the private `hca-documents` Storage bucket |
 
 > `0009` and `0010` **must** be paired with `SUPABASE_SERVICE_ROLE_KEY` and
 > `SESSION_SECRET` in the environment, and **the code must be deployed first**.
@@ -2964,69 +2997,30 @@ severity, with the task each maps to in
 
 | Issue | Impact | Resolution |
 |---|---|---|
-| RBAC stored but never enforced | Any admin who can sign in sees every tab. Bounded by the fact that admin accounts are created by hand, and welfare notes are gated separately | **P1-1** |
-| No rate limiting on login or the public forms | A weak admin or client password can be brute-forced without server-side slowdown; the application and contact forms can be spammed | **P1-4** |
-| Retention purges are manual | `purge_expired_cardex_data()` and `purge_expired_password_resets()` run only when an admin presses the button | **P1-3** — pg_cron or a Vercel cron job |
-| Admin-issued initial passwords are stored in plain form until first login | Narrow: the same string is already in the HCA's inbox, and the first sign-in upgrades it to scrypt | **P1-5** |
-| Clock-in GPS is recorded, not verified | No comparison against the placement address. §1 no longer claims otherwise | **P1-6** |
-| Uploads stored as base64 in Postgres | Certificates and photos bloat `hca_applications.form_data`; already caused a live statement timeout | **P1-7** — Supabase Storage |
+| Admin reads are not permission-gated | A finance admin can read client and HCA rows through the gateway, though not change them, and not read Cardex or welfare notes. A deliberate trade: nearly every screen composes across tables | Revisit if the admin team grows past the point where everyone is trusted with the operational picture |
+| Next.js advisories unresolved | No patched release exists in the 14.2 line; clearing them needs a major-major upgrade | **P2-1** — see [Still outstanding](#still-outstanding) |
+| The rate limiter fails open | If its own table is missing or errors, requests proceed and a warning is logged. A limiter that takes the site down when its storage hiccups is worse than the attack it prevents — but absent protection is worse still, hence the log line | By design; watch for the warning |
 | `unsafe-inline` in CSP | Weakens XSS protection | Pages Router + inline CSS-in-JS; nonce support needs an App Router migration (**P2-6**) |
 | Share links are bearer tokens | Anyone holding a live URL (and code, when required) can read that report until expiry or revocation | Inherent to emailed links; bounded by expiry, revocation, per-recipient tokens and the audit log |
 | The gateway has not been exercised against a live database | The policy is unit-tested and the build is clean, but no query in this release has run against real Postgres | Run the smoke checks in §17 against staging before promoting |
 
 ## 15. Demo & Seed Data
 
-`seedDemoDataIfEmpty()` in `lib/store.js` populates Supabase with demo data when the `clients` table is empty. Safe to call multiple times (no-op if data exists).
+**There is none, deliberately.**
 
-> **Current state:** the function is exported but **no page calls it any more**,
-> so nothing is seeded automatically. The credentials below are published in
-> this repository — confirm they exist in no production database (**P1-8**).
+`seedDemoDataIfEmpty()` used to live in `lib/store.js`. It created a client and
+an HCA whose credentials were published in this repository, and it was called
+from no page. It has been deleted rather than left dormant: a function that
+writes known-password accounts into whatever database it is pointed at is not
+worth keeping for convenience, and it had already stopped working when approval
+moved server-side.
 
-### Demo Client
+To demonstrate the platform, use the real flows — register a client at
+`/client/register`, apply at `/hca/apply`, approve from Admin → HCA Management.
+That also exercises the paths a real user takes, which a seed script never does.
 
-| Field | Value |
-|---|---|
-| Name | Demo Client |
-| Email | `demo@client.com` |
-| Password | `demo1234` |
-| Mobile | +254700000001 |
-| Location | Nairobi |
-| Address | Karen, Nairobi |
-| Coordinates | lat: -1.3173, lng: 36.7069 (Karen, Nairobi) |
-
-**Patient:** Margaret Wanjiku, age 74, Mother, conditions: Diabetes & Hypertension  
-**Journey stage:** Progressed through `account_created` → `tc_accepted` → `acknowledged`
-
-### Demo HCA
-
-| Field | Value |
-|---|---|
-| Name | Grace Akinyi |
-| Email | `grace@hca.com` |
-| Password | `demo1234` |
-| Mobile | +254711000001 |
-| National ID | 12345678 |
-| County | Nairobi |
-| Cert Level | Certificate III |
-| Experience | 4 years |
-| Specialisations | Elderly Care, Dementia Care |
-| Rate | KES 2,000/shift |
-| Employee ID | HCA-1002 (auto-generated) |
-| Coordinates | lat: -1.2708, lng: 36.8117 (Westlands) |
-
-### Seeded Records
-
-| Record Type | Details |
-|---|---|
-| Invoice | Onboarding & Assessment Fee — KES 3,500; due 7 days after seeding |
-| Calendar Event | "Initial Assessment Visit – Demo Client"; date: 3 days after seeding; time: 10:00 |
-
-### Resetting Demo Data
-
-To clear all Supabase data and re-seed:
-1. Truncate all tables via Supabase dashboard or SQL editor
-2. Reload the application
-3. Call `seedDemoDataIfEmpty()` — it will detect the empty `clients` table and re-seed
+If a previous deployment was seeded, check for and remove the old demo rows
+(`demo@client.com`, `grace@hca.com`) before going live.
 
 ---
 
@@ -3042,6 +3036,16 @@ All assets are served from the `/public` directory.
 | `favicon.svg` | Scalable tab icon; preferred by modern browsers, and also the apple-touch-icon |
 
 Both are referenced from `pages/_app.jsx`, so every route carries them.
+
+### Generated files
+
+`robots.txt` and `sitemap.xml` are written by `scripts/generate-seo-files.js`,
+which runs as `prebuild`, so they always carry the `NEXT_PUBLIC_SITE_URL` of the
+deployment being built rather than a hardcoded origin. Everything behind a
+sign-in or a token is disallowed — a reset link or a shared care summary in a
+search index would be a disclosure — with `/hca/apply` carved back out, since
+the application form is a public recruitment page. Edit the script, not the
+output.
 
 ### Images
 
@@ -3327,9 +3331,12 @@ table, so the code that no longer needs it must be live first.
 2. Deploy the code, **then** apply all ten migrations in filename order
 3. At least one `admin_users` row created; `NEXT_PUBLIC_ADMIN_*` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` removed
 4. `MPESA_ENV=production` with live Daraja credentials, `MPESA_CALLBACK_SECRET` set, and the callback URL — including its `?k=` secret — registered against the production shortcode
-5. `RESEND_API_KEY` set, sender domain verified, `RESEND_WEBHOOK_SECRET` configured
-6. No demo rows (`demo@client.com`, `grace@hca.com`) in the production database
-7. `npm run build`, `npm run lint` and `npm test` green on the release commit
+5. `CRON_SECRET` set, or digests and retention purges never run (the endpoints fail closed)
+6. The private `hca-documents` Storage bucket created, or uploads keep falling back to inline base64
+7. `GET /api/health` returns 200 — it returns 503 while the session secret, service role or database is missing
+8. `RESEND_API_KEY` set, sender domain verified, `RESEND_WEBHOOK_SECRET` configured
+9. No demo rows (`demo@client.com`, `grace@hca.com`) in the production database
+10. `npm run build`, `npm run lint` and `npm test` green on the release commit
 
 **Post-deploy smoke checks.** The gateway has not been exercised against a live
 database; run these against staging before promoting:
@@ -3344,7 +3351,14 @@ database; run these against staging before promoting:
 | Forgot password, as client and as HCA | A link arrives; it works once and is dead on reuse |
 | Submit the contact form and an HCA application signed out | Both save; both appear in Admin → Messages / Applications |
 | M-Pesa sandbox payment | `payments` row completes, invoice flips to paid, receipt email sent |
+| `GET /api/health` | 200 with every check true |
+| Sign in as a non-super admin | Only their permitted tabs appear; `/admin/finance` redirects without the `finance` permission |
+| Eight wrong passwords in a row | The ninth is refused with 429 and a `Retry-After`, and stays refused from a different browser on the same connection |
+| Submit a Cardex with an incident | The family gets an in-app notification and an email that names no clinical detail |
+| Clock in from the client's address, then from elsewhere | The first is accepted and `clock_in_verified` is true; the second is refused with the distance |
+| Upload a certificate on `/hca/apply` | A `filePath` is stored, not base64 — and it still renders in Admin |
+| `GET /api/cron/purge` with the wrong secret | 401 |
 
 ---
 
-*Documentation updated August 2026, after the review and after closing the six P0 launch blockers it found — E-Vive Homecare · by E-Vive Wellness Initiative · Nairobi, Kenya*
+*Documentation updated August 2026, after the review, after closing the six P0 blockers it found, and after clearing every P1 and four of six P2s — E-Vive Homecare · by E-Vive Wellness Initiative · Nairobi, Kenya*
