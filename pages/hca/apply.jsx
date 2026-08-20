@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { BASE_CSS } from "../../components/SharedStyles";
-import { createHcaApplication } from "../../lib/store";
+import { createHcaApplication, uploadDocument } from "../../lib/store";
 
 /* ─── Light-theme CSS ─────────────────────────────────────────────────────── */
 const CSS = `
@@ -248,13 +248,20 @@ function CertUploadZone({ cert, certIdx, onChange }) {
       return;
     }
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
+      // Show it immediately, then move the bytes to object storage. If storage
+      // is unavailable the helper hands the data URL back and the file is
+      // carried inline, as it always was.
       onChange(certIdx, {
-        ...cert,
-        fileName:    file.name,
-        fileType:    file.type,
-        fileSize:    file.size,
-        fileDataUrl: ev.target.result,
+        ...cert, fileName: file.name, fileType: file.type, fileSize: file.size,
+        fileDataUrl: ev.target.result, uploading: true,
+      });
+      const stored = await uploadDocument(ev.target.result, "certificate");
+      onChange(certIdx, {
+        ...cert, fileName: file.name, fileType: file.type, fileSize: file.size,
+        filePath: stored?.filePath || null,
+        fileDataUrl: stored?.fileDataUrl || null,
+        uploading: false,
       });
     };
     reader.readAsDataURL(file);
@@ -581,7 +588,12 @@ export default function HCAApply() {
                   if (file.size > 5 * 1024 * 1024) { alert("Photo too large. Max 5 MB."); e.target.value = ""; return; }
                   if (!["image/jpeg","image/png"].includes(file.type)) { alert("Please upload a JPG or PNG photo."); e.target.value = ""; return; }
                   const reader = new FileReader();
-                  reader.onload = ev => setProfilePhoto({ fileName: file.name, fileType: file.type, fileSize: file.size, fileDataUrl: ev.target.result });
+                  reader.onload = async ev => {
+                    // Preview at once; the bytes follow to object storage.
+                    setProfilePhoto({ fileName: file.name, fileType: file.type, fileSize: file.size, fileDataUrl: ev.target.result });
+                    const stored = await uploadDocument(ev.target.result, "photo");
+                    setProfilePhoto(p => ({ ...p, filePath: stored?.filePath || null, previewUrl: ev.target.result, fileDataUrl: stored?.fileDataUrl || null }));
+                  };
                   reader.readAsDataURL(file);
                 }}
               />
@@ -589,9 +601,9 @@ export default function HCAApply() {
                 className={`photo-zone${profilePhoto.fileName?" has-photo":""}`}
                 onClick={() => profilePhotoRef.current?.click()}
               >
-                {profilePhoto.fileDataUrl ? (
+                {(profilePhoto.previewUrl || profilePhoto.fileDataUrl) ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={profilePhoto.fileDataUrl} alt="Profile" className="photo-preview" />
+                  <img src={profilePhoto.previewUrl || profilePhoto.fileDataUrl} alt="Profile" className="photo-preview" />
                 ) : (
                   <div className="photo-placeholder">👤</div>
                 )}

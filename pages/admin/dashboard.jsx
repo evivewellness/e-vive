@@ -98,6 +98,7 @@ import {
   hasPermission,
 } from "../../lib/store";
 import { fetchServerSession, serverSignOut } from "../../lib/session";
+import { DocumentImage, DocumentLink } from "../../components/DocumentLink";
 import { toIso, todayIso } from "../../lib/scheduling";
 import CardexView from "../../components/CardexView";
 import PlatformSettingsPanel from "../../components/PlatformSettingsPanel";
@@ -624,9 +625,8 @@ The E-Vive Team
 
         {/* Profile photo + summary row */}
         <div style={{display:"flex",gap:16,marginBottom:20,alignItems:"flex-start",flexWrap:"wrap"}}>
-          {photo?.fileDataUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={photo.fileDataUrl} alt="Profile" style={{width:80,height:80,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(0,74,153,0.2)",flexShrink:0}} />
+          {(photo?.fileDataUrl || photo?.filePath) ? (
+            <DocumentImage doc={photo} alt="Profile" style={{width:80,height:80,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(0,74,153,0.2)",flexShrink:0}} />
           ) : (
             <div style={{width:80,height:80,borderRadius:"50%",background:"#f4f7fb",border:"2px solid rgba(0,74,153,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32,flexShrink:0}}>👤</div>
           )}
@@ -707,14 +707,13 @@ The E-Vive Team
                     </div>
                   ))}
                 </div>
-                {certs[certIdx].fileDataUrl ? (
+                {(certs[certIdx].fileDataUrl || certs[certIdx].filePath) ? (
                   certs[certIdx].fileType?.startsWith("image/") ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={certs[certIdx].fileDataUrl} alt={certs[certIdx].name} style={{maxWidth:"100%",maxHeight:300,borderRadius:8,border:"1px solid rgba(0,74,153,0.15)",display:"block"}} />
+                    <DocumentImage doc={certs[certIdx]} alt={certs[certIdx].name} style={{maxWidth:"100%",maxHeight:300,borderRadius:8,border:"1px solid rgba(0,74,153,0.15)",display:"block"}} />
                   ) : (
-                    <a href={certs[certIdx].fileDataUrl} download={certs[certIdx].fileName} style={{display:"inline-flex",alignItems:"center",gap:8,padding:"8px 14px",borderRadius:8,background:"rgba(0,74,153,0.07)",border:"1px solid rgba(0,74,153,0.18)",color:"#004A99",fontSize:13,fontWeight:600,textDecoration:"none"}}>
+                    <DocumentLink doc={certs[certIdx]} style={{display:"inline-flex",alignItems:"center",gap:8,padding:"8px 14px",borderRadius:8,background:"rgba(0,74,153,0.07)",border:"1px solid rgba(0,74,153,0.18)",color:"#004A99",fontSize:13,fontWeight:600,textDecoration:"none"}}>
                       📄 Download {certs[certIdx].fileName}
-                    </a>
+                    </DocumentLink>
                   )
                 ) : (
                   <div style={{fontSize:12,color:"#5A7080",fontStyle:"italic"}}>
@@ -873,8 +872,8 @@ function HcaEditModal({ hca, onClose, onRefresh }) {
             ) : (
               <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
                 {hca.certifications.map((c,i)=>(
-                  c.fileDataUrl
-                    ? <a key={i} href={c.fileDataUrl} target="_blank" rel="noreferrer" style={{fontSize:11,fontFamily:'var(--mono)',color:'var(--jade)',textDecoration:'underline'}}>{c.name||`Cert ${i+1}`}</a>
+                  (c.fileDataUrl || c.filePath)
+                    ? <DocumentLink key={i} doc={c} style={{fontSize:11,fontFamily:'var(--mono)',color:'var(--jade)',textDecoration:'underline'}}>{c.name||`Cert ${i+1}`}</DocumentLink>
                     : <span key={i} style={{fontSize:11,fontFamily:'var(--mono)',color:'var(--muted)'}}>{c.name||`Cert ${i+1}`}</span>
                 ))}
               </div>

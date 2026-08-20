@@ -1,0 +1,44 @@
+-- ============================================================================
+-- Document storage (P1-7).
+--
+-- Certificates and profile photos were base64 strings inside
+-- `hca_applications.form_data`. A single row could carry several megabytes, so
+-- any query touching that column had to read all of it — which is what caused
+-- the live statement timeout on the applications list. Excluding the column
+-- from list queries treated the symptom.
+--
+-- Files now go to a private Storage bucket and the row keeps only a path.
+--
+-- ⚠️ THIS FILE CANNOT CREATE THE BUCKET. Storage buckets are not ordinary
+--    tables; create it once in the Supabase dashboard:
+--
+--      Storage → New bucket
+--        Name:   hca-documents
+--        Public: OFF          ← it holds people's identity documents
+--
+--    Or, from the CLI:
+--
+--      supabase storage create hca-documents
+--
+--    Until it exists, /api/uploads answers 503 and the application form keeps
+--    carrying files inline exactly as before. Nothing breaks; the rows stay
+--    heavy. Uploads after the bucket exists are stored properly.
+--
+-- No RLS policies are added for the bucket. As with every other table, the
+-- anon key reaches nothing: uploads go through /api/uploads with the service
+-- role, and reads are short-lived signed URLs minted by /api/uploads/[...path]
+-- after it has checked that the caller is an admin with the `hcas` permission
+-- or the HCA the document belongs to.
+-- ============================================================================
+
+-- Nothing to do in SQL. This file exists so the ops step is recorded in the
+-- same ordered list as every other migration, rather than living only in a
+-- README paragraph someone has to notice.
+
+-- Existing inline files are left where they are. They still render — the UI
+-- handles both shapes — and rewriting live application rows in a migration is a
+-- worse risk than the weight they carry. If the applications table needs to be
+-- slimmed later, that is a scripted backfill with a backup behind it, not a
+-- side effect of a deploy.
+
+select 'hca-documents bucket must be created manually — see the comment above' as note;

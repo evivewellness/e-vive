@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
 import { BASE_CSS } from "../../../../components/SharedStyles";
-import { getHcaApplicationByEditToken, submitApplicationEdit } from "../../../../lib/store";
+import { getHcaApplicationByEditToken, submitApplicationEdit, uploadDocument } from "../../../../lib/store";
 
 const CSS = `
   *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
@@ -49,7 +49,19 @@ function readFileAsDataUrl(file, onLoaded) {
   if (file.size > MAX_BYTES) { alert(`File too large (${fmtBytes(file.size)}). Max 10 MB.`); return; }
   if (!ALLOWED_TYPES.includes(file.type)) { alert("Invalid file type. Please upload a JPG, PNG, or PDF."); return; }
   const reader = new FileReader();
-  reader.onload = ev => onLoaded({ fileName: file.name, fileType: file.type, fileSize: file.size, fileDataUrl: ev.target.result });
+  reader.onload = async ev => {
+    const meta = { fileName: file.name, fileType: file.type, fileSize: file.size };
+    // Preview immediately, then move the bytes to object storage. If storage
+    // is unavailable the helper returns the data URL and it is carried inline.
+    onLoaded({ ...meta, previewUrl: ev.target.result, fileDataUrl: ev.target.result });
+    const stored = await uploadDocument(ev.target.result, file.type.startsWith("image/") ? "photo" : "certificate");
+    onLoaded({
+      ...meta,
+      previewUrl: ev.target.result,
+      filePath: stored?.filePath || null,
+      fileDataUrl: stored?.fileDataUrl || null,
+    });
+  };
   reader.readAsDataURL(file);
 }
 
@@ -61,7 +73,7 @@ function PhotoField({ value, onChange }) {
       <div style={{display:"flex",alignItems:"center",gap:16}}>
         {value?.fileDataUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={value.fileDataUrl} alt="Profile" className="photo-preview" />
+          <img src={(value.previewUrl || value.fileDataUrl)} alt="Profile" className="photo-preview" />
         ) : (
           <div className="photo-preview" style={{display:"flex",alignItems:"center",justifyContent:"center",background:"#F0F4FA",fontSize:28}}>👤</div>
         )}
