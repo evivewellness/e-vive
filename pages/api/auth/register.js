@@ -12,6 +12,7 @@ import { getSupabaseAdmin, serviceRoleConfigured, configError } from '../../../l
 import {
   createSessionToken, sessionCookie, hashPassword, sessionSecretConfigured,
 } from '../../../lib/serverAuth';
+import { consumeRateLimit, clientIp, tooManyRequests, LIMITS } from '../../../lib/rateLimit';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const MIN_PASSWORD = 6;
@@ -35,6 +36,9 @@ export default async function handler(req, res) {
   }
 
   const db = getSupabaseAdmin();
+
+  const gate = await consumeRateLimit(db, { key: `register:ip:${clientIp(req)}`, ...LIMITS.registerPerIp });
+  if (!gate.ok) return tooManyRequests(res, gate.retryAfter, 'Too many accounts created from here. Please try again later.');
 
   const { data: existing } = await db.from('clients').select('id').ilike('email', cleanEmail).maybeSingle();
   if (existing) return res.status(409).json({ error: 'An account with this email already exists.' });

@@ -13,6 +13,10 @@ import {
   createSessionToken, sessionCookie, hashPassword, verifyPassword,
   isLegacyPassword, sessionSecretConfigured,
 } from '../../../lib/serverAuth';
+import {
+  checkRateLimit, recordAttempt, clientIp, tooManyRequests, LIMITS,
+} from '../../../lib/rateLimit';
+import { permissionsFor } from '../../../lib/permissions';
 
 const TABLE = {
   client: { table: 'clients',      pwCol: 'password_hash', idCols: ['email', 'mobile'] },
@@ -32,6 +36,19 @@ export default async function handler(req, res) {
 
   const db = getSupabaseAdmin();
   const ident = String(identifier).trim();
+  const ip = clientIp(req);
+
+  // Two axes: one account cannot be ground down, and one source cannot spray
+  // attempts across many accounts to stay under the per-account limit.
+  const accountKey = `login:${role}:${ident.toLowerCase()}`;
+  const ipKey = `login:ip:${ip}`;
+  for (const [key, limits] of [[accountKey, LIMITS.loginPerAccount], [ipKey, LIMITS.loginPerIp]]) {
+    const gate = await checkRateLimit(db, { key, ...limits });
+    if (!gate.ok) {
+      return tooManyRequests(res, gate.retryAfter,
+        'Too many sign-in attempts. Please wait 15 minutes and try again, or reset your password.');
+    }
+  }
 
   // Look the account up across the identifiers that role may sign in with.
   let row = null;
@@ -48,6 +65,9 @@ export default async function handler(req, res) {
   const ok     = row && stored && verifyPassword(password, stored, algo);
   if (!ok) {
     if (!row) verifyPassword(password, hashPassword('decoy-comparison'), 'scrypt');
+    // Only failures are counted. Signing in correctly is using the product.
+    await recordAttempt(db, accountKey);
+    await recordAttempt(db, ipKey);
     return res.status(401).json({ error: 'Incorrect sign-in details.' });
   }
   if (row.active === false || row.status === 'suspended') {
@@ -64,6 +84,16 @@ export default async function handler(req, res) {
     await db.from('admin_users').update({ last_login_at: new Date().toISOString() }).eq('id', row.id);
   }
 
+  // Permissions are resolved once, here, and carried in the signed cookie: an
+  // explicit grant in rbac_rules if this admin has one, otherwise their role's
+  // defaults. Nothing downstream re-reads them, and nothing trusts the browser.
+  let permissions;
+  if (role === 'admin') {
+    const { data: grant } = await db.from('rbac_rules')
+      .select('permissions').ilike('user_id', row.email || '').maybeSingle();
+    permissions = permissionsFor(row.role || 'super_admin', grant?.permissions);
+  }
+
   const session = {
     role, id: row.id,
     name: row.name || row.full_name || '',
@@ -71,6 +101,7 @@ export default async function handler(req, res) {
     ...(role === 'admin' ? {
       canReadWelfareNotes: !!row.can_read_welfare_notes,
       adminRole: row.role || 'super_admin',
+      permissions,
     } : {}),
     ...(role === 'hca'   ? { employeeId: row.employee_id } : {}),
   };

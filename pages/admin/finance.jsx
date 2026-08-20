@@ -10,6 +10,7 @@ import {
   getAllHcaProfiles, getAllShifts,
   getAllExpenses, createExpense, deleteExpense,
   getPayrollPayments, createPayrollPayment,
+  hasPermission,
 } from "../../lib/store";
 import { fetchServerSession, serverSignOut } from "../../lib/session";
 import { todayIso } from "../../lib/scheduling";
@@ -144,6 +145,9 @@ export default function AdminFinance() {
     fetchServerSession().then(s => {
       if (cancelled) return;
       if (s?.role !== "admin") { clearAdminSession(); router.replace("/admin/login"); return; }
+      // Finance is its own permission — an admin without it is sent back to the
+      // dashboard rather than shown payroll and invoices.
+      if (!hasPermission(s.permissions || [], "finance")) { router.replace("/admin/dashboard"); return; }
       setAdminUser(s);
       setAuthed(true);
     });

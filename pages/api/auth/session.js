@@ -5,6 +5,6 @@ import { getSession } from '../../../lib/serverAuth';
 export default function handler(req, res) {
   const s = getSession(req);
   if (!s) return res.status(200).json({ session: null });
-  const { role, id, name, email, canReadWelfareNotes, adminRole, employeeId } = s;
-  return res.status(200).json({ session: { role, id, name, email, canReadWelfareNotes, adminRole, employeeId } });
+  const { role, id, name, email, canReadWelfareNotes, adminRole, permissions, employeeId } = s;
+  return res.status(200).json({ session: { role, id, name, email, canReadWelfareNotes, adminRole, permissions, employeeId } });
 }

@@ -96,6 +96,7 @@ import {
   getHcaScheduleConflicts,
   approveOffDayRequest,
   declineOffDayRequest,
+  hasPermission,
 } from "../../lib/store";
 import { fetchServerSession, serverSignOut } from "../../lib/session";
 import { toIso, todayIso } from "../../lib/scheduling";
@@ -1844,6 +1845,14 @@ export default function AdminDashboard() {
   const router = useRouter();
   const [authed,    setAuthed]   = useState(false);
   const [adminUser, setAdminUser] = useState(null);
+  // The tabs this admin may see. Server-verified permissions ride in the
+  // session; the API routes check them again, so this is presentation, not
+  // protection — but a tab you cannot use should not be in the sidebar.
+  const permissions = adminUser?.permissions || [];
+  const visibleNav  = useMemo(
+    () => NAV.filter(n => hasPermission(permissions, n.key)),
+    [permissions],
+  );
   const [tab,       setTab]      = useState("overview");
   const [sideOpen,  setSideOpen] = useState(false);
   const [hcaFilter, setHcaFilter]= useState("All");
@@ -2053,6 +2062,10 @@ export default function AdminDashboard() {
       if (s?.role !== "admin") { clearAdminSession(); router.replace("/admin/login"); return; }
       setAdminUser(s);
       setAuthed(true);
+      // Land on a tab this admin can actually open, rather than an empty
+      // Overview they have no permission for.
+      const allowed = NAV.filter(n => !n.href && hasPermission(s.permissions || [], n.key));
+      if (allowed.length && !allowed.some(n => n.key === "overview")) setTab(allowed[0].key);
     });
     return () => { cancelled = true; };
   }, [router]);
@@ -2315,7 +2328,7 @@ export default function AdminDashboard() {
           </div>
           <nav className="dash-nav">
             <div className="dash-nav-section">Management</div>
-            {NAV.map(n=>(
+            {visibleNav.map(n=>(
               n.href
                 ? <Link key={n.key} href={n.href} className={`dash-nav-item${tab===n.key?" active gold":""}`}><span className="dash-nav-icon">{n.icon}</span>{n.label}</Link>
                 : <button key={n.key} className={`dash-nav-item${tab===n.key?" active":""}`} onClick={()=>{setTab(n.key);setSideOpen(false);}} style={{width:"100%",textAlign:"left",background:"none",border:"none",cursor:"pointer",color:"inherit",font:"inherit"}}>
@@ -2351,7 +2364,7 @@ export default function AdminDashboard() {
 
           {/* Tabs */}
           <div className="dash-tabs">
-            {NAV.filter(n=>!n.href).map(n=>(
+            {visibleNav.filter(n=>!n.href).map(n=>(
               <button key={n.key} className={`dash-tab${tab===n.key?" active":""}`} onClick={()=>setTab(n.key)}>{n.icon} {n.label}</button>
             ))}
           </div>

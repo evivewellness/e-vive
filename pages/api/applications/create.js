@@ -14,6 +14,7 @@
  */
 import { getSupabaseAdmin, serviceRoleConfigured, configError } from '../../../lib/supabaseAdmin';
 import { hashPassword } from '../../../lib/serverAuth';
+import { consumeRateLimit, clientIp, tooManyRequests, LIMITS } from '../../../lib/rateLimit';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -47,6 +48,11 @@ export default async function handler(req, res) {
   if (!EMAIL_RE.test(cleanEmail)) return res.status(400).json({ error: 'Please enter a valid email address.' });
 
   const db = getSupabaseAdmin();
+
+  // Applications carry file uploads; unthrottled they are an easy way to fill
+  // the database.
+  const gate = await consumeRateLimit(db, { key: `apply:ip:${clientIp(req)}`, ...LIMITS.applicationPerIp });
+  if (!gate.ok) return tooManyRequests(res, gate.retryAfter, 'Too many applications from here. Please try again later.');
 
   const dup = await findDuplicate(db, cleanEmail, mobile);
   if (dup) {

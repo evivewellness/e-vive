@@ -14,6 +14,7 @@ import { getSupabaseAdmin, serviceRoleConfigured, configError } from '../../../l
 import {
   generateShareToken, hashShareToken, sessionSecretConfigured,
 } from '../../../lib/serverAuth';
+import { consumeRateLimit, clientIp, tooManyRequests, LIMITS } from '../../../lib/rateLimit';
 
 const TTL_MINUTES = 45;
 const MAX_PER_HOUR = 5;      // per account, to keep the mailbox from being used as a weapon
@@ -37,6 +38,11 @@ export default async function handler(req, res) {
 
   const db = getSupabaseAdmin();
   const ident = String(identifier).trim();
+
+  // The per-account limit below stops one mailbox being flooded; this stops one
+  // source walking a list of addresses.
+  const gate = await consumeRateLimit(db, { key: `reset:ip:${clientIp(req)}`, ...LIMITS.resetPerIp });
+  if (!gate.ok) return tooManyRequests(res, gate.retryAfter);
 
   let row = null;
   for (const col of cfg.idCols) {

@@ -11,6 +11,7 @@ import {
   getAllClients,
   getAllHcaProfiles,
   clearAdminSession,
+  hasPermission,
 } from "../../lib/store";
 import { fetchServerSession, serverSignOut } from "../../lib/session";
 
@@ -130,6 +131,7 @@ export default function AdminMap() {
     fetchServerSession().then(s => {
       if (cancelled) return;
       if (s?.role !== "admin") { clearAdminSession(); router.replace("/admin/login"); return; }
+      if (!hasPermission(s.permissions || [], "map")) { router.replace("/admin/dashboard"); return; }
       setAdminUser(s);
       setAuthed(true);
     });

@@ -10,6 +10,7 @@ import { getSupabaseAdmin, serviceRoleConfigured, configError } from '../../../l
 import {
   getSession, hashPassword, verifyPassword, sessionSecretConfigured,
 } from '../../../lib/serverAuth';
+import { checkRateLimit, recordAttempt, tooManyRequests, LIMITS } from '../../../lib/rateLimit';
 
 const MIN_PASSWORD = 8;
 const ACCOUNT = {
@@ -32,12 +33,19 @@ export default async function handler(req, res) {
   }
 
   const db = getSupabaseAdmin();
+
+  // Guessing the current password is guessing a password.
+  const key = `pwchange:${session.role}:${session.id}`;
+  const gate = await checkRateLimit(db, { key, ...LIMITS.passwordChange });
+  if (!gate.ok) return tooManyRequests(res, gate.retryAfter);
+
   const { data: row } = await db.from(cfg.table)
     .select(`id, ${cfg.pwCol}, password_algo`).eq('id', session.id).maybeSingle();
   if (!row) return res.status(404).json({ error: 'Account not found.' });
 
   const stored = row[cfg.pwCol];
   if (!verifyPassword(currentPassword, stored, row.password_algo || 'plain')) {
+    await recordAttempt(db, key);
     return res.status(403).json({ error: 'Current password is incorrect.' });
   }
 

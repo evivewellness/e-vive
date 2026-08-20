@@ -21,6 +21,8 @@
 import { getSupabaseAdmin, serviceRoleConfigured, configError } from '../../lib/supabaseAdmin';
 import { getSession, sessionSecretConfigured } from '../../lib/serverAuth';
 import { policyFor, resolveSelect, resolveReturning, resolveWrite, resolveScope } from '../../lib/dbPolicy';
+import { consumeRateLimit, clientIp, tooManyRequests, LIMITS } from '../../lib/rateLimit';
+import { permissionForTable, hasPermission } from '../../lib/permissions';
 
 // Only these may appear in a request. `or` is included because three call sites
 // legitimately need it; it is ANDed with the scope, so it cannot widen a result.
@@ -55,7 +57,28 @@ export default async function handler(req, res) {
   const rule = policyFor(table, role);
   if (!rule) return deny(res, 403, `Not permitted to read or write ${table}.`);
 
+  // An admin's *reads* are open — nearly every screen composes across tables,
+  // and an Overview that could not count clients would be useless. What they
+  // may *change* is governed by their permissions (lib/permissions.js).
+  if (role === 'admin' && action !== 'select') {
+    const needed = permissionForTable(table);
+    if (needed && !hasPermission(session.permissions || [], needed)) {
+      return deny(res, 403, `Your account does not have the "${needed}" permission.`);
+    }
+  }
+
   const db = getSupabaseAdmin();
+
+  // An anonymous write is a public form submission — the contact form, an
+  // enquiry, a counselling referral. Throttle by source so the admin inbox
+  // cannot be used as a dumping ground. Signed-in writes are already
+  // attributable to an account.
+  if (role === 'anon' && action !== 'select') {
+    const gate = await consumeRateLimit(db, { key: `anonwrite:ip:${clientIp(req)}`, ...LIMITS.anonWritePerIp });
+    if (!gate.ok) {
+      return tooManyRequests(res, gate.retryAfter, 'Too many submissions from here. Please try again later.');
+    }
+  }
 
   // ── Column resolution ──────────────────────────────────────────────────────
   const countOnly = Boolean(head) && Boolean(count);

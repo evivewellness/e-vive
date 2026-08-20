@@ -3,12 +3,12 @@
  * Admin only, verified from the signed session cookie.
  */
 import { getSupabaseAdmin, serviceRoleConfigured, configError } from '../../lib/supabaseAdmin';
-import { requireRole, sessionSecretConfigured } from '../../lib/serverAuth';
+import { requirePermission, sessionSecretConfigured } from '../../lib/serverAuth';
 import { settingsFromDb, settingsToDb } from '../../lib/platformSettings';
 
 export default async function handler(req, res) {
   if (!serviceRoleConfigured() || !sessionSecretConfigured()) return configError(res);
-  const auth = requireRole(req, 'admin');
+  const auth = requirePermission(req, 'settings');
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const db = getSupabaseAdmin();
