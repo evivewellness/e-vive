@@ -345,14 +345,6 @@ export default function HCADashboard() {
   }
 
   // Haversine distance in metres between two GPS points
-  function haversineM(lat1, lng1, lat2, lng2) {
-    const R = 6371000;
-    const dLat = (lat2-lat1)*Math.PI/180;
-    const dLng = (lng2-lng1)*Math.PI/180;
-    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  }
-
   async function clockIn() {
     setGpsErr("");
 
@@ -380,17 +372,9 @@ export default function HCADashboard() {
     setGpsLat(lat); setGpsLng(lng); setGpsLabel(label);
     setGpsLoading(false);
 
-    // Enforce proximity to client premises (≤ 10 m)
-    const clientLat = assignedClient?.lat;
-    const clientLng = assignedClient?.lng;
-    if (clientLat && clientLng) {
-      const dist = haversineM(lat, lng, clientLat, clientLng);
-      if (dist > 10) {
-        setGpsErr(`You are ${Math.round(dist)} m from the client's premises. You must be within 10 m to clock in.`);
-        return;
-      }
-    }
-
+    // Proximity to the client's address is checked server-side — this browser
+    // reports where it thinks it is, and the server decides whether that is
+    // close enough. A refusal comes back with the distance.
     try {
       const pat = assignedClient?.patients?.[0];
       const shift = await clockInHca(hcaProfile?.id || hcaId, {
@@ -400,7 +384,10 @@ export default function HCADashboard() {
       });
       if (shift?.id) setCurrentShiftId(shift.id);
       setLiveShifts(await getShiftsByHca(hcaProfile?.id || hcaId));
-    } catch(e) { console.error("Clock-in error:", e); }
+    } catch(e) {
+      setGpsErr(e.message || "Could not clock in. Please try again.");
+      return;
+    }
 
     setClockState("in"); setClockStart(Date.now()); setTab("cardex"); setCardexOpen(true);
   }
@@ -524,30 +511,28 @@ export default function HCADashboard() {
       alert(`⏱ Shift not yet complete. ${shiftRemainingH}h ${shiftRemainingM}m remaining. Please complete the full 12-hour shift before clocking out.`);
       return;
     }
-    // Enforce GPS proximity on clock-out (≤ 10 m)
-    const clientLat = assignedClient?.lat;
-    const clientLng = assignedClient?.lng;
-    if (clientLat && clientLng) {
-      setGpsLoading(true);
-      setGpsErr("");
+    // Where the carer was at clock-out is recorded, and checked server-side,
+    // but never blocks: a carer who cannot end their shift cannot file their
+    // Cardex either. A missing or denied GPS fix is not a reason to trap them.
+    setGpsErr("");
+    let outLat = null, outLng = null;
+    try {
+      const pos = await new Promise((res, rej) => {
+        if (!navigator?.geolocation) { rej(new Error("GPS not supported")); return; }
+        navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 12000 });
+      });
+      outLat = pos.coords.latitude;
+      outLng = pos.coords.longitude;
+    } catch { /* recorded as unverified */ }
+
+    if (currentShiftId) {
       try {
-        const pos = await new Promise((res, rej) => {
-          if (!navigator?.geolocation) { rej(new Error("GPS not supported")); return; }
-          navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 12000 });
-        });
-        const { latitude: lat, longitude: lng } = pos.coords;
-        const dist = haversineM(lat, lng, clientLat, clientLng);
-        if (dist > 10) {
-          setGpsErr(`You are ${Math.round(dist)} m from the client's premises. You must be within 10 m to clock out.`);
-          setGpsLoading(false);
-          return;
-        }
-      } catch {
-        setGpsErr("GPS access denied or unavailable. Enable location permissions and try again.");
-        setGpsLoading(false);
+        await clockOutHca(hcaProfile?.id || hcaId, currentShiftId, { lat: outLat, lng: outLng });
+        setLiveShifts(await getShiftsByHca(hcaProfile?.id || hcaId));
+      } catch (e) {
+        setGpsErr(e.message || "Could not clock out. Please try again.");
         return;
       }
-      setGpsLoading(false);
     }
     setClockState("out"); setClockStart(null); setCardexOpen(false);
     setGpsLat(null); setGpsLng(null); setGpsLabel("");

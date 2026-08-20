@@ -78,7 +78,6 @@ import {
   updateHubAccessRequest,
   setClientSession,
   setHcaSession,
-  generateInitialPassword,
   getAllEmails,
   markEmailRead,
   toggleEmailStar,
@@ -508,13 +507,13 @@ function HcaApproveModal({ app, hcaProfiles=[], onClose, onRefresh }) {
 
   async function approve() {
     setSaving(true);
-    const pwd = generateInitialPassword();
     try {
+      // The password is generated and hashed server-side; it comes back once,
+      // here, so it can be shown and emailed.
       const profile = await createHcaProfile({
         applicationId:   app.id,
         name:            data.fullName,
         email:           data.email,
-        password:        pwd,
         mobile:          data.mobile,
         certLevel:       data.certLevel || "HCA",
         yearsExp:        data.yearsExp || 0,
@@ -527,7 +526,7 @@ function HcaApproveModal({ app, hcaProfiles=[], onClose, onRefresh }) {
         shiftPreferences: fd.shiftTypes || ["Day Shift"],
         bio:             data.bio,
       });
-      await updateHcaApplication(app.id, { status: "approved" });
+      const pwd = profile.initialPassword;
 
       try {
         const { ok, skipped, error } = await sendHcaOnboardingNotification(profile.id, data.email, data.fullName, profile.employeeId, pwd);
@@ -998,16 +997,16 @@ function AddHcaProfileModal({ onClose, onRefresh }) {
     if (!form.name.trim())  { setMsg('Name is required.');  return; }
     if (!form.email.trim()) { setMsg('Email is required.'); return; }
     setSaving(true);
-    const pwd = generateInitialPassword();
     try {
       const profile = await createHcaProfile({
-        name: form.name, email: form.email, password: pwd, mobile: form.mobile,
+        name: form.name, email: form.email, mobile: form.mobile,
         certLevel: form.certLevel, yearsExp: Number(form.yearsExp) || 0,
         specialisations: form.specialisations, rate: Number(form.rate) || 2000,
-        rateSetAt: new Date().toISOString(), county: form.county,
+        county: form.county,
         gender: form.gender, languages: form.languages,
         shiftPreferences: form.shiftPreferences, bio: form.bio,
       });
+      const pwd = profile.initialPassword;
       if (notify) {
         try {
           const { ok, skipped, error } = await sendHcaOnboardingNotification(profile.id, form.email, form.name, profile.employeeId, pwd);
