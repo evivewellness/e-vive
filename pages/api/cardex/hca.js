@@ -8,6 +8,7 @@
 import { getSupabaseAdmin, serviceRoleConfigured, configError } from '../../../lib/supabaseAdmin';
 import { getSession, sessionSecretConfigured } from '../../../lib/serverAuth';
 import { cardexColumnsFor, redactCardexListFor } from '../../../lib/cardexAccess';
+import { notifyOnCardexEntry } from '../../../lib/cardexNotify';
 
 function mapRow(r) {
   return {
@@ -53,7 +54,24 @@ export default async function handler(req, res) {
       welfare_note: b.welfareNote || '',
     }).select().single();
     if (error) return res.status(500).json({ error: error.message });
-    await db.from('activity_log').insert({ type: 'cardex_submitted', payload: { hcaId: session.id, patientId: b.patientId } }).select().maybeSingle();
+
+    // `data`, not `payload` — the column is `data`, so every one of these audit
+    // rows had been failing silently.
+    await db.from('activity_log').insert({
+      type: 'cardex_submitted',
+      data: { hcaId: session.id, patientId: b.patientId, clientId: b.clientId },
+    }).then(() => {}, () => {});
+
+    // Tell the family, if they asked to be told. Never at the cost of the
+    // submission: an HCA finishing a 12-hour shift must not see an error
+    // because an email bounced.
+    const origin = process.env.NEXT_PUBLIC_SITE_URL || `https://${req.headers.host}`;
+    try {
+      await notifyOnCardexEntry(db, data, { origin });
+    } catch (err) {
+      console.error('[cardex/hca] notification failed, entry saved:', err.message);
+    }
+
     return res.status(200).json({ entry: mapRow(data) });
   }
 
